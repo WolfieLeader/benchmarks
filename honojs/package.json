@@ -1,5 +1,5 @@
 {
-  "name": "honojs",
+  "name": "honojs-server",
   "scripts": {
     "dev": "bun run --hot src/index.ts"
   },
