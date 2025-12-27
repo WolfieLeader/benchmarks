@@ -22,11 +22,11 @@ help:
 
 # Development servers
 dev-fastapi:
-	@echo "Starting FastAPI server on port 4000..."
+	@echo "Started development server: http://localhost:4000"
+	@echo ""
 	cd fastapi && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 4000
 
 dev-honojs:
-	@echo "Starting Hono.js server..."
 	cd honojs && bun run dev
 
 dev-all:

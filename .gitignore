@@ -1,4 +1,214 @@
-# deps
-node_modules/
+# ============================================
+# Operating System Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ============================================
+# IDE / Editor
+# ============================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# Python
+# ============================================
+# Virtual environments
 .venv/
+venv/
+env/
+ENV/
+*.venv
+
+# Python cache
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Ruff
+.ruff_cache/
+
+# uv
+.uv/
+uv.lock
+
+# ============================================
+# Node.js / JavaScript / TypeScript
+# ============================================
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Package manager files
+package-lock.json  
+yarn.lock 
+
+# ============================================
+# Bun
+# ============================================
+.bun/
+bun.lockb
+
+# ============================================
+# Go
+# ============================================
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Go build cache
+.cache/
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+# ============================================
+# Docker
+# ============================================
+*.log
+.dockerignore
+
+# ============================================
+# Kubernetes
+# ============================================
+*.kubeconfig
+secrets.yaml
+*-secret.yaml
+
+# ============================================
+# Build / Temporary Files
+# ============================================
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# ============================================
+# Project Specific
+# ============================================
+# Benchmark results
+benchmarks/results/
+*.benchmark
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
