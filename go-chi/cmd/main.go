@@ -19,13 +19,11 @@ import (
 func main() {
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
+	r.Use(middleware.RequestID) // Expensive but useful for tracing
 
-	// Routes
-	r.Get("/", handleRoot)
+	r.Get("/", handleHelloWorld)
 	r.Get("/ping", handlePing)
 
 	// Server configuration
@@ -40,14 +38,10 @@ func main() {
 	serveWithGracefulShutdown(server)
 }
 
-func handleRoot(w http.ResponseWriter, r *http.Request) {
+func handleHelloWorld(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	response := map[string]string{
-		"message": "Hello World!",
-	}
-
-	data, err := json.Marshal(response)
+	data, err := json.Marshal(map[string]string{"message": "Hello World!"})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -64,14 +58,9 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 func serveWithGracefulShutdown(server *http.Server) {
 	// Start server in a goroutine
 	go func() {
-		fmt.Println("==================================================")
-		fmt.Println("🚀 Chi Server Started!")
-		fmt.Printf("📍 http://localhost%s\n", server.Addr)
-		fmt.Println("==================================================")
-		fmt.Println()
+		fmt.Printf("Chi Server development: http://localhost%s\n\n", server.Addr)
 
-		err := server.ListenAndServe()
-		if !errors.Is(err, http.ErrServerClosed) {
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()
@@ -81,15 +70,12 @@ func serveWithGracefulShutdown(server *http.Server) {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	fmt.Println("\n🛑 Shutting down gracefully...")
+	fmt.Println("\n Shutting down gracefully...")
 
-	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
-
-	fmt.Println("✅ Server stopped")
 }
