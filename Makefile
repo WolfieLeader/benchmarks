@@ -21,13 +21,17 @@ help:
 	@echo ""
 
 # Development servers
+dev-honojs:
+	cd honojs && bun run dev
+
+dev-chi:
+	cd go-chi && GOEXPERIMENT=jsonv2 go run cmd/main.go
+
 dev-fastapi:
 	@echo "Started development server: http://localhost:4000"
 	@echo ""
 	cd fastapi && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 4000
 
-dev-honojs:
-	cd honojs && bun run dev
 
 dev-all:
 	@echo "Starting all servers..."
@@ -36,15 +40,19 @@ dev-all:
 	@make -j2 dev-fastapi dev-honojs
 
 # Installation
-install-fastapi:
-	@echo "Installing FastAPI dependencies..."
-	cd fastapi && uv sync
-
 install-honojs:
 	@echo "Installing Hono.js dependencies..."
 	cd honojs && bun install
 
-install-all: install-fastapi install-honojs
+install-chi:
+	@echo "Installing Go-Chi dependencies..."
+	cd go-chi && go mod tidy
+
+install-fastapi:
+	@echo "Installing FastAPI dependencies..."
+	cd fastapi && uv sync
+
+install-all: install-honojs install-chi install-fastapi
 	@echo "All dependencies installed!"
 
 # Cleanup
