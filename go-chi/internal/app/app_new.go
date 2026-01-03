@@ -1,7 +1,7 @@
 package app
 
 import (
-	"chi-server/internal/handlers"
+	"chi-server/internal/routes"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,8 +17,8 @@ func New() *App {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/", handlers.HelloWorld)
-	r.Get("/ping", handlers.Ping)
+	r.Mount("/", routes.Root())
+	r.Mount("/params", routes.Params())
 
 	return &App{router: r}
 }

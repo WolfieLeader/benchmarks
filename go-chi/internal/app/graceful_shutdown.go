@@ -35,7 +35,7 @@ func (app *App) Start() {
 	<-ctx.Done()
 	fmt.Println("\nShutting down gracefully...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
 	err := server.Shutdown(shutdownCtx)
