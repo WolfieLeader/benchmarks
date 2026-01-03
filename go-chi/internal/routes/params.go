@@ -13,6 +13,7 @@ func Params() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Get("/search", handleSearchParams)
+	r.Get("/dynamic/{id}", handleDynamicParams)
 
 	return r
 }
@@ -32,4 +33,12 @@ func handleSearchParams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.MarshalWrite(w, map[string]any{"search": q, "limit": limit})
+}
+
+func handleDynamicParams(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.MarshalWrite(w, map[string]any{"id": id})
 }
