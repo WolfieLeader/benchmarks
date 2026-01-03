@@ -14,6 +14,7 @@ func Params() *chi.Mux {
 
 	r.Get("/search", handleSearchParams)
 	r.Get("/dynamic/{id}", handleDynamicParams)
+	r.Get("/header", handleHeaderParams)
 
 	return r
 }
@@ -41,4 +42,12 @@ func handleDynamicParams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.MarshalWrite(w, map[string]any{"id": id})
+}
+
+func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
+	userAgent := r.Header.Get("User-Agent")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.MarshalWrite(w, map[string]any{"user_agent": userAgent})
 }
