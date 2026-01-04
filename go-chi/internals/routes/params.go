@@ -137,7 +137,7 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, fileHeader, err := r.FormFile("upload")
+	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		http.Error(w, `{"error":"file not found in form data"}`, http.StatusBadRequest)
