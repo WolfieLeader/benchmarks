@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fiber-server/internals/routes"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -20,10 +22,11 @@ func New() *App {
 	r.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Hello, World!"})
 	})
-
 	r.Get("/ping", func(c *fiber.Ctx) error {
 		return c.SendString("PONG!")
 	})
+
+	r.Mount("/params", routes.Params())
 
 	return &App{router: r}
 }

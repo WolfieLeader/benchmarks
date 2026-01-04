@@ -1,7 +1,7 @@
 package app
 
 import (
-	"chi-server/internals/routes/params"
+	"chi-server/internals/routes"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -29,7 +29,7 @@ func New() *App {
 		w.Write([]byte("PONG!"))
 	})
 
-	r.Mount("/params", params.Router())
+	r.Mount("/params", routes.Params())
 
 	return &App{router: r}
 }

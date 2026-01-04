@@ -1,4 +1,4 @@
-package params
+package routes
 
 import (
 	"bufio"
@@ -12,6 +12,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+func Params() *chi.Mux {
+	r := chi.NewRouter()
+
+	r.Get("/search", handleSearchParams)
+	r.Get("/url/{dynamic}", handleUrlParams)
+	r.Get("/header", handleHeaderParams)
+	r.Post("/body", handleBodyParams)
+	r.Get("/cookie", handleCookieParams)
+	r.Post("/form", handleFormParams)
+	r.Post("/file", handleFileParams)
+
+	return r
+}
 
 func handleSearchParams(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
@@ -40,7 +54,6 @@ func handleUrlParams(w http.ResponseWriter, r *http.Request) {
 
 func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 	headerStr := r.Header.Get("X-Custom-Header")
-
 	header := cmp.Or(headerStr, "none")
 
 	w.Header().Set("Content-Type", "application/json")
@@ -114,7 +127,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	maxFileBytes = 10 << 20 // 1MB
+	maxFileBytes = 1 << 20 // 1MB
 	sniffLen     = 512
 	nullByte     = 0x00
 )
