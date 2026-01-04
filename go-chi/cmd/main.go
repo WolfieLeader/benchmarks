@@ -1,7 +1,7 @@
 package main
 
 import (
-	apppkg "chi-server/app"
+	apppkg "chi-server/internals/app"
 )
 
 func main() {

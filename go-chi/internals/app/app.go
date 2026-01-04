@@ -1,7 +1,7 @@
 package app
 
 import (
-	"chi-server/params"
+	"chi-server/internals/routes/params"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

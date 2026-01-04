@@ -1,6 +1,10 @@
 package app
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+)
 
 type App struct {
 	env    *Env
@@ -9,6 +13,9 @@ type App struct {
 
 func New() *App {
 	r := fiber.New()
+
+	r.Use(logger.New())
+	r.Use(recover.New())
 
 	r.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Hello, World!"})
