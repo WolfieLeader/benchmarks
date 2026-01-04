@@ -1,10 +1,11 @@
 package main
 
 import (
-	application "chi-server/internal/app"
+	apppkg "chi-server/app"
 )
 
 func main() {
-	app := application.New()
+	app := apppkg.New()
+	app.LoadEnv()
 	app.Start()
 }

@@ -13,7 +13,7 @@ import (
 
 func (app *App) Start() {
 	server := &http.Server{
-		Addr:         ":5100",
+		Addr:         fmt.Sprintf("%s:%d", app.env.HOST, app.env.PORT), // `:PORT` valid as well
 		Handler:      app.router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -24,7 +24,7 @@ func (app *App) Start() {
 	defer cancel()
 
 	go func() {
-		fmt.Printf("Chi Server development: http://localhost%s\n\n", server.Addr)
+		fmt.Printf("Chi Server development: http://%s\n\n", server.Addr)
 
 		err := server.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
