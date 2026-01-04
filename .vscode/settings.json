@@ -1,13 +1,1 @@
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/python-fastapi/.venv/bin/python",
-  "python.terminal.activateEnvironment": true,
-  "python.analysis.extraPaths": ["${workspaceFolder}/python-fastapi/src"],
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
-    }
-  },
-  "python-envs.pythonProjects": []
-}
+{}

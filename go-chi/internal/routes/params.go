@@ -1,10 +1,14 @@
 package routes
 
 import (
+	"bufio"
 	"cmp"
 	"encoding/json/v2"
+	"io"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -17,6 +21,8 @@ func Params() *chi.Mux {
 	r.Get("/header", handleHeaderParams)
 	r.Post("/body", handleBodyParams)
 	r.Get("/cookie", handleCookieParams)
+	r.Post("/form", handleFormParams)
+	r.Post("/file", handleFileParams)
 
 	return r
 }
@@ -95,4 +101,99 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.MarshalWrite(w, map[string]any{"cookie": cookie})
+}
+
+func handleFormParams(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	err := r.ParseForm()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error": "invalid form data"}`, http.StatusBadRequest)
+		return
+	}
+
+	nameStr := r.FormValue("name")
+	name := cmp.Or(nameStr, "none")
+
+	ageStr := r.FormValue("age")
+	age := 0
+	if n, err := strconv.Atoi(ageStr); err == nil {
+		age = n
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.MarshalWrite(w, map[string]any{"name": name, "age": age})
+}
+
+const (
+	maxFileBytes = 10 << 20 // 1MB
+	sniffLen     = 512
+	nullByte     = 0x00
+)
+
+func handleFileParams(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	if err := r.ParseMultipartForm(maxFileBytes); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"invalid multipart form data"}`, http.StatusBadRequest)
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("upload")
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"file not found in form data"}`, http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	br := bufio.NewReader(file)
+
+	head, err := br.Peek(sniffLen)
+	if err != nil && err != io.EOF {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"unable to read file"}`, http.StatusBadRequest)
+		return
+	}
+
+	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"only text/plain files are allowed"}`, http.StatusUnsupportedMediaType)
+		return
+	}
+
+	if slices.Contains(head, nullByte) {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		return
+	}
+
+	limited := io.LimitReader(br, maxFileBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"unable to read file content"}`, http.StatusBadRequest)
+		return
+	}
+	if int64(len(data)) > maxFileBytes {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"file too large"}`, http.StatusRequestEntityTooLarge)
+		return
+	}
+	if slices.Contains(data, nullByte) {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.MarshalWrite(w, map[string]any{
+		"filename":  fileHeader.Filename,
+		"bytesRead": fileHeader.Size,
+		"content":   string(data),
+	})
 }
