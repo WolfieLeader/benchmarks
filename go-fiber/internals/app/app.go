@@ -26,7 +26,7 @@ func New() *App {
 		return c.SendString("PONG!")
 	})
 
-	r.Mount("/params", routes.Params())
+	routes.RegisterParams(r.Group("/params"))
 
 	return &App{router: r}
 }

@@ -11,9 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func Params() *fiber.App {
-	r := fiber.New()
-
+func RegisterParams(r fiber.Router) {
 	r.Get("/search", handleSearchParams)
 	r.Get("/url/:dynamic", handleUrlParams)
 	r.Get("/header", handleHeaderParams)
@@ -21,8 +19,6 @@ func Params() *fiber.App {
 	r.Get("/cookie", handleCookieParams)
 	r.Post("/form", handleFormParams)
 	r.Post("/file", handleFileParams)
-
-	return r
 }
 
 func handleSearchParams(c *fiber.Ctx) error {

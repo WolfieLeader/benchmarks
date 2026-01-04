@@ -13,9 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func Params() *chi.Mux {
-	r := chi.NewRouter()
-
+func RegisterParams(r chi.Router) {
 	r.Get("/search", handleSearchParams)
 	r.Get("/url/{dynamic}", handleUrlParams)
 	r.Get("/header", handleHeaderParams)
@@ -23,8 +21,6 @@ func Params() *chi.Mux {
 	r.Get("/cookie", handleCookieParams)
 	r.Post("/form", handleFormParams)
 	r.Post("/file", handleFileParams)
-
-	return r
 }
 
 func handleSearchParams(w http.ResponseWriter, r *http.Request) {

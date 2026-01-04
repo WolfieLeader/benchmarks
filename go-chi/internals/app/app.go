@@ -29,7 +29,7 @@ func New() *App {
 		w.Write([]byte("PONG!"))
 	})
 
-	r.Mount("/params", routes.Params())
+	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })
 
 	return &App{router: r}
 }
