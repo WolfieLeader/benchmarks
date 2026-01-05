@@ -1,4 +1,4 @@
-.PHONY: honojs chi fiber gin fastapi all stop install-fastapi install-honojs install-chi install-all clean
+.PHONY: honojs chi fiber gin fastapi all stop install-fastapi install-honojs install-chi install-all clean install-fiber install-gin build-images clean-images
 
 # Development servers
 honojs:
@@ -51,3 +51,13 @@ clean:
 	rm -rf python-fastapi/src/__pycache__
 	rm -rf bun-honojs/node_modules
 	@echo "Clean complete!"
+
+build-images:
+	docker build -t go-chi-image ./go-chi
+	docker build -t go-fiber-image ./go-fiber
+	docker build -t go-gin-image ./go-gin
+
+clean-images:
+	docker rmi go-chi-image
+	docker rmi go-fiber-image
+	docker rmi go-gin-image
