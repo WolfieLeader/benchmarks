@@ -22,8 +22,8 @@ func New() *App {
 	r.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Hello, World!"})
 	})
-	r.Get("/ping", func(c *fiber.Ctx) error {
-		return c.SendString("PONG!")
+	r.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendString("OK")
 	})
 
 	routes.RegisterParams(r.Group("/params"))

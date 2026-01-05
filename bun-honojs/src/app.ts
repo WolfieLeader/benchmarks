@@ -10,8 +10,8 @@ export function createApp() {
   app.get("/", (c) => {
     return c.json({ message: "Hello World!" });
   });
-  app.get("/ping", (c) => {
-    return c.text("PONG!");
+  app.get("/health", (c) => {
+    return c.text("OK");
   });
 
   app.route("/params", paramsRoutes);

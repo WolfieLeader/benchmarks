@@ -24,9 +24,9 @@ func New() *App {
 		w.Write([]byte(`{"message": "Hello, World!"}`))
 	})
 
-	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("PONG!"))
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })

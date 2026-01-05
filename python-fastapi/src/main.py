@@ -9,6 +9,6 @@ def hello_world():
     return {"message": "Hello, World!"}
 
 
-@app.get("/ping", response_class=PlainTextResponse)
-def ping():
-    return "PONG"
+@app.get("/health", response_class=PlainTextResponse)
+def health():
+    return "OK"
