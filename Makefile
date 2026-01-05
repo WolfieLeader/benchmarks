@@ -1,4 +1,4 @@
-.PHONY: honojs chi fiber fastapi all stop install-fastapi install-honojs install-chi install-all clean
+.PHONY: honojs chi fiber gin fastapi all stop install-fastapi install-honojs install-chi install-all clean
 
 # Development servers
 honojs:
@@ -9,6 +9,9 @@ chi:
 
 fiber:
 	cd go-fiber && air
+
+gin:
+	cd go-gin && air
 
 fastapi:
 	@echo "Started development server: http://localhost:4000"
@@ -29,11 +32,15 @@ install-fiber:
 	@echo "Installing Go-Fiber dependencies..."
 	cd go-fiber && go mod tidy
 
+install-gin:
+	@echo "Installing Go-Gin dependencies..."
+	cd go-gin && go mod tidy
+
 install-fastapi:
 	@echo "Installing FastAPI dependencies..."
 	cd python-fastapi && uv sync
 
-install-all: install-honojs install-chi install-fiber install-fastapi
+install-all: install-honojs install-chi install-fiber install-gin install-fastapi
 	@echo "All dependencies installed!"
 
 # Cleanup
