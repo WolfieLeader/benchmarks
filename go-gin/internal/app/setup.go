@@ -15,7 +15,7 @@ type Env struct {
 
 const (
 	defaultHost = "localhost"
-	defaultPort = 5000
+	defaultPort = 8080
 )
 
 func (app *App) LoadEnv() {
