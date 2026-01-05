@@ -1,10 +1,11 @@
 package main
 
 import (
+	"benchmark-client/internal/container"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os/exec"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -15,52 +16,29 @@ var serverImages = []string{
 }
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	for _, img := range serverImages {
-		containerId, err := startContainer(img)
+		containerId, err := container.Start(ctx, time.Minute, img)
 		if err != nil {
-			fmt.Printf("Failed to start container for image %s: %v\n", img, err)
+			fmt.Print(err)
 			continue
 		}
 
-		if err := waitForServerReady(); err != nil {
-			fmt.Printf("Server for image %s did not become ready: %v\n", img, err)
-			killContainer(containerId)
+		if err := container.WaitToBeReady(); err != nil {
+			fmt.Printf("- Server in container %s did not become ready: %v\n", containerId, err)
+			stopErr := container.Stop(ctx, time.Minute, containerId)
+			if stopErr != nil {
+				fmt.Print(stopErr)
+			}
 			continue
 		}
 
-		killContainer(containerId)
-
+		stopErr := container.Stop(ctx, time.Minute, containerId)
+		if stopErr != nil {
+			fmt.Print(stopErr)
+		}
 		time.Sleep(1 * time.Second)
 	}
-}
-
-func startContainer(image string) (string, error) {
-	cmd := exec.Command("docker", "run", "-d", "--rm", "-p", "8080:8080", image)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	containerId := string(out[:12])
-	return containerId, nil
-}
-
-func killContainer(containerId string) {
-	cmd := exec.Command("docker", "kill", containerId)
-	cmd.Run()
-}
-
-func waitForServerReady() error {
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		resp, err := http.Get("http://localhost:8080/ping")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			data, _ := io.ReadAll(resp.Body)
-			fmt.Printf("Server response: %s\n", data)
-
-			resp.Body.Close()
-			return nil
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	return fmt.Errorf("server did not become ready in time")
 }
