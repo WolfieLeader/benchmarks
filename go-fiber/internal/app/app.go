@@ -1,7 +1,7 @@
 package app
 
 import (
-	"fiber-server/internals/routes"
+	"fiber-server/internal/routes"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"

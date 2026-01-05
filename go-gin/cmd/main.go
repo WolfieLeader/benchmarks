@@ -1,11 +1,11 @@
 package main
 
 import (
-	apppkg "gin-server/internals/app"
+	application "gin-server/internal/app"
 )
 
 func main() {
-	app := apppkg.New()
+	app := application.New()
 	app.LoadEnv()
 	app.Start()
 }

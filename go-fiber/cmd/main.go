@@ -1,11 +1,11 @@
 package main
 
 import (
-	apppkg "fiber-server/internals/app"
+	application "fiber-server/internal/app"
 )
 
 func main() {
-	app := apppkg.New()
+	app := application.New()
 	app.LoadEnv()
 	app.Start()
 }
