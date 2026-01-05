@@ -1,13 +1,8 @@
-import { Hono } from "hono";
+import { createApp } from "./app";
 
-const app = new Hono();
+const app = createApp();
 
-app.get("/", (c) => {
-  return c.json({ message: "Hello World!" });
-});
-
-app.get("/ping", (c) => {
-  return c.text("PONG!");
-});
-
-export default app;
+export default {
+  port: 3000,
+  fetch: app.fetch,
+};
