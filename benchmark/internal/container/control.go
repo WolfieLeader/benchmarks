@@ -3,7 +3,6 @@ package container
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -38,18 +37,29 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	return nil
 }
 
-func WaitToBeReady() error {
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		resp, err := http.Get("http://localhost:8080/ping")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			data, _ := io.ReadAll(resp.Body)
-			fmt.Printf("Server response: %s\n", data)
+func WaitToBeReady(ctx context.Context, timeout time.Duration, url string) error {
+	client := http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(timeout)
 
-			resp.Body.Close()
-			return nil
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err != nil {
+			lastErr = err
+			time.Sleep(200 * time.Millisecond)
+			continue
 		}
-		time.Sleep(200 * time.Millisecond)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			time.Sleep(200 * time.Millisecond)
+			continue
+		}
+		return nil
 	}
-	return fmt.Errorf("server did not become ready in time")
+	if lastErr != nil {
+		return fmt.Errorf("server did not become ready in %s: last error: %v", timeout, lastErr)
+	}
+	return fmt.Errorf("server did not become ready in %s", timeout)
 }

@@ -26,17 +26,16 @@ func main() {
 			continue
 		}
 
-		if err := container.WaitToBeReady(); err != nil {
+		err = container.WaitToBeReady(ctx, 30*time.Second, "http://localhost:8080/health")
+		if err != nil {
 			fmt.Printf("- Server in container %s did not become ready: %v\n", containerId, err)
-			stopErr := container.Stop(ctx, time.Minute, containerId)
-			if stopErr != nil {
+			if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {
 				fmt.Print(stopErr)
 			}
 			continue
 		}
 
-		stopErr := container.Stop(ctx, time.Minute, containerId)
-		if stopErr != nil {
+		if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {
 			fmt.Print(stopErr)
 		}
 		time.Sleep(1 * time.Second)
