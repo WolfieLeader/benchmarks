@@ -4,23 +4,31 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 )
 
 type Client struct {
-	serverUrl  string
+	serverUrl  *url.URL
 	httpClient http.Client
 	ctx        context.Context
 }
 
 func New(ctx context.Context, serverUrl string) *Client {
-	return &Client{serverUrl: strings.TrimRight(serverUrl, "/"), httpClient: http.Client{}, ctx: ctx}
+	base, err := url.Parse(serverUrl)
+	if err != nil {
+		panic(fmt.Sprintf("invalid server URL: %v", err))
+	}
+	return &Client{serverUrl: base, httpClient: http.Client{}, ctx: ctx}
 }
 
-type Result struct {
-	Success  bool
-	Duration time.Duration
+var rootEndpoint = &Endpoint{
+	Path:   "/",
+	Method: "GET",
+	Expected: &Expected{
+		StatusCode: 200,
+		Body:       map[string]any{"message": "Hello, World!"},
+	},
 }
 
 func (c *Client) RunBenchmarks() {
@@ -28,7 +36,7 @@ func (c *Client) RunBenchmarks() {
 	durations := make([]time.Duration, 0, n)
 
 	for range n {
-		if dur, ok := c.helloWorld(); ok {
+		if dur, ok := c.testEndpoint(rootEndpoint, 5*time.Second); ok {
 			durations = append(durations, dur)
 		}
 	}
