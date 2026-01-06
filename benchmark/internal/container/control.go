@@ -37,9 +37,10 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	return nil
 }
 
-func WaitToBeReady(ctx context.Context, timeout time.Duration, url string) error {
+func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string) error {
 	client := http.Client{Timeout: 2 * time.Second}
 	deadline := time.Now().Add(timeout)
+	url := strings.TrimRight(serverUrl, "/") + "/health"
 
 	var lastErr error
 
@@ -50,6 +51,7 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, url string) error
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
+
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)

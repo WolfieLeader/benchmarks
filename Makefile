@@ -1,4 +1,7 @@
-.PHONY: honojs chi fiber gin fastapi all stop install-fastapi install-honojs install-chi install-all clean install-fiber install-gin build-images clean-images
+.PHONY: benchmark honojs chi fiber gin fastapi all stop install-fastapi install-honojs install-chi install-all clean install-fiber install-gin build-images clean-images
+
+benchmark:
+	cd benchmark && GOEXPERIMENT=jsonv2 go run ./cmd/main.go
 
 # Development servers
 honojs:
