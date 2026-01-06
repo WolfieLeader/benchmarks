@@ -34,8 +34,8 @@ func (c *Client) RunBenchmarks() {
 	}
 
 	avg := time.Duration(0)
-	for _, d := range durations {
-		avg += d
+	for _, dur := range durations {
+		avg += dur
 	}
 	if len(durations) > 0 {
 		avg /= time.Duration(len(durations))

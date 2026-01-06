@@ -21,8 +21,12 @@ func Start(ctx context.Context, timeout time.Duration, image string) (Id, error)
 		return "", fmt.Errorf("- Docker run %s failed: %v,\noutput: %s", image, err, out)
 	}
 
-	containerId := strings.TrimSpace(string(out[:12]))
-	return Id(containerId), nil
+	id := strings.TrimSpace(string(out))
+	if len(id) > 12 {
+		id = id[:12]
+	}
+	return Id(id), nil
+
 }
 
 func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
