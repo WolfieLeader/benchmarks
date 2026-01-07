@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const N = 10
+const N = 1000
 
 type LatencyStats struct {
 	Avg                time.Duration

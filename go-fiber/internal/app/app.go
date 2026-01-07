@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json/v2"
 	"fiber-server/internal/routes"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +15,10 @@ type App struct {
 }
 
 func New() *App {
-	r := fiber.New()
+	r := fiber.New(fiber.Config{
+		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
+		JSONDecoder: func(data []byte, v any) error { return json.Unmarshal(data, v) },
+	})
 
 	r.Use(logger.New())
 	r.Use(recover.New())
