@@ -2,6 +2,7 @@ package main
 
 import (
 	"benchmark-client/internal/client"
+	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
 	"context"
 	"fmt"
@@ -10,28 +11,22 @@ import (
 	"time"
 )
 
-const serverUrl = "http://localhost:8080"
-
-var serverImages = []string{
-	"go-chi-image",
-	"go-fiber-image",
-	"go-gin-image",
-}
-
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	for _, img := range serverImages {
+	config := config.GetConfig()
+
+	for name, cfg := range config.Servers {
 		// Start container
-		containerId, err := container.Start(ctx, time.Minute, img)
+		containerId, err := container.Start(ctx, time.Minute, cfg.ImageName)
 		if err != nil {
 			fmt.Print(err)
 			continue
 		}
 
 		// Wait for server to be ready - if not stop
-		err = container.WaitToBeReady(ctx, 30*time.Second, serverUrl)
+		err = container.WaitToBeReady(ctx, 30*time.Second, config.Url)
 		if err != nil {
 			fmt.Printf("- Server in container %s did not become ready: %v\n", containerId, err)
 			if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {
@@ -41,11 +36,11 @@ func main() {
 		}
 
 		// Run tests
-		client := client.New(ctx, serverUrl)
-		fmt.Printf("- Container: %s (%s)\n", img, containerId)
+		client := client.New(ctx, config.Url)
+		fmt.Printf("- Container: %s, (image %s, id: %s)\n", name, cfg.ImageName, containerId)
 
 		stats := client.RunBenchmarks()
-		fmt.Printf("- Stats: %d/%d Requests, Avg: %s, High: %s, Low: %s\n\n", stats.SuccessfulRequests, stats.TotalRequests, stats.Avg, stats.High, stats.Low)
+		fmt.Printf("- Stats: %d/%d Requests, Avg: %s (high: %s low: %s).\n\n", stats.SuccessfulRequests, stats.TotalRequests, stats.Avg, stats.High, stats.Low)
 
 		// Stop container
 		if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {

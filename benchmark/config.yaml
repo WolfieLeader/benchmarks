@@ -1,0 +1,11 @@
+url: http://localhost:8080
+
+servers:
+  chi:
+    image_name: go-chi-image
+
+  fiber:
+    image_name: go-fiber-image
+
+  gin:
+    image_name: go-gin-image
