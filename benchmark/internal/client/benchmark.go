@@ -42,5 +42,5 @@ func (c *Client) RunBenchmarks() *LatencyStats {
 var rootEndpoint = &Endpoint{
 	Path:     "/",
 	Method:   GET,
-	Expected: newExpected(200, Body{"message": "Hello, World!"}, Headers{}),
+	Expected: newExpected(200, Headers{}, Body{"message": "Hello, World!"}),
 }

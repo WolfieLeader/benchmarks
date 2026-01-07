@@ -36,7 +36,16 @@ type Expected struct {
 	Headers    Headers
 }
 
-func newExpected(statusCode int, body Body, headers Headers) *Expected {
+func newExpected(statusCode int, headers Headers, body Body) *Expected {
+	for key, value := range headers {
+		key = textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(key))
+		if key == "" {
+			delete(headers, key)
+			continue
+		}
+		headers[key] = strings.TrimSpace(value)
+	}
+
 	expectedBytes, err := json.Marshal(body)
 	if err != nil {
 		return nil
@@ -45,15 +54,6 @@ func newExpected(statusCode int, body Body, headers Headers) *Expected {
 	var normalizedBody any
 	if err := json.Unmarshal(expectedBytes, &normalizedBody); err != nil {
 		return nil
-	}
-
-	for key, value := range headers {
-		key = textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(key))
-		if key == "" {
-			delete(headers, key)
-			continue
-		}
-		headers[key] = strings.TrimSpace(value)
 	}
 
 	return &Expected{StatusCode: statusCode, Body: normalizedBody, Headers: headers}
