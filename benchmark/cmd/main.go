@@ -42,8 +42,10 @@ func main() {
 
 		// Run tests
 		client := client.New(ctx, serverUrl)
-		fmt.Printf("Running benchmarks against server in container %s (%s)\n", containerId, img)
-		client.RunBenchmarks()
+		fmt.Printf("- Container: %s (%s)\n", img, containerId)
+
+		stats := client.RunBenchmarks()
+		fmt.Printf("- Stats: %d/%d Requests, Avg: %s, High: %s, Low: %s\n\n", stats.SuccessfulRequests, stats.TotalRequests, stats.Avg, stats.High, stats.Low)
 
 		// Stop container
 		if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {
