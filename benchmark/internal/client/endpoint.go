@@ -1,60 +1,111 @@
 package client
 
 import (
-	"encoding/json/v2"
-	"net/textproto"
-	"strings"
+	"fmt"
+	"sync"
+	"time"
 )
 
-type Body map[string]any
-type Headers map[string]string
-type Method = string
-
-const (
-	GET     Method = "GET"
-	POST    Method = "POST"
-	PUT     Method = "PUT"
-	DELETE  Method = "DELETE"
-	PATCH   Method = "PATCH"
-	HEAD    Method = "HEAD"
-	OPTIONS Method = "OPTIONS"
-)
-
-var methods = []Method{GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS}
+var methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
 type Endpoint struct {
-	Path     string
-	Method   Method
-	Headers  Headers
-	Body     Body
-	Expected *Expected
+	Path      string
+	Method    string
+	Headers   map[string]string
+	Body      map[string]any
+	Testcases []*Testcase
 }
 
-type Expected struct {
-	StatusCode int
-	Body       any
-	Headers    Headers
+type Testcase struct {
+	Path            string
+	OverrideHeaders map[string]string
+	OverrideBody    map[string]any
+	StatusCode      int
+	Headers         map[string]string
+	Body            map[string]any
 }
 
-func newExpected(statusCode int, headers Headers, body Body) *Expected {
-	for key, value := range headers {
-		key = textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(key))
-		if key == "" {
-			delete(headers, key)
-			continue
-		}
-		headers[key] = strings.TrimSpace(value)
+type Stats struct {
+	Avg         time.Duration
+	High        time.Duration
+	Low         time.Duration
+	SuccessRate float64
+}
+
+func (c *Client) RunEndpointN(endpoint *Endpoint, n int, workers int) (*Stats, error) {
+	if endpoint == nil ||
+		n <= 0 ||
+		workers <= 0 ||
+		endpoint.Path == "" ||
+		endpoint.Method == "" {
+		return nil, fmt.Errorf("invalid parameters")
 	}
 
-	expectedBytes, err := json.Marshal(body)
+	if workers > n {
+		workers = n
+	}
+
+	testcases, err := c.CreateTestcasesFromEndpoint(endpoint)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	var normalizedBody any
-	if err := json.Unmarshal(expectedBytes, &normalizedBody); err != nil {
-		return nil
+	// Generator
+	testcasesCh := make(chan *testcase)
+	go func() {
+		defer close(testcasesCh)
+		for i := range n {
+			index := i % len(testcases)
+			testcasesCh <- testcases[index]
+		}
+	}()
+
+	// Fan-out
+	var wg sync.WaitGroup
+	resultsCh := make(chan time.Duration)
+
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			for tc := range testcasesCh {
+				dur, err := c.testcase(tc)
+				if err != nil {
+					fmt.Println("testcase error:", err)
+					continue
+				}
+				resultsCh <- dur
+			}
+		}()
 	}
 
-	return &Expected{StatusCode: statusCode, Body: normalizedBody, Headers: headers}
+	go func() {
+		wg.Wait()
+		close(resultsCh)
+	}()
+
+	// Fan-in
+	count := 0
+	var avg, high, low time.Duration
+	low = time.Hour
+
+	for dur := range resultsCh {
+		count++
+		avg += dur
+		high = max(high, dur)
+		low = min(low, dur)
+	}
+
+	if count > 0 {
+		avg /= time.Duration(count)
+	}
+
+	rate := float64(count) / float64(n)
+
+	return &Stats{
+		Avg:         avg,
+		High:        high,
+		Low:         low,
+		SuccessRate: rate,
+	}, nil
 }

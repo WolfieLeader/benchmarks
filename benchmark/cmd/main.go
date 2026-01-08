@@ -37,10 +37,15 @@ func main() {
 
 		// Run tests
 		client := client.New(ctx, config.Url)
-		fmt.Printf("- Container: %s, (image %s, id: %s)\n", name, cfg.ImageName, containerId)
 
-		stats := client.RunBenchmarks()
-		fmt.Printf("- Stats: %d/%d Requests, Avg: %s (high: %s low: %s).\n\n", stats.SuccessfulRequests, stats.TotalRequests, stats.Avg, stats.High, stats.Low)
+		stats, err := client.Benchmark()
+		if err != nil {
+			fmt.Printf("- Benchmark error: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("- %s Container(%s) latency stats(success: %.2f%%):\n", name, containerId, stats.SuccessRate*100)
+		fmt.Printf("- Average: %v (H:%v, L:%v). \n\n", stats.Avg, stats.High, stats.Low)
 
 		// Stop container
 		if stopErr := container.Stop(ctx, time.Minute, containerId); stopErr != nil {

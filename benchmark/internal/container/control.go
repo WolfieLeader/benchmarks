@@ -11,6 +11,8 @@ import (
 
 type Id string
 
+// TODO: Limit resources (CPU, Memory) for container
+
 func Start(ctx context.Context, timeout time.Duration, image string) (Id, error) {
 	startCtx, startCancel := context.WithTimeout(ctx, timeout)
 	defer startCancel()
