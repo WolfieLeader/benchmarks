@@ -90,7 +90,7 @@ paramsRoutes.post("/file", async (c) => {
 
   const head = data.slice(0, SNIFF_LEN);
   if (head.includes(NULL_BYTE)) {
-    return c.json({ error: "file does not look like plain text" }, 400);
+    return c.json({ error: "file does not look like plain text" }, 415);
   }
 
   if (!file.type || !file.type.startsWith("text/plain")) {
@@ -98,7 +98,7 @@ paramsRoutes.post("/file", async (c) => {
   }
 
   if (data.includes(NULL_BYTE)) {
-    return c.json({ error: "file does not look like plain text" }, 400);
+    return c.json({ error: "file does not look like plain text" }, 415);
   }
 
   let content: string;

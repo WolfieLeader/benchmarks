@@ -11,6 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	maxFileBytes = 1 << 20 // 1MB
+	sniffLen     = 512
+	nullByte     = 0x00
+)
+
 func RegisterParams(r *gin.RouterGroup) {
 	r.GET("/search", handleSearchParams)
 	r.GET("/url/:dynamic", handleUrlParams)
@@ -46,14 +52,8 @@ func handleHeaderParams(c *gin.Context) {
 	c.JSON(200, gin.H{"header": header})
 }
 
-type BodyParams struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Age   int    `json:"age"`
-}
-
 func handleBodyParams(c *gin.Context) {
-	var body BodyParams
+	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid request body"})
 		return
@@ -84,26 +84,20 @@ func handleFormParams(c *gin.Context) {
 	c.JSON(200, gin.H{"name": name, "age": age})
 }
 
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
-)
-
 func handleFileParams(c *gin.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(400, gin.H{"error": "file not found in form data"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file not found in form data"})
 		return
 	}
 	if fileHeader.Size > maxFileBytes {
-		c.JSON(400, gin.H{"error": "file size exceeds limit"})
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file size exceeds limit"})
 		return
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		c.JSON(500, gin.H{"error": "unable to open uploaded file"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to open uploaded file"})
 		return
 	}
 	defer file.Close()
@@ -112,32 +106,32 @@ func handleFileParams(c *gin.Context) {
 
 	head, err := br.Peek(sniffLen)
 	if err != nil && err != io.EOF {
-		c.JSON(500, gin.H{"error": "unable to read uploaded file"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read uploaded file"})
 		return
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "only text/plain files are allowed"})
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "only text/plain files are allowed"})
 		return
 	}
 
 	if slices.Contains(head, nullByte) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file does not look like plain text"})
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
 		return
 	}
 
 	limited := io.LimitReader(br, maxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to read file content"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read file content"})
 		return
 	}
 	if int64(len(data)) > maxFileBytes {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file size exceeds limit"})
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file size exceeds limit"})
 		return
 	}
 	if slices.Contains(data, nullByte) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file does not look like plain text"})
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
 		return
 	}
 

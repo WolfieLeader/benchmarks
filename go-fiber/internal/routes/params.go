@@ -80,7 +80,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "unable to open uploaded file"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to open uploaded file"})
 	}
 	defer file.Close()
 
@@ -88,7 +88,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	head, err := br.Peek(sniffLen)
 	if err != nil && err != io.EOF {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "unable to read file"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to read file"})
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
@@ -96,19 +96,19 @@ func handleFileParams(c *fiber.Ctx) error {
 	}
 
 	if slices.Contains(head, nullByte) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file does not look like plain text"})
+		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
 	}
 
 	limited := io.LimitReader(br, maxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "unable to read file content"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to read file content"})
 	}
 	if int64(len(data)) > maxFileBytes {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file size exceeds limit"})
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "file size exceeds limit"})
 	}
 	if slices.Contains(data, nullByte) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file does not look like plain text"})
+		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
 	}
 
 	return c.JSON(fiber.Map{

@@ -13,6 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	maxFileBytes = 1 << 20 // 1MB
+	sniffLen     = 512
+	nullByte     = 0x00
+)
+
 func RegisterParams(r chi.Router) {
 	r.Get("/search", handleSearchParams)
 	r.Get("/url/{dynamic}", handleUrlParams)
@@ -57,16 +63,10 @@ func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 	json.MarshalWrite(w, map[string]any{"header": header})
 }
 
-type BodyParams struct {
-	Name    string `json:"name"`
-	Age     int    `json:"age"`
-	IsAdmin bool   `json:"is_admin"`
-}
-
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	var body BodyParams
+	var body map[string]any
 	if err := json.UnmarshalRead(r.Body, &body); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		http.Error(w, `{"error": "invalid JSON body"}`, http.StatusBadRequest)
@@ -122,18 +122,12 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	json.MarshalWrite(w, map[string]any{"name": name, "age": age})
 }
 
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
-)
-
 func handleFileParams(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if err := r.ParseMultipartForm(maxFileBytes); err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"invalid multipart form data"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid multipart form data"}`, http.StatusRequestEntityTooLarge)
 		return
 	}
 
