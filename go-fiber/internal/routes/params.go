@@ -11,6 +11,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+const (
+	maxFileBytes = 1 << 20 // 1MB
+	sniffLen     = 512
+	nullByte     = 0x00
+)
+
 func RegisterParams(r fiber.Router) {
 	r.Get("/search", handleSearchParams)
 	r.Get("/url/:dynamic", handleUrlParams)
@@ -37,30 +43,17 @@ func handleHeaderParams(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"header": header})
 }
 
-type BodyParams struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Age   int    `json:"age"`
-}
-
 func handleBodyParams(c *fiber.Ctx) error {
-	var body BodyParams
+	var body map[string]any
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
 	}
 	return c.JSON(fiber.Map{"body": body})
 }
 
 func handleCookieParams(c *fiber.Ctx) error {
 	cookie := c.Cookies("foo", "none")
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "bar",
-		Value:    "12345",
-		MaxAge:   10,
-		HTTPOnly: true,
-	})
-
+	c.Cookie(&fiber.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HTTPOnly: true, Path: "/"})
 	return c.JSON(fiber.Map{"cookie": cookie})
 }
 
@@ -76,19 +69,13 @@ func handleFormParams(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"name": name, "age": age})
 }
 
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
-)
-
 func handleFileParams(c *fiber.Ctx) error {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file not found in form data"})
 	}
 	if fileHeader.Size > maxFileBytes {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file size exceeds limit"})
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "file size exceeds limit"})
 	}
 
 	file, err := fileHeader.Open()
@@ -105,7 +92,7 @@ func handleFileParams(c *fiber.Ctx) error {
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "only text/plain files are allowed"})
+		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "only text/plain files are allowed"})
 	}
 
 	if slices.Contains(head, nullByte) {
