@@ -20,5 +20,7 @@ export function createApp() {
     return c.json({ error: err.message }, 500);
   });
 
+  app.notFound((c) => c.json({ error: "not found" }, 404));
+
   return app;
 }
