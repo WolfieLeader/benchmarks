@@ -56,7 +56,7 @@ func handleHeaderParams(c *gin.Context) {
 func handleBodyParams(c *gin.Context) {
 	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON body"})
 		return
 	}
 	c.JSON(200, gin.H{"body": body})
@@ -74,6 +74,12 @@ func handleCookieParams(c *gin.Context) {
 }
 
 func handleFormParams(c *gin.Context) {
+	ct := strings.ToLower(c.GetHeader("Content-Type"))
+	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form data"})
+		return
+	}
+
 	name := c.DefaultPostForm("name", "none")
 	if strings.TrimSpace(name) == "" {
 		name = "none"
@@ -89,6 +95,12 @@ func handleFormParams(c *gin.Context) {
 }
 
 func handleFileParams(c *gin.Context) {
+	ct := strings.ToLower(c.GetHeader("Content-Type"))
+	if !strings.HasPrefix(ct, "multipart/form-data") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart form data"})
+		return
+	}
+
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file not found in form data"})
@@ -110,7 +122,7 @@ func handleFileParams(c *gin.Context) {
 
 	head, err := br.Peek(sniffLen)
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read uploaded file"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read file"})
 		return
 	}
 
@@ -145,7 +157,7 @@ func handleFileParams(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"filename": fileHeader.Filename,
-		"size":     fileHeader.Size,
+		"size":     len(data),
 		"content":  string(data),
 	})
 }

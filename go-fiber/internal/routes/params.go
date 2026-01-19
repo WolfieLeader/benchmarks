@@ -59,6 +59,11 @@ func handleCookieParams(c *fiber.Ctx) error {
 }
 
 func handleFormParams(c *fiber.Ctx) error {
+	ct := strings.ToLower(c.Get("Content-Type"))
+	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid form data"})
+	}
+
 	name := c.FormValue("name", "none")
 	if strings.TrimSpace(name) == "" {
 		name = "none"
@@ -74,6 +79,11 @@ func handleFormParams(c *fiber.Ctx) error {
 }
 
 func handleFileParams(c *fiber.Ctx) error {
+	ct := strings.ToLower(c.Get("Content-Type"))
+	if !strings.HasPrefix(ct, "multipart/form-data") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid multipart form data"})
+	}
+
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file not found in form data"})
@@ -120,7 +130,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"filename": fileHeader.Filename,
-		"size":     fileHeader.Size,
+		"size":     len(data),
 		"content":  string(data),
 	})
 }

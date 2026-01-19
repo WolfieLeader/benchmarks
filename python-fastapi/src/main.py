@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 
 
 from src.routes.params import router as params_router
@@ -10,8 +10,12 @@ app = FastAPI(title="FastAPI")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # This will also turn other validation errors into 400, which matches your "just 400" policy.
-    return JSONResponse(status_code=400, content={"error": "invalid JSON body"})
+    return JSONResponse(status_code=400, content="Invalid JSON body")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
 
 @app.get("/")

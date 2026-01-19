@@ -1,14 +1,5 @@
-from fastapi import (
-    APIRouter,
-    Cookie,
-    File,
-    Form,
-    Header,
-    HTTPException,
-    Response,
-    UploadFile,
-    Body,
-)
+from fastapi import APIRouter, Body, Cookie, File, Header, Request, Response, UploadFile
+from fastapi.exceptions import HTTPException
 from typing import Any
 
 max_file_bytes = 1 << 20
@@ -59,25 +50,41 @@ def cookie_params(
 
 
 @router.post("/form")
-def form_params(
-    name: str | None = Form(default=None),
-    ageStr: str | None = Form(alias="age", default=None),
-):
-    if name and name.strip() == "":
+async def form_params(request: Request):
+    content_type = request.headers.get("content-type", "").lower()
+    if not (
+        content_type.startswith("application/x-www-form-urlencoded")
+        or content_type.startswith("multipart/form-data")
+    ):
+        raise HTTPException(status_code=400, detail="invalid form data")
+
+    try:
+        form = await request.form()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid form data")
+
+    name_val = form.get("name")
+    name = name_val.strip() if isinstance(name_val, str) else ""
+    if name == "":
         name = "none"
 
+    age_val = form.get("age")
     age = 0
-    if ageStr:
+    if isinstance(age_val, str):
         try:
-            age = int(ageStr)
+            age = int(age_val)
         except ValueError:
             age = 0
 
-    return {"name": name or "none", "age": age}
+    return {"name": name, "age": age}
 
 
 @router.post("/file")
-async def file_params(file: UploadFile | None = File(default=None)):
+async def file_params(request: Request, file: UploadFile | None = File(default=None)):
+    content_type = request.headers.get("content-type", "").lower()
+    if not content_type.startswith("multipart/form-data"):
+        raise HTTPException(status_code=400, detail="invalid multipart form data")
+
     if file is None:
         raise HTTPException(status_code=400, detail="file not found in form data")
 
@@ -103,11 +110,11 @@ async def file_params(file: UploadFile | None = File(default=None)):
 
     try:
         content = data.decode("utf-8")
-    except UnicodeDecodeError as exc:
+    except UnicodeDecodeError:
         raise HTTPException(
             status_code=415,
             detail="file does not look like plain text",
-        ) from exc
+        )
 
     return {
         "filename": file.filename,

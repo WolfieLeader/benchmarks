@@ -11,6 +11,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"chi-server/internal/utils"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -33,35 +35,24 @@ func RegisterParams(r chi.Router) {
 func handleSearchParams(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
-	qStr := query.Get("q")
-	q := cmp.Or(qStr, "none")
+	q := cmp.Or(query.Get("q"), "none")
 
-	limitStr := query.Get("limit")
 	limit := 10
-	if n, err := strconv.Atoi(limitStr); err == nil {
+	if n, err := strconv.Atoi(query.Get("limit")); err == nil {
 		limit = n
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"search": q, "limit": limit})
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"search": q, "limit": limit})
 }
 
 func handleUrlParams(w http.ResponseWriter, r *http.Request) {
 	dynamic := chi.URLParam(r, "dynamic")
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"dynamic": dynamic})
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"dynamic": dynamic})
 }
 
 func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
-	headerStr := r.Header.Get("X-Custom-Header")
-	header := cmp.Or(headerStr, "none")
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"header": header})
+	header := cmp.Or(r.Header.Get("X-Custom-Header"), "none")
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"header": header})
 }
 
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
@@ -69,14 +60,11 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 
 	var body map[string]any
 	if err := json.UnmarshalRead(r.Body, &body); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error": "invalid JSON body"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "invalid JSON body", nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"body": body})
+	utils.WriteResponse(w, http.StatusOK, body)
 }
 
 func handleCookieParams(w http.ResponseWriter, r *http.Request) {
@@ -87,56 +75,51 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 		cookie = cookieStr.Value
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "bar",
-		Value:    "12345",
-		MaxAge:   10,
-		HttpOnly: true,
-		Path:     "/",
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"cookie": cookie})
+	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"cookie": cookie})
 }
 
 func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	err := r.ParseForm()
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error": "invalid form data"}`, http.StatusBadRequest)
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
+		utils.WriteError(w, http.StatusBadRequest, "invalid form data", nil)
 		return
 	}
 
-	nameStr := r.FormValue("name")
-	name := cmp.Or(strings.TrimSpace(nameStr), "none")
+	if err := r.ParseForm(); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid form data", nil)
+		return
+	}
 
-	ageStr := r.FormValue("age")
+	name := cmp.Or(strings.TrimSpace(r.FormValue("name")), "none")
+
 	age := 0
-	if n, err := strconv.Atoi(ageStr); err == nil {
+	if n, err := strconv.Atoi(r.FormValue("age")); err == nil {
 		age = n
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{"name": name, "age": age})
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"name": name, "age": age})
 }
 
 func handleFileParams(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		utils.WriteError(w, http.StatusBadRequest, "invalid multipart form data", nil)
+		return
+	}
+
 	if err := r.ParseMultipartForm(maxFileBytes); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"invalid multipart form data"}`, http.StatusRequestEntityTooLarge)
+		utils.WriteError(w, http.StatusBadRequest, "invalid multipart form data", nil)
 		return
 	}
 
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"file not found in form data"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "file not found in form data", nil)
 		return
 	}
 	defer file.Close()
@@ -145,51 +128,42 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 
 	head, err := br.Peek(sniffLen)
 	if err != nil && err != io.EOF {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"unable to read file"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "unable to read file", nil)
 		return
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"only text/plain files are allowed"}`, http.StatusUnsupportedMediaType)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, "only text/plain files are allowed", nil)
 		return
 	}
 
 	if slices.Contains(head, nullByte) {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
 		return
 	}
 
 	limited := io.LimitReader(br, maxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"unable to read file content"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "unable to read file content", nil)
 		return
 	}
 	if int64(len(data)) > maxFileBytes {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"file too large"}`, http.StatusRequestEntityTooLarge)
+		utils.WriteError(w, http.StatusRequestEntityTooLarge, "file size exceeds limit", nil)
 		return
 	}
 	if slices.Contains(data, nullByte) {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
 		return
 	}
 	if !utf8.Valid(data) {
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.MarshalWrite(w, map[string]any{
-		"filename":  fileHeader.Filename,
-		"bytesRead": fileHeader.Size,
-		"content":   string(data),
+	utils.WriteResponse(w, http.StatusOK, map[string]any{
+		"filename": fileHeader.Filename,
+		"size":     len(data),
+		"content":  string(data),
 	})
 }

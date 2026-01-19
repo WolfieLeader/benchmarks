@@ -49,6 +49,11 @@ paramsRoutes.get("/cookie", (c) => {
 });
 
 paramsRoutes.post("/form", async (c) => {
+  const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
+    return c.json({ error: "invalid form data" }, 400);
+  }
+
   let form: Record<string, string | File>;
   try {
     form = await c.req.parseBody();
@@ -70,6 +75,11 @@ paramsRoutes.post("/form", async (c) => {
 });
 
 paramsRoutes.post("/file", async (c) => {
+  const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("multipart/form-data")) {
+    return c.json({ error: "invalid multipart form data" }, 400);
+  }
+
   let form: FormData;
   try {
     form = await c.req.formData();
@@ -80,6 +90,9 @@ paramsRoutes.post("/file", async (c) => {
   const file = form.get("file");
   if (!(file instanceof File)) {
     return c.json({ error: "file not found in form data" }, 400);
+  }
+  if (!file.type || !file.type.startsWith("text/plain")) {
+    return c.json({ error: "only text/plain files are allowed" }, 415);
   }
   if (file.size > MAX_FILE_BYTES) {
     return c.json({ error: "file size exceeds limit" }, 413);
@@ -94,10 +107,6 @@ paramsRoutes.post("/file", async (c) => {
   const head = data.slice(0, SNIFF_LEN);
   if (head.includes(NULL_BYTE)) {
     return c.json({ error: "file does not look like plain text" }, 415);
-  }
-
-  if (!file.type || !file.type.startsWith("text/plain")) {
-    return c.json({ error: "only text/plain files are allowed" }, 415);
   }
 
   if (data.includes(NULL_BYTE)) {

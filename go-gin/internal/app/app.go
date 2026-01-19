@@ -1,6 +1,10 @@
 package app
 
-import "github.com/gin-gonic/gin"
+import (
+	"gin-server/internal/routes"
+
+	"github.com/gin-gonic/gin"
+)
 
 type App struct {
 	env    *Env
@@ -19,6 +23,7 @@ func New() *App {
 	r.GET("/health", func(c *gin.Context) {
 		c.String(200, "OK")
 	})
+	routes.RegisterParams(r.Group("/params"))
 
 	return &App{router: r}
 }
