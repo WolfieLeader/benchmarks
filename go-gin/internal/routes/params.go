@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 )
@@ -74,6 +75,9 @@ func handleCookieParams(c *gin.Context) {
 
 func handleFormParams(c *gin.Context) {
 	name := c.DefaultPostForm("name", "none")
+	if strings.TrimSpace(name) == "" {
+		name = "none"
+	}
 
 	ageStr := c.PostForm("age")
 	age := 0
@@ -131,6 +135,10 @@ func handleFileParams(c *gin.Context) {
 		return
 	}
 	if slices.Contains(data, nullByte) {
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
+		return
+	}
+	if !utf8.Valid(data) {
 		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
 		return
 	}

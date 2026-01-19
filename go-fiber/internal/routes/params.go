@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -59,6 +60,9 @@ func handleCookieParams(c *fiber.Ctx) error {
 
 func handleFormParams(c *fiber.Ctx) error {
 	name := c.FormValue("name", "none")
+	if strings.TrimSpace(name) == "" {
+		name = "none"
+	}
 
 	ageStr := c.FormValue("age")
 	age := 0
@@ -108,6 +112,9 @@ func handleFileParams(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "file size exceeds limit"})
 	}
 	if slices.Contains(data, nullByte) {
+		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
+	}
+	if !utf8.Valid(data) {
 		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
 	}
 

@@ -10,8 +10,9 @@ export const paramsRoutes = new Hono();
 paramsRoutes.get("/search", (c) => {
   const q = c.req.query("q") ?? "none";
 
-  const limitNum = Number(c.req.query("limit"));
-  const limit = Number.isInteger(limitNum) ? limitNum : 10;
+  const limitStr = c.req.query("limit");
+  const limitNum = Number(limitStr);
+  const limit = !limitStr?.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : 10;
 
   return c.json({ search: q, limit });
 });
@@ -60,8 +61,10 @@ paramsRoutes.post("/form", async (c) => {
   }
 
   const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name : "none";
-  const ageNum = Number(form.age);
-  const age = Number.isInteger(ageNum) ? ageNum : 0;
+
+  const ageStr = typeof form.age === "string" ? form.age : "0";
+  const ageNum = Number(ageStr);
+  const age = !ageStr.includes(".") && Number.isSafeInteger(ageNum) ? ageNum : 0;
 
   return c.json({ name, age });
 });

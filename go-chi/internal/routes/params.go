@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -91,6 +92,7 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 		Value:    "12345",
 		MaxAge:   10,
 		HttpOnly: true,
+		Path:     "/",
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -109,7 +111,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nameStr := r.FormValue("name")
-	name := cmp.Or(nameStr, "none")
+	name := cmp.Or(strings.TrimSpace(nameStr), "none")
 
 	ageStr := r.FormValue("age")
 	age := 0
@@ -173,6 +175,11 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if slices.Contains(data, nullByte) {
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
+		return
+	}
+	if !utf8.Valid(data) {
 		w.Header().Set("Content-Type", "application/json")
 		http.Error(w, `{"error":"file does not look like plain text"}`, http.StatusUnsupportedMediaType)
 		return
