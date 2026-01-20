@@ -8,7 +8,7 @@ const NULL_BYTE = 0x00;
 export const paramsRoutes = new Hono();
 
 paramsRoutes.get("/search", (c) => {
-  const q = c.req.query("q") ?? "none";
+  const q = c.req.query("q")?.trim() || "none";
 
   const limitStr = c.req.query("limit");
   const limitNum = Number(limitStr);
@@ -23,7 +23,7 @@ paramsRoutes.get("/url/:dynamic", (c) => {
 });
 
 paramsRoutes.get("/header", (c) => {
-  const header = c.req.header("X-Custom-Header") ?? "none";
+  const header = c.req.header("X-Custom-Header")?.trim() || "none";
   return c.json({ header });
 });
 
@@ -43,7 +43,7 @@ paramsRoutes.post("/body", async (c) => {
 });
 
 paramsRoutes.get("/cookie", (c) => {
-  const cookie = getCookie(c, "foo") ?? "none";
+  const cookie = getCookie(c, "foo")?.trim() || "none";
   setCookie(c, "bar", "12345", { maxAge: 10, httpOnly: true, path: "/" });
   return c.json({ cookie });
 });
@@ -65,9 +65,9 @@ paramsRoutes.post("/form", async (c) => {
     return c.json({ error: "invalid form data" }, 400);
   }
 
-  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name : "none";
+  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
 
-  const ageStr = typeof form.age === "string" ? form.age : "0";
+  const ageStr = typeof form.age === "string" && form.age.trim() !== "" ? form.age.trim() : "0";
   const ageNum = Number(ageStr);
   const age = !ageStr.includes(".") && Number.isSafeInteger(ageNum) ? ageNum : 0;
 

@@ -10,4 +10,4 @@ Bun.serve({
   maxRequestBodySize: 10 * 1024 * 1024, // 10 MB
 });
 
-console.log(`🚀 Server running at http://${env.HOST}:${env.PORT}/`);
+console.log(`Server running at http://${env.HOST}:${env.PORT}/`);

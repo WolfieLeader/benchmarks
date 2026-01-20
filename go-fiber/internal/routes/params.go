@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bufio"
+	"cmp"
 	"io"
 	"net/http"
 	"slices"
@@ -29,8 +30,16 @@ func RegisterParams(r fiber.Router) {
 }
 
 func handleSearchParams(c *fiber.Ctx) error {
-	q := c.Query("q", "none")
-	limit := c.QueryInt("limit", 10)
+	q := cmp.Or(strings.TrimSpace(c.Query("q")), "none")
+
+	limit := 10
+	limitStr := c.Query("limit")
+	if limitStr != "" && !strings.Contains(limitStr, ".") {
+		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			limit = int(n)
+		}
+	}
+
 	return c.JSON(fiber.Map{"search": q, "limit": limit})
 }
 
@@ -40,7 +49,7 @@ func handleUrlParams(c *fiber.Ctx) error {
 }
 
 func handleHeaderParams(c *fiber.Ctx) error {
-	header := c.Get("X-Custom-Header", "none")
+	header := cmp.Or(strings.TrimSpace(c.Get("X-Custom-Header")), "none")
 	return c.JSON(fiber.Map{"header": header})
 }
 
@@ -53,7 +62,7 @@ func handleBodyParams(c *fiber.Ctx) error {
 }
 
 func handleCookieParams(c *fiber.Ctx) error {
-	cookie := c.Cookies("foo", "none")
+	cookie := cmp.Or(strings.TrimSpace(c.Cookies("foo")), "none")
 	c.Cookie(&fiber.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HTTPOnly: true, Path: "/"})
 	return c.JSON(fiber.Map{"cookie": cookie})
 }
@@ -64,15 +73,14 @@ func handleFormParams(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid form data"})
 	}
 
-	name := c.FormValue("name", "none")
-	if strings.TrimSpace(name) == "" {
-		name = "none"
-	}
+	name := cmp.Or(strings.TrimSpace(c.FormValue("name")), "none")
 
-	ageStr := c.FormValue("age")
 	age := 0
-	if n, err := strconv.Atoi(ageStr); err == nil {
-		age = n
+	ageStr := strings.TrimSpace(c.FormValue("age"))
+	if ageStr != "" && !strings.Contains(ageStr, ".") {
+		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			age = int(n)
+		}
 	}
 
 	return c.JSON(fiber.Map{"name": name, "age": age})

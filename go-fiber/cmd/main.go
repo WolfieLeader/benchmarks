@@ -6,6 +6,5 @@ import (
 
 func main() {
 	app := application.New()
-	app.LoadEnv()
 	app.Start()
 }

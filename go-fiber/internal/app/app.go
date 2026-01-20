@@ -20,7 +20,11 @@ func New() *App {
 		JSONDecoder: func(data []byte, v any) error { return json.Unmarshal(data, v) },
 	})
 
-	r.Use(logger.New())
+	env := LoadEnv()
+
+	if env.ENV != "prod" {
+		r.Use(logger.New())
+	}
 	r.Use(recover.New())
 
 	r.Get("/", func(c *fiber.Ctx) error {
@@ -32,5 +36,9 @@ func New() *App {
 
 	routes.RegisterParams(r.Group("/params"))
 
-	return &App{router: r}
+	r.Use(func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+	})
+
+	return &App{env: env, router: r}
 }

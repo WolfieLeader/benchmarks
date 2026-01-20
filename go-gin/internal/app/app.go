@@ -12,9 +12,13 @@ type App struct {
 }
 
 func New() *App {
-	r := gin.Default()
+	r := gin.New()
 
-	r.Use(gin.Logger())
+	env := LoadEnv()
+
+	if env.ENV != "prod" {
+		r.Use(gin.Logger())
+	}
 	r.Use(gin.Recovery())
 
 	r.GET("/", func(c *gin.Context) {
@@ -25,5 +29,9 @@ func New() *App {
 	})
 	routes.RegisterParams(r.Group("/params"))
 
-	return &App{router: r}
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(404, gin.H{"error": "not found"})
+	})
+
+	return &App{env: env, router: r}
 }

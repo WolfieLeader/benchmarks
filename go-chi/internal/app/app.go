@@ -2,6 +2,7 @@ package app
 
 import (
 	"chi-server/internal/routes"
+	"chi-server/internal/utils"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,7 +17,11 @@ type App struct {
 func New() *App {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
+	env := LoadEnv()
+
+	if env.ENV != "prod" {
+		r.Use(middleware.Logger)
+	}
 	r.Use(middleware.Recoverer)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -31,5 +36,9 @@ func New() *App {
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })
 
-	return &App{router: r}
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		utils.WriteError(w, http.StatusNotFound, "not found", nil)
+	})
+
+	return &App{env: env, router: r}
 }

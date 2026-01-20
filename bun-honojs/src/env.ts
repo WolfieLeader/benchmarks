@@ -1,6 +1,7 @@
 import { type } from "arktype";
 
 const tEnv = type({
+  ENV: "'dev' | 'prod' = 'dev'",
   HOST: "string.url | string.ip | 'localhost' = '0.0.0.0'",
   PORT: "string.numeric.parse = '3005'",
 }).narrow((data, ctx) => {

@@ -35,11 +35,14 @@ func RegisterParams(r chi.Router) {
 func handleSearchParams(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
-	q := cmp.Or(query.Get("q"), "none")
+	q := cmp.Or(strings.TrimSpace(query.Get("q")), "none")
 
 	limit := 10
-	if n, err := strconv.Atoi(query.Get("limit")); err == nil {
-		limit = n
+	limitStr := query.Get("limit")
+	if limitStr != "" && !strings.Contains(limitStr, ".") {
+		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			limit = int(n)
+		}
 	}
 
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"search": q, "limit": limit})
@@ -51,7 +54,7 @@ func handleUrlParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
-	header := cmp.Or(r.Header.Get("X-Custom-Header"), "none")
+	header := cmp.Or(strings.TrimSpace(r.Header.Get("X-Custom-Header")), "none")
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"header": header})
 }
 
@@ -64,15 +67,15 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteResponse(w, http.StatusOK, body)
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"body": body})
 }
 
 func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 	cookieStr, err := r.Cookie("foo")
 
 	cookie := "none"
-	if err == nil {
-		cookie = cookieStr.Value
+	if trimmed := strings.TrimSpace(cookieStr.Value); err == nil && trimmed != "" {
+		cookie = trimmed
 	}
 
 	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
@@ -96,8 +99,11 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	name := cmp.Or(strings.TrimSpace(r.FormValue("name")), "none")
 
 	age := 0
-	if n, err := strconv.Atoi(r.FormValue("age")); err == nil {
-		age = n
+	ageStr := strings.TrimSpace(r.FormValue("age"))
+	if ageStr != "" && !strings.Contains(ageStr, ".") {
+		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			age = int(n)
+		}
 	}
 
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"name": name, "age": age})

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bufio"
+	"cmp"
 	"io"
 	"net/http"
 	"slices"
@@ -29,12 +30,14 @@ func RegisterParams(r *gin.RouterGroup) {
 }
 
 func handleSearchParams(c *gin.Context) {
-	q := c.DefaultQuery("q", "none")
+	q := cmp.Or(strings.TrimSpace(c.Query("q")), "none")
 
-	limitStr := c.Query("limit")
 	limit := 10
-	if n, err := strconv.Atoi(limitStr); err == nil {
-		limit = n
+	limitStr := c.Query("limit")
+	if limitStr != "" && !strings.Contains(limitStr, ".") {
+		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			limit = int(n)
+		}
 	}
 
 	c.JSON(200, gin.H{"search": q, "limit": limit})
@@ -46,10 +49,7 @@ func handleUrlParams(c *gin.Context) {
 }
 
 func handleHeaderParams(c *gin.Context) {
-	header := c.GetHeader("X-Custom-Header")
-	if header == "" {
-		header = "none"
-	}
+	header := cmp.Or(strings.TrimSpace(c.GetHeader("X-Custom-Header")), "none")
 	c.JSON(200, gin.H{"header": header})
 }
 
@@ -63,40 +63,40 @@ func handleBodyParams(c *gin.Context) {
 }
 
 func handleCookieParams(c *gin.Context) {
-	cookie, err := c.Cookie("foo")
-	if err != nil {
-		cookie = "none"
+	cookieStr, err := c.Cookie("foo")
+
+	cookie := "none"
+	if trimmed := strings.TrimSpace(cookieStr); err == nil && trimmed != "" {
+		cookieStr = trimmed
 	}
 
 	c.SetCookie("bar", "12345", 10, "/", "", false, true)
-
 	c.JSON(200, gin.H{"cookie": cookie})
 }
 
 func handleFormParams(c *gin.Context) {
-	ct := strings.ToLower(c.GetHeader("Content-Type"))
-	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
+	contentType := strings.ToLower(c.GetHeader("Content-Type"))
+	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form data"})
 		return
 	}
 
-	name := c.DefaultPostForm("name", "none")
-	if strings.TrimSpace(name) == "" {
-		name = "none"
-	}
+	name := cmp.Or(strings.TrimSpace(c.PostForm("name")), "none")
 
-	ageStr := c.PostForm("age")
 	age := 0
-	if n, err := strconv.Atoi(ageStr); err == nil {
-		age = n
+	ageStr := strings.TrimSpace(c.PostForm("age"))
+	if ageStr != "" && !strings.Contains(ageStr, ".") {
+		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			age = int(n)
+		}
 	}
 
 	c.JSON(200, gin.H{"name": name, "age": age})
 }
 
 func handleFileParams(c *gin.Context) {
-	ct := strings.ToLower(c.GetHeader("Content-Type"))
-	if !strings.HasPrefix(ct, "multipart/form-data") {
+	contentType := strings.ToLower(c.GetHeader("Content-Type"))
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart form data"})
 		return
 	}

@@ -17,8 +17,9 @@ FROM alpine
 
 WORKDIR /app
 
-ENV PORT=8080 \
-    HOST=0.0.0.0
+ENV ENV=prod \
+    HOST=0.0.0.0 \
+    PORT=5003
 
 COPY --from=builder /app/server .
 
@@ -27,6 +28,6 @@ RUN addgroup -g 1001 -S app-group && \
 
 USER app-runner
 
-EXPOSE 5000
+EXPOSE 5003
 
 CMD ["./server"]

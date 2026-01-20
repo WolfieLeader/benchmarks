@@ -12,15 +12,19 @@ router = APIRouter()
 
 @router.get("/search")
 def search_params(q: str | None = None, limit: str | None = None):
+    search = q if q is not None else "none"
     parsed_limit = 10
 
-    if limit:
-        try:
-            parsed_limit = int(limit)
-        except ValueError:
-            parsed_limit = 10
+    if limit is not None:
+        if "." not in limit:
+            try:
+                num = int(limit)
+                if -(2**53 - 1) <= num <= (2**53 - 1):
+                    parsed_limit = num
+            except ValueError:
+                pass
 
-    return {"search": q or "none", "limit": parsed_limit}
+    return {"search": search, "limit": parsed_limit}
 
 
 @router.get("/url/{dynamic}")
@@ -70,11 +74,13 @@ async def form_params(request: Request):
 
     age_val = form.get("age")
     age = 0
-    if isinstance(age_val, str):
+    if isinstance(age_val, str) and "." not in age_val:
         try:
-            age = int(age_val)
+            num = int(age_val)
+            if -(2**53 - 1) <= num <= (2**53 - 1):
+                age = num
         except ValueError:
-            age = 0
+            pass
 
     return {"name": name, "age": age}
 

@@ -9,5 +9,5 @@ func (c *Client) Benchmark() (*Stats, error) {
 		},
 	}
 
-	return c.RunEndpointN(endpoint, 1000, 50)
+	return c.RunEndpointN(endpoint, 1000, 100)
 }
