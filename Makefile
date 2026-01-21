@@ -15,7 +15,7 @@
 # ==============================================================================
 
 benchmark:
-	cd benchmark && GOEXPERIMENT=jsonv2 go run ./cmd/main.go
+	cd benchmark && go run ./cmd/main.go
 
 # ==============================================================================
 # Development Servers

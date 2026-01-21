@@ -1,11 +1,15 @@
 FROM node:25-alpine AS builder
-
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN npm i -g pnpm
 
-COPY . .
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY src ./src
+
+RUN pnpm build
 
 FROM node:25-alpine
 
@@ -17,9 +21,8 @@ ENV NODE_ENV=production \
     PORT=3002
 
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/tsconfig.json ./
 
 RUN addgroup -g 1001 -S app-group && \
     adduser -S app-runner -u 1001 -G app-group
@@ -28,4 +31,4 @@ USER app-runner
 
 EXPOSE 3002
 
-CMD ["node", "--enable-source-maps", "--loader", "tsx", "src/main.ts"]
+CMD ["node", "dist/main.js"]

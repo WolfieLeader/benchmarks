@@ -5,10 +5,10 @@
   "main": "dist/main.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node dist/main.js",
-    "dev": "tsx watch --clear-screen=false src/main.ts",
-    "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "build": "nest build",
+    "start": "nest start",
+    "dev": "nest start --watch",
+    "start:prod": "node dist/main"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.12",
@@ -18,17 +18,21 @@
     "express": "^5.2.1",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.9",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^25.0.9",
-    "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
+    "source-map-support": "^0.5.21",
+    "ts-loader": "^9.5.4",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
   },
   "engines": {

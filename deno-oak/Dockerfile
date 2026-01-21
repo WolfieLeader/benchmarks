@@ -1,4 +1,4 @@
-FROM denoland/deno:2.6.5-alpine AS deps
+FROM denoland/deno:alpine-2.6.5 AS deps
 
 WORKDIR /app
 
@@ -7,9 +7,9 @@ ENV DENO_DIR=/deno-dir
 COPY deno.json ./
 COPY src ./src
 
-RUN deno cache --allow-net --allow-env src/index.ts
+RUN deno install
 
-FROM denoland/deno:2.6.5-alpine
+FROM denoland/deno:alpine-2.6.5
 
 WORKDIR /app
 
@@ -25,4 +25,4 @@ USER deno
 
 EXPOSE 3004
 
-CMD ["deno", "run", "--allow-net", "--allow-env", "src/index.ts"]
+CMD ["deno", "run", "--allow-all", "src/index.ts"]

@@ -7,3 +7,7 @@ export const FILE_SIZE_EXCEEDS = "file size exceeds limit";
 export const ONLY_TEXT_PLAIN = "only text/plain files are allowed";
 export const FILE_NOT_TEXT = "file does not look like plain text";
 export const INTERNAL_ERROR = "internal error";
+
+// Aliases for backward compatibility
+export const INVALID_FILE_TYPE = ONLY_TEXT_PLAIN;
+export const NOT_PLAIN_TEXT = FILE_NOT_TEXT;

@@ -8,13 +8,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
 from src.config.env import env
+from src.routes.params import params_router
 from src.handlers import (
     general_exception_handler,
     http_exception_handler,
     not_found_exception_handler,
     validation_exception_handler,
 )
-from src.routes.params import router as params_router
 
 app = FastAPI(title="FastAPI")
 

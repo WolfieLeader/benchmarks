@@ -19,10 +19,10 @@ from src.consts.errors import (
 )
 
 
-router = APIRouter()
+params_router = APIRouter()
 
 
-@router.get("/search")
+@params_router.get("/search")
 def search_params(q: str | None = None, limit: str | None = None):
     search = q.strip() if q is not None and q.strip() else "none"
     parsed_limit = DEFAULT_LIMIT
@@ -39,24 +39,24 @@ def search_params(q: str | None = None, limit: str | None = None):
     return {"search": search, "limit": parsed_limit}
 
 
-@router.get("/url/{dynamic}")
+@params_router.get("/url/{dynamic}")
 def url_params(dynamic: str):
     return {"dynamic": dynamic}
 
 
-@router.get("/header")
+@params_router.get("/header")
 def header_params(header: str | None = Header(alias="X-Custom-Header", default=None)):
     return {"header": header.strip() if header and header.strip() else "none"}
 
 
-@router.post("/body")
+@params_router.post("/body")
 def body_params(body: Any = Body()):
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail=INVALID_JSON_BODY)
     return {"body": body}
 
 
-@router.get("/cookie")
+@params_router.get("/cookie")
 def cookie_params(
     response: Response,
     foo: str | None = Cookie(default=None),
@@ -65,7 +65,7 @@ def cookie_params(
     return {"cookie": foo.strip() if foo and foo.strip() else "none"}
 
 
-@router.post("/form")
+@params_router.post("/form")
 async def form_params(request: Request):
     content_type = request.headers.get("content-type", "").lower()
     if not (
@@ -97,7 +97,7 @@ async def form_params(request: Request):
     return {"name": name, "age": age}
 
 
-@router.post("/file")
+@params_router.post("/file")
 async def file_params(request: Request, file: UploadFile | None = File(default=None)):
     content_type = request.headers.get("content-type", "").lower()
     if not content_type.startswith("multipart/form-data"):

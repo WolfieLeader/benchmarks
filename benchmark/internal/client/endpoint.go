@@ -29,6 +29,9 @@ type Stats struct {
 	Avg         time.Duration
 	High        time.Duration
 	Low         time.Duration
+	P50         time.Duration
+	P95         time.Duration
+	P99         time.Duration
 	SuccessRate float64
 }
 

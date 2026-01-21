@@ -1,0 +1,255 @@
+{
+  "global": {
+    "base_url": "http://localhost:8080",
+    "timeout": "10s",
+    "workers": 50,
+    "iterations": 1000
+  },
+  "endpoints": {
+    "root": {
+      "path": "/",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "message": "Hello, World!" },
+      "test_cases": [{ "name": "default" }]
+    },
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_text": "OK",
+      "test_cases": [{ "name": "default" }]
+    },
+    "params_search": {
+      "path": "/params/search",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "search": "none", "limit": 10 },
+      "test_cases": [
+        { "name": "default_values" },
+        {
+          "name": "custom_query",
+          "query": { "q": "hello", "limit": "5" },
+          "expected_body": { "search": "hello", "limit": 5 }
+        },
+        {
+          "name": "query_with_spaces",
+          "query": { "q": "  trimmed  ", "limit": "20" },
+          "expected_body": { "search": "trimmed", "limit": 20 }
+        },
+        {
+          "name": "invalid_limit_uses_default",
+          "query": { "q": "test", "limit": "abc" },
+          "expected_body": { "search": "test", "limit": 10 }
+        }
+      ]
+    },
+    "params_url": {
+      "path": "/params/url/testvalue",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "dynamic": "testvalue" },
+      "test_cases": [
+        { "name": "default" },
+        {
+          "name": "numeric_value",
+          "path": "/params/url/12345",
+          "expected_body": { "dynamic": "12345" }
+        },
+        {
+          "name": "special_chars",
+          "path": "/params/url/hello-world_123",
+          "expected_body": { "dynamic": "hello-world_123" }
+        }
+      ]
+    },
+    "params_header": {
+      "path": "/params/header",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "header": "none" },
+      "test_cases": [
+        { "name": "default_no_header" },
+        {
+          "name": "custom_header",
+          "headers": { "X-Custom-Header": "my-custom-value" },
+          "expected_body": { "header": "my-custom-value" }
+        },
+        {
+          "name": "header_with_spaces",
+          "headers": { "X-Custom-Header": "  trimmed  " },
+          "expected_body": { "header": "trimmed" }
+        }
+      ]
+    },
+    "params_body": {
+      "path": "/params/body",
+      "method": "POST",
+      "body": { "key": "value" },
+      "expected_status": 200,
+      "expected_body": { "body": { "key": "value" } },
+      "test_cases": [
+        { "name": "simple_object" },
+        {
+          "name": "nested_object",
+          "body": { "user": { "name": "John", "age": 30 } },
+          "expected_body": { "body": { "user": { "name": "John", "age": 30 } } }
+        },
+        {
+          "name": "object_with_array",
+          "body": { "items": ["a", "b", "c"] },
+          "expected_body": { "body": { "items": ["a", "b", "c"] } }
+        }
+      ]
+    },
+    "params_cookie": {
+      "path": "/params/cookie",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "cookie": "none" },
+      "test_cases": [
+        { "name": "default_no_cookie" },
+        {
+          "name": "with_cookie",
+          "headers": { "Cookie": "foo=bar" },
+          "expected_body": { "cookie": "bar" }
+        },
+        {
+          "name": "cookie_with_spaces",
+          "headers": { "Cookie": "foo=  spaced  " },
+          "expected_body": { "cookie": "spaced" }
+        }
+      ]
+    },
+    "params_form": {
+      "path": "/params/form",
+      "method": "POST",
+      "form_data": { "name": "John", "age": "25" },
+      "expected_status": 200,
+      "expected_body": { "name": "John", "age": 25 },
+      "test_cases": [
+        { "name": "basic_form" },
+        {
+          "name": "form_with_spaces",
+          "form_data": { "name": "  Jane  ", "age": "30" },
+          "expected_body": { "name": "Jane", "age": 30 }
+        }
+      ]
+    },
+    "params_file": {
+      "path": "/params/file",
+      "method": "POST",
+      "file": {
+        "field_name": "file",
+        "filename": "test.txt",
+        "content": "Hello, World!",
+        "content_type": "text/plain"
+      },
+      "expected_status": 200,
+      "expected_body": {
+        "filename": "test.txt",
+        "size": 13,
+        "content": "Hello, World!"
+      },
+      "test_cases": [
+        { "name": "basic_text_file" },
+        {
+          "name": "multiline_file",
+          "file": {
+            "field_name": "file",
+            "filename": "multi.txt",
+            "content": "Line 1\nLine 2\nLine 3",
+            "content_type": "text/plain"
+          },
+          "expected_body": {
+            "filename": "multi.txt",
+            "size": 20,
+            "content": "Line 1\nLine 2\nLine 3"
+          }
+        }
+      ]
+    }
+  },
+  "servers": {
+    "honojs": {
+      "image_name": "bun-honojs-image",
+      "port": 3005,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "elysia": {
+      "image_name": "bun-elysia-image",
+      "port": 3006,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "oak": {
+      "image_name": "deno-oak-image",
+      "port": 3004,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "express": {
+      "image_name": "node-express-image",
+      "port": 3001,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "nestjs": {
+      "image_name": "node-nestjs-image",
+      "port": 3002,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "fastify": {
+      "image_name": "node-fastify-image",
+      "port": 3003,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "fastapi": {
+      "image_name": "python-fastapi-image",
+      "port": 4001,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "chi": {
+      "image_name": "go-chi-image",
+      "port": 5001,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "gin": {
+      "image_name": "go-gin-image",
+      "port": 5002,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    },
+    "fiber": {
+      "image_name": "go-fiber-image",
+      "port": 5003,
+      "container": {
+        "cpu_limit": "1.0",
+        "memory_limit": "512m"
+      }
+    }
+  }
+}

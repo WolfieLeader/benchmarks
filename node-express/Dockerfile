@@ -1,9 +1,10 @@
 FROM node:25-alpine AS builder
-
 WORKDIR /app
 
+RUN npm i -g pnpm
+
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
@@ -27,5 +28,4 @@ RUN addgroup -g 1001 -S app-group && \
 USER app-runner
 
 EXPOSE 3001
-
-CMD ["node", "--enable-source-maps", "--experimental-loader", "tsx", "src/index.ts"]
+CMD ["node", "--enable-source-maps", "--import", "tsx", "src/index.ts"]

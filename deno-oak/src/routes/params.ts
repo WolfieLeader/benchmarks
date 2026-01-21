@@ -14,8 +14,8 @@ export const paramsRoutes = new Router();
 
 paramsRoutes.get("/search", (ctx) => {
   const q = ctx.request.url.searchParams.get("q")?.trim() || "none";
-  const limitStr = ctx.request.url.searchParams.get("limit");
-  const limitNum = Number(limitStr);
+  const limitStr = ctx.request.url.searchParams.get("limit")?.trim();
+  const limitNum = limitStr ? Number(limitStr) : NaN;
   const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
   ctx.response.body = { search: q, limit };
 });

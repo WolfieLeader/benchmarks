@@ -16,9 +16,9 @@ export async function paramsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { q?: string; limit?: string } }>("/search", async (request) => {
     const q = request.query.q?.trim() || "none";
 
-    const limitStr = request.query.limit ?? "";
-    const limitNum = Number(limitStr);
-    const limit = !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+    const limitStr = request.query.limit?.trim();
+    const limitNum = limitStr ? Number(limitStr) : NaN;
+    const limit = !limitStr?.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
     return { search: q, limit };
   });

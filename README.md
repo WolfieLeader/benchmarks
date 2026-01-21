@@ -10,21 +10,21 @@ Benchmark harness and a set of minimal HTTP servers across Node.js, Bun, Python,
 
 ## Technology Matrix
 
-| Language / Runtime  | Framework            | Port | Status            | PostgreSQL (Driver/ORM) | MongoDB (Driver/ODM) | 
-| ------------------- | -------------------- | ---- | ----------------- | ----------------------- | -------------------- | 
-| **Node.js** v25.3.0 | **Express** v5.0.1   | 3001 | ✅ Done           | `pg` (Raw)              | `mongoose`           |
-| **Node.js** v25.3.0 | **NestJS** v10.4.15  | 3002 | ✅ Done           | `TypeORM`               | `mongoose`           |
-| **Node.js** v25.3.0 | **Fastify** v5.2.0   | 3003 | ✅ Done           | `prisma`                | `mongodb`            |
-| **Deno** v2.6.5     | **Oak** v17.1.3      | 3004 | ✅ Done           | `postgres.js`           | `mongodb`            |
-| **Bun** v1.3.6      | **Hono** v4.6.14     | 3005 | ✅ Done           | `drizzle-orm`           | `mongoose`           |
-| **Bun** v1.3.6      | **Elysia** v1.1.26   | 3006 | ✅ Done           | `bun:sql`               | `mongoose`           |
-| **Python** v3.14.2  | **FastAPI** v0.115.6 | 4001 | ✅ Done           | `SQLAlchemy` (Async)    | `Motor` + `Beanie`   |
-| **Python** v3.14.2  | **Flask** v3.1.0     | 4002 | 🚧 In Progress    | `SQLAlchemy` (Core)     | `PyMongo`            |
-| **Python** v3.14.2  | **Django** v5.1.4    | 4003 | 🚧 In Progress    | `Django ORM`            | `Djongo`             |
-| **Go** v1.25.6      | **Chi** v5.2.0       | 5001 | ✅ Done           | `pgx` (Raw)             | `mongo-go-driver`    |
-| **Go** v1.25.6      | **Gin** v1.10.0      | 5002 | ✅ Done           | `GORM`                  | `mongo-go-driver`    |
-| **Go** v1.25.6      | **Fiber** v2.52.5    | 5003 | ✅ Done           | `sqlc`                  | `mongo-go-driver`    |
-| **Go** v1.25.6      | **Echo** v4.13.3     | 5004 | 🚧 In Progress    | `bun`                   | `mongo-go-driver`    |
+| Language / Runtime  | Framework            | Port | Status         | PostgreSQL (Driver/ORM) | MongoDB (Driver/ODM) |
+| ------------------- | -------------------- | ---- | -------------- | ----------------------- | -------------------- |
+| **Node.js** v25.3.0 | **Express** v5.0.1   | 3001 | ✅ Done        | `pg` (Raw)              | `mongoose`           |
+| **Node.js** v25.3.0 | **NestJS** v10.4.15  | 3002 | ✅ Done        | `TypeORM`               | `mongoose`           |
+| **Node.js** v25.3.0 | **Fastify** v5.2.0   | 3003 | ✅ Done        | `prisma`                | `mongodb`            |
+| **Deno** v2.6.5     | **Oak** v17.1.3      | 3004 | ✅ Done        | `postgres.js`           | `mongodb`            |
+| **Bun** v1.3.6      | **Hono** v4.6.14     | 3005 | ✅ Done        | `drizzle-orm`           | `mongoose`           |
+| **Bun** v1.3.6      | **Elysia** v1.1.26   | 3006 | ✅ Done        | `bun:sql`               | `mongoose`           |
+| **Python** v3.14.2  | **FastAPI** v0.115.6 | 4001 | ✅ Done        | `SQLAlchemy` (Async)    | `Motor` + `Beanie`   |
+| **Python** v3.14.2  | **Flask** v3.1.0     | 4002 | 🚧 In Progress | `SQLAlchemy` (Core)     | `PyMongo`            |
+| **Python** v3.14.2  | **Django** v5.1.4    | 4003 | 🚧 In Progress | `Django ORM`            | `Djongo`             |
+| **Go** v1.25.6      | **Chi** v5.2.0       | 5001 | ✅ Done        | `pgx` (Raw)             | `mongo-go-driver`    |
+| **Go** v1.25.6      | **Gin** v1.10.0      | 5002 | ✅ Done        | `GORM`                  | `mongo-go-driver`    |
+| **Go** v1.25.6      | **Fiber** v2.52.5    | 5003 | ✅ Done        | `sqlc`                  | `mongo-go-driver`    |
+| **Go** v1.25.6      | **Echo** v4.13.3     | 5004 | 🚧 In Progress | `bun`                   | `mongo-go-driver`    |
 
 ## Requirements
 

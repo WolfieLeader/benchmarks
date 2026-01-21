@@ -11,16 +11,60 @@ import (
 
 type Id string
 
-// TODO: Limit resources (CPU, Memory) for container
+// StartOptions contains configuration for starting a container
+type StartOptions struct {
+	Image       string // Docker image name
+	Port        int    // Container's internal port (e.g., 3005)
+	HostPort    int    // Host port to map to (default: 8080)
+	CPULimit    string // CPU limit (e.g., "1.0" for 1 CPU, "0.5" for half)
+	MemoryLimit string // Memory limit (e.g., "512m", "1g")
+}
 
+// Start starts a container with default options (backward compatible)
+// Deprecated: Use StartWithOptions for new code
 func Start(ctx context.Context, timeout time.Duration, image string) (Id, error) {
+	return StartWithOptions(ctx, timeout, StartOptions{
+		Image:    image,
+		Port:     8080,
+		HostPort: 8080,
+	})
+}
+
+// StartWithOptions starts a container with the specified options
+// Returns the container ID and the actual host port used
+func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOptions) (Id, error) {
 	startCtx, startCancel := context.WithTimeout(ctx, timeout)
 	defer startCancel()
 
-	cmd := exec.CommandContext(startCtx, "docker", "run", "-d", "--rm", "-p", "8080:8080", image)
+	// Build docker run arguments
+	args := []string{"run", "-d", "--rm"}
+
+	// Port mapping
+	hostPort := opts.HostPort
+	if hostPort == 0 {
+		hostPort = 8080
+	}
+	containerPort := opts.Port
+	if containerPort == 0 {
+		containerPort = 8080
+	}
+	args = append(args, "-p", fmt.Sprintf("%d:%d", hostPort, containerPort))
+
+	// Resource limits
+	if opts.CPULimit != "" {
+		args = append(args, "--cpus="+opts.CPULimit)
+	}
+	if opts.MemoryLimit != "" {
+		args = append(args, "--memory="+opts.MemoryLimit)
+	}
+
+	// Image name
+	args = append(args, opts.Image)
+
+	cmd := exec.CommandContext(startCtx, "docker", args...)
 	out, err := cmd.CombinedOutput() // stdout + stderr
 	if err != nil {
-		return "", fmt.Errorf("- Docker run %s failed: %v,\noutput: %s", image, err, out)
+		return "", fmt.Errorf("- Docker run %s failed: %v,\noutput: %s", opts.Image, err, out)
 	}
 
 	id := strings.TrimSpace(string(out))
@@ -28,7 +72,6 @@ func Start(ctx context.Context, timeout time.Duration, image string) (Id, error)
 		id = id[:12]
 	}
 	return Id(id), nil
-
 }
 
 func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
