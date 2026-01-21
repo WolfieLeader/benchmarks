@@ -1,10 +1,15 @@
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import multer from "multer";
-
-const MAX_REQUEST_BYTES = 10 * 1024 * 1024; // 10 MB
-const MAX_FILE_BYTES = 1 << 20; // 1MB
-const SNIFF_LEN = 512;
-const NULL_BYTE = 0x00;
+import { MAX_FILE_BYTES, MAX_REQUEST_BYTES, NULL_BYTE, SNIFF_LEN, DEFAULT_LIMIT } from "../consts/defaults";
+import {
+  INVALID_JSON_BODY,
+  INVALID_FORM_DATA,
+  INVALID_MULTIPART,
+  FILE_NOT_FOUND,
+  FILE_SIZE_EXCEEDS,
+  ONLY_TEXT_PLAIN,
+  FILE_NOT_TEXT,
+} from "../consts/errors";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -24,7 +29,7 @@ paramsRouter.get("/search", (req: Request, res: Response) => {
   const limitValue = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
   const limitStr = typeof limitValue === "string" ? limitValue : undefined;
   const limitNum = Number(limitStr);
-  const limit = limitStr !== undefined && !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : 10;
+  const limit = limitStr !== undefined && !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
   res.json({ search: q, limit });
 });
@@ -42,7 +47,7 @@ paramsRouter.post("/body", (req: Request, res: Response) => {
   const body = req.body;
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    res.status(400).json({ error: "invalid JSON body" });
+    res.status(400).json({ error: INVALID_JSON_BODY });
     return;
   }
 
@@ -58,7 +63,7 @@ paramsRouter.get("/cookie", (req: Request, res: Response) => {
 function handleForm(req: Request, res: Response) {
   const body = req.body;
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    res.status(400).json({ error: "invalid form data" });
+    res.status(400).json({ error: INVALID_FORM_DATA });
     return;
   }
 
@@ -66,7 +71,7 @@ function handleForm(req: Request, res: Response) {
 
   const ageStr = typeof body.age === "string" ? body.age.trim() : "0";
   const ageNum = Number(ageStr);
-  const age = !ageStr.includes(".") && Number.isSafeInteger(ageNum) ? ageNum : 0;
+  const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
   res.json({ name, age });
 }
@@ -74,14 +79,14 @@ function handleForm(req: Request, res: Response) {
 paramsRouter.post("/form", (req: Request, res: Response) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
-    res.status(400).json({ error: "invalid form data" });
+    res.status(400).json({ error: INVALID_FORM_DATA });
     return;
   }
 
   if (req.is("multipart/form-data")) {
     formParser(req, res, (err?: unknown) => {
       if (err) {
-        res.status(400).json({ error: "invalid form data" });
+        res.status(400).json({ error: INVALID_FORM_DATA });
         return;
       }
       handleForm(req, res);
@@ -95,7 +100,7 @@ paramsRouter.post("/form", (req: Request, res: Response) => {
 paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
-    res.status(400).json({ error: "invalid multipart form data" });
+    res.status(400).json({ error: INVALID_MULTIPART });
     return;
   }
 
@@ -107,28 +112,28 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
 
     const file = req.file;
     if (!file) {
-      res.status(400).json({ error: "file not found in form data" });
+      res.status(400).json({ error: FILE_NOT_FOUND });
       return;
     }
 
     if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
-      res.status(415).json({ error: "only text/plain files are allowed" });
+      res.status(415).json({ error: ONLY_TEXT_PLAIN });
       return;
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      res.status(413).json({ error: "file size exceeds limit" });
+      res.status(413).json({ error: FILE_SIZE_EXCEEDS });
       return;
     }
 
     const head = file.buffer.subarray(0, SNIFF_LEN);
     if (head.includes(NULL_BYTE)) {
-      res.status(415).json({ error: "file does not look like plain text" });
+      res.status(415).json({ error: FILE_NOT_TEXT });
       return;
     }
 
     if (file.buffer.includes(NULL_BYTE)) {
-      res.status(415).json({ error: "file does not look like plain text" });
+      res.status(415).json({ error: FILE_NOT_TEXT });
       return;
     }
 
@@ -137,7 +142,7 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
       const decoder = new TextDecoder("utf-8", { fatal: true });
       content = decoder.decode(file.buffer);
     } catch {
-      res.status(415).json({ error: "file does not look like plain text" });
+      res.status(415).json({ error: FILE_NOT_TEXT });
       return;
     }
 

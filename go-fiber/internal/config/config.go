@@ -1,4 +1,4 @@
-package app
+package config
 
 import (
 	"log"
@@ -19,7 +19,7 @@ type Env struct {
 const (
 	defaultEnv  = "dev"
 	defaultHost = "0.0.0.0"
-	defaultPort = 5002
+	defaultPort = 5003
 )
 
 func LoadEnv() *Env {

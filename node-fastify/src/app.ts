@@ -3,37 +3,45 @@ import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart, { type MultipartFile } from "@fastify/multipart";
 import { paramsRoutes } from "./routes/params";
-import { env } from "./env";
-
-export const MAX_FILE_BYTES = 1 << 20; // 1MB
-export const SNIFF_LEN = 512;
-export const NULL_BYTE = 0x00;
+import { env } from "./config/env";
+import { NOT_FOUND, INTERNAL_ERROR } from "./consts/errors";
+import { MAX_FILE_BYTES } from "./consts/defaults";
 
 export type FormFields = Record<string, string>;
 
 export async function createApp(): Promise<FastifyInstance> {
-  const app = fastify({ logger: env.ENV !== "prod" });
+  const app = fastify({ logger: false });
 
   await app.register(cookie);
   await app.register(formbody);
   await app.register(multipart, { limits: { fileSize: MAX_FILE_BYTES } });
 
-  app.get("/", async (_request, reply) => {
-    reply.send({ message: "Hello, World!" });
-  });
+  if (env.ENV !== "prod") {
+    app.addHook("onRequest", async (request) => {
+      (request as any).startTime = Date.now();
+      console.log(`<-- ${request.method} ${request.url}`);
+    });
 
-  app.get("/health", async (_request, reply) => {
-    reply.type("text/plain").send("OK");
-  });
+    app.addHook("onResponse", async (request, reply) => {
+      const start = (request as any).startTime ?? Date.now();
+      const ms = Date.now() - start;
+      console.log(`--> ${request.method} ${request.url} ${reply.statusCode} ${ms}ms`);
+    });
+  }
+
+  app.get("/", async () => ({ message: "Hello, World!" }));
+  app.get("/health", async () => "OK");
 
   await app.register(paramsRoutes, { prefix: "/params" });
 
   app.setNotFoundHandler(async (_req, reply) => {
-    reply.code(404).send({ error: "not found" });
+    reply.code(404);
+    return { error: NOT_FOUND };
   });
 
-  app.setErrorHandler(async (error, _request, reply) => {
-    reply.code(500).send({ error: error.message || "internal error" });
+  app.setErrorHandler(async (error, _req, reply) => {
+    reply.code(500);
+    return { error: (error as Error).message || INTERNAL_ERROR };
   });
 
   return app;

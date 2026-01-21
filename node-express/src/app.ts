@@ -3,9 +3,9 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import { MulterError } from "multer";
 import { paramsRouter } from "./routes/params";
-import { env } from "./env";
-
-const MAX_REQUEST_BYTES = 10 * 1024 * 1024; // 10 MB
+import { env } from "./config/env";
+import { NOT_FOUND, FILE_TOO_LARGE, INVALID_MULTIPART, INVALID_JSON_BODY, INTERNAL_ERROR } from "./consts/errors";
+import { MAX_REQUEST_BYTES } from "./consts/defaults";
 
 export function createApp(): express.Express {
   const app = express();
@@ -30,27 +30,27 @@ export function createApp(): express.Express {
   app.use("/params", paramsRouter);
 
   app.use((_req: Request, res: Response) => {
-    res.status(404).json({ error: "not found" });
+    res.status(404).json({ error: NOT_FOUND });
   });
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
-      res.status(413).json({ error: "file size exceeds limit" });
+      res.status(413).json({ error: FILE_TOO_LARGE });
       return;
     }
 
     if (err instanceof MulterError) {
-      res.status(400).json({ error: "invalid multipart form data" });
+      res.status(400).json({ error: INVALID_MULTIPART });
       return;
     }
 
     if (err instanceof SyntaxError && (err as { status?: number }).status === 400 && "body" in err) {
-      res.status(400).json({ error: "invalid JSON body" });
+      res.status(400).json({ error: INVALID_JSON_BODY });
       return;
     }
 
-    const message = err instanceof Error ? err.message : "internal error";
-    res.status(500).json({ error: message || "internal error" });
+    const message = err instanceof Error ? err.message : INTERNAL_ERROR;
+    res.status(500).json({ error: message || INTERNAL_ERROR });
   });
 
   return app;

@@ -1,5 +1,5 @@
 import { createApp } from "./app";
-import { env } from "./env";
+import { env } from "./config/env";
 
 async function main() {
   const app = await createApp();

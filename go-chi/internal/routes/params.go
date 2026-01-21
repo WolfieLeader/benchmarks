@@ -3,7 +3,7 @@ package routes
 import (
 	"bufio"
 	"cmp"
-	"encoding/json/v2"
+	"encoding/json"
 	"io"
 	"net/http"
 	"slices"
@@ -11,15 +11,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"chi-server/internal/consts"
 	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"
-)
-
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
 )
 
 func RegisterParams(r chi.Router) {
@@ -37,7 +32,7 @@ func handleSearchParams(w http.ResponseWriter, r *http.Request) {
 
 	q := cmp.Or(strings.TrimSpace(query.Get("q")), "none")
 
-	limit := 10
+	limit := consts.DefaultLimit
 	limitStr := query.Get("limit")
 	if limitStr != "" && !strings.Contains(limitStr, ".") {
 		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
@@ -62,8 +57,8 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var body map[string]any
-	if err := json.UnmarshalRead(r.Body, &body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid JSON body", nil)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
 		return
 	}
 
@@ -71,11 +66,13 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCookieParams(w http.ResponseWriter, r *http.Request) {
-	cookieStr, err := r.Cookie("foo")
+	cookieVal, err := r.Cookie("foo")
 
 	cookie := "none"
-	if trimmed := strings.TrimSpace(cookieStr.Value); err == nil && trimmed != "" {
-		cookie = trimmed
+	if err == nil && cookieVal != nil {
+		if trimmed := strings.TrimSpace(cookieVal.Value); trimmed != "" {
+			cookie = trimmed
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
@@ -87,12 +84,12 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(w, http.StatusBadRequest, "invalid form data", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid form data", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm)
 		return
 	}
 
@@ -100,7 +97,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 
 	age := 0
 	ageStr := strings.TrimSpace(r.FormValue("age"))
-	if ageStr != "" && !strings.Contains(ageStr, ".") {
+	if ageStr != "" {
 		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
 			age = int(n)
 		}
@@ -114,56 +111,56 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(w, http.StatusBadRequest, "invalid multipart form data", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart)
 		return
 	}
 
-	if err := r.ParseMultipartForm(maxFileBytes); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid multipart form data", nil)
+	if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart)
 		return
 	}
 
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "file not found in form data", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrFileNotFound)
 		return
 	}
 	defer file.Close()
 
 	br := bufio.NewReader(file)
 
-	head, err := br.Peek(sniffLen)
+	head, err := br.Peek(consts.SniffLen)
 	if err != nil && err != io.EOF {
-		utils.WriteError(w, http.StatusBadRequest, "unable to read file", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		utils.WriteError(w, http.StatusUnsupportedMediaType, "only text/plain files are allowed", nil)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
 		return
 	}
 
-	if slices.Contains(head, nullByte) {
-		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
+	if slices.Contains(head, consts.NullByte) {
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 
-	limited := io.LimitReader(br, maxFileBytes+1)
+	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "unable to read file content", nil)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
-	if int64(len(data)) > maxFileBytes {
-		utils.WriteError(w, http.StatusRequestEntityTooLarge, "file size exceeds limit", nil)
+	if int64(len(data)) > consts.MaxFileBytes {
+		utils.WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
 		return
 	}
-	if slices.Contains(data, nullByte) {
-		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
+	if slices.Contains(data, consts.NullByte) {
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 	if !utf8.Valid(data) {
-		utils.WriteError(w, http.StatusUnsupportedMediaType, "file does not look like plain text", nil)
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 

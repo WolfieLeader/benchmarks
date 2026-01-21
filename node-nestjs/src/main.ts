@@ -1,12 +1,12 @@
-import "reflect-metadata";
 import cookieParser from "cookie-parser";
 import express from "express";
 import morgan from "morgan";
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe, NotFoundException, HttpException } from "@nestjs/common";
+import { NotFoundException, HttpException } from "@nestjs/common";
 
 import { AppModule } from "./app.module";
-import { env } from "./env";
+import { env } from "./config/env";
+import { NOT_FOUND, INTERNAL_ERROR } from "./consts/errors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,20 +19,13 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: false,
-      transform: true,
-    }),
-  );
-
   app.useGlobalFilters({
     catch(exception: unknown, host: any) {
       const ctx = host.switchToHttp();
       const response = ctx.getResponse();
 
       if (exception instanceof NotFoundException) {
-        response.status(404).json({ error: "not found" });
+        response.status(404).json({ error: NOT_FOUND });
         return;
       }
 
@@ -47,8 +40,8 @@ async function bootstrap() {
         return;
       }
 
-      const message = exception instanceof Error ? exception.message : "internal error";
-      response.status(500).json({ error: message || "internal error" });
+      const message = exception instanceof Error ? exception.message : INTERNAL_ERROR;
+      response.status(500).json({ error: message || INTERNAL_ERROR });
     },
   });
 

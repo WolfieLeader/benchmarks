@@ -28,6 +28,8 @@ Thumbs.db
 # ============================================
 # AI / Code Agents
 # ============================================
+agents.md
+
 # Claude
 .claude/
 .claudeignore

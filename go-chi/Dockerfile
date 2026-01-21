@@ -8,8 +8,7 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 \
-    GOOS=linux \
-    GOEXPERIMENT=jsonv2
+    GOOS=linux
 
 RUN go build -trimpath -ldflags="-s -w" -o server ./cmd/main.go
 

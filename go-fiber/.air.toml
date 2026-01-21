@@ -5,7 +5,7 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  cmd = "GOEXPERIMENT=jsonv2 go build -o ./tmp/server ./cmd/main.go"
+  cmd = "go build -o ./tmp/server ./cmd/main.go"
   delay = 200
   entrypoint = ["./tmp/server"]
   exclude_dir = ["assets", "tmp", "vendor", "testdata", ".git"]

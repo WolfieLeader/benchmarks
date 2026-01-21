@@ -1,7 +1,8 @@
 package app
 
 import (
-	"encoding/json/v2"
+	"encoding/json"
+	"fiber-server/internal/config"
 	"fiber-server/internal/routes"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,7 +11,7 @@ import (
 )
 
 type App struct {
-	env    *Env
+	env    *config.Env
 	router *fiber.App
 }
 
@@ -20,7 +21,7 @@ func New() *App {
 		JSONDecoder: func(data []byte, v any) error { return json.Unmarshal(data, v) },
 	})
 
-	env := LoadEnv()
+	env := config.LoadEnv()
 
 	if env.ENV != "prod" {
 		r.Use(logger.New())

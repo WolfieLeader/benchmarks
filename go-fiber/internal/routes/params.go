@@ -3,6 +3,8 @@ package routes
 import (
 	"bufio"
 	"cmp"
+	"fiber-server/internal/consts"
+	"fiber-server/internal/utils"
 	"io"
 	"net/http"
 	"slices"
@@ -11,12 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v2"
-)
-
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
 )
 
 func RegisterParams(r fiber.Router) {
@@ -32,7 +28,7 @@ func RegisterParams(r fiber.Router) {
 func handleSearchParams(c *fiber.Ctx) error {
 	q := cmp.Or(strings.TrimSpace(c.Query("q")), "none")
 
-	limit := 10
+	limit := consts.DefaultLimit
 	limitStr := c.Query("limit")
 	if limitStr != "" && !strings.Contains(limitStr, ".") {
 		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
@@ -40,103 +36,103 @@ func handleSearchParams(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(fiber.Map{"search": q, "limit": limit})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"search": q, "limit": limit})
 }
 
 func handleUrlParams(c *fiber.Ctx) error {
 	dynamic := c.Params("dynamic")
-	return c.JSON(fiber.Map{"dynamic": dynamic})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"dynamic": dynamic})
 }
 
 func handleHeaderParams(c *fiber.Ctx) error {
 	header := cmp.Or(strings.TrimSpace(c.Get("X-Custom-Header")), "none")
-	return c.JSON(fiber.Map{"header": header})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"header": header})
 }
 
 func handleBodyParams(c *fiber.Ctx) error {
 	var body map[string]any
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON)
 	}
-	return c.JSON(fiber.Map{"body": body})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"body": body})
 }
 
 func handleCookieParams(c *fiber.Ctx) error {
 	cookie := cmp.Or(strings.TrimSpace(c.Cookies("foo")), "none")
 	c.Cookie(&fiber.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HTTPOnly: true, Path: "/"})
-	return c.JSON(fiber.Map{"cookie": cookie})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"cookie": cookie})
 }
 
 func handleFormParams(c *fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid form data"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidForm)
 	}
 
 	name := cmp.Or(strings.TrimSpace(c.FormValue("name")), "none")
 
 	age := 0
 	ageStr := strings.TrimSpace(c.FormValue("age"))
-	if ageStr != "" && !strings.Contains(ageStr, ".") {
+	if ageStr != "" {
 		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
 			age = int(n)
 		}
 	}
 
-	return c.JSON(fiber.Map{"name": name, "age": age})
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"name": name, "age": age})
 }
 
 func handleFileParams(c *fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "multipart/form-data") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid multipart form data"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidMultipart)
 	}
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file not found in form data"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrFileNotFound)
 	}
-	if fileHeader.Size > maxFileBytes {
-		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "file size exceeds limit"})
+	if fileHeader.Size > consts.MaxFileBytes {
+		return utils.WriteError(c, fiber.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to open uploaded file"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
 	}
 	defer file.Close()
 
 	br := bufio.NewReader(file)
 
-	head, err := br.Peek(sniffLen)
+	head, err := br.Peek(consts.SniffLen)
 	if err != nil && err != io.EOF {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to read file"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "only text/plain files are allowed"})
+		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
 	}
 
-	if slices.Contains(head, nullByte) {
-		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
+	if slices.Contains(head, consts.NullByte) {
+		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 	}
 
-	limited := io.LimitReader(br, maxFileBytes+1)
+	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "unable to read file content"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
 	}
-	if int64(len(data)) > maxFileBytes {
-		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "file size exceeds limit"})
+	if int64(len(data)) > consts.MaxFileBytes {
+		return utils.WriteError(c, fiber.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
 	}
-	if slices.Contains(data, nullByte) {
-		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
+	if slices.Contains(data, consts.NullByte) {
+		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 	}
 	if !utf8.Valid(data) {
-		return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{"error": "file does not look like plain text"})
+		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 	}
 
-	return c.JSON(fiber.Map{
+	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{
 		"filename": fileHeader.Filename,
 		"size":     len(data),
 		"content":  string(data),

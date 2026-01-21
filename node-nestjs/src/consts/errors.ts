@@ -1,0 +1,9 @@
+export const INVALID_JSON_BODY = "invalid JSON body";
+export const INVALID_FORM_DATA = "invalid form data";
+export const INVALID_MULTIPART = "invalid multipart form data";
+export const FILE_NOT_FOUND = "file not found in form data";
+export const NOT_FOUND = "not found";
+export const FILE_SIZE_EXCEEDS = "file size exceeds limit";
+export const ONLY_TEXT_PLAIN = "only text/plain files are allowed";
+export const FILE_NOT_TEXT = "file does not look like plain text";
+export const INTERNAL_ERROR = "internal error";

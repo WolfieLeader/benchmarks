@@ -1,6 +1,8 @@
 package app
 
 import (
+	"chi-server/internal/config"
+	"chi-server/internal/consts"
 	"chi-server/internal/routes"
 	"chi-server/internal/utils"
 	"net/http"
@@ -10,14 +12,14 @@ import (
 )
 
 type App struct {
-	env    *Env
+	env    *config.Env
 	router *chi.Mux
 }
 
 func New() *App {
 	r := chi.NewRouter()
 
-	env := LoadEnv()
+	env := config.LoadEnv()
 
 	if env.ENV != "prod" {
 		r.Use(middleware.Logger)
@@ -37,7 +39,7 @@ func New() *App {
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		utils.WriteError(w, http.StatusNotFound, "not found", nil)
+		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)
 	})
 
 	return &App{env: env, router: r}

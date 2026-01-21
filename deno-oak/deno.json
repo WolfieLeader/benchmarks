@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "dev": "deno run --watch --allow-all src/index.ts",
+    "start": "deno run --allow-all src/index.ts"
+  },
+  "imports": {
+    "@oak/oak": "jsr:@oak/oak@^17.2.0",
+    "zod": "npm:zod@^4.3.5"
+  },
+  "nodeModulesDir": "auto"
+}

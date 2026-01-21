@@ -4,7 +4,7 @@ import (
 	"benchmark-client/internal/utils"
 	"cmp"
 	"context"
-	"encoding/json/v2"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"

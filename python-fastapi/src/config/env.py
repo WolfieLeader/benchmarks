@@ -26,6 +26,12 @@ class Env(BaseModel):
     HOST: str = "0.0.0.0"
     PORT: int = 4001
 
+    @field_validator("HOST", mode="before")
+    @classmethod
+    def normalize_host(cls, value: str | None) -> str:
+        trimmed = (value or "").strip()
+        return trimmed or "0.0.0.0"
+
     @field_validator("HOST")
     @classmethod
     def validate_host(cls, value: str) -> str:
@@ -40,11 +46,27 @@ class Env(BaseModel):
             return value
         raise ValueError("HOST must be a valid URL, IP, or 'localhost'")
 
+    @field_validator("PORT", mode="before")
+    @classmethod
+    def parse_port(cls, value: str | int | None) -> int:
+        if value is None:
+            raise ValueError("PORT must be an integer between 1 and 65535")
+        if isinstance(value, str):
+            value = value.strip()
+            if value == "":
+                raise ValueError("PORT must be an integer between 1 and 65535")
+            if not value.isdigit():
+                raise ValueError("PORT must be an integer between 1 and 65535")
+            value = int(value)
+        if not isinstance(value, int):
+            raise ValueError("PORT must be an integer between 1 and 65535")
+        return value
+
     @field_validator("PORT")
     @classmethod
     def validate_port(cls, value: int) -> int:
         if value < 1 or value > 65535:
-            raise ValueError("PORT must be between 1 and 65535")
+            raise ValueError("PORT must be an integer between 1 and 65535")
         return value
 
 

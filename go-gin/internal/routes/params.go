@@ -3,6 +3,8 @@ package routes
 import (
 	"bufio"
 	"cmp"
+	"gin-server/internal/consts"
+	"gin-server/internal/utils"
 	"io"
 	"net/http"
 	"slices"
@@ -11,12 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-)
-
-const (
-	maxFileBytes = 1 << 20 // 1MB
-	sniffLen     = 512
-	nullByte     = 0x00
 )
 
 func RegisterParams(r *gin.RouterGroup) {
@@ -32,7 +28,7 @@ func RegisterParams(r *gin.RouterGroup) {
 func handleSearchParams(c *gin.Context) {
 	q := cmp.Or(strings.TrimSpace(c.Query("q")), "none")
 
-	limit := 10
+	limit := consts.DefaultLimit
 	limitStr := c.Query("limit")
 	if limitStr != "" && !strings.Contains(limitStr, ".") {
 		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
@@ -40,26 +36,26 @@ func handleSearchParams(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, gin.H{"search": q, "limit": limit})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"search": q, "limit": limit})
 }
 
 func handleUrlParams(c *gin.Context) {
 	dynamic := c.Param("dynamic")
-	c.JSON(200, gin.H{"dynamic": dynamic})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"dynamic": dynamic})
 }
 
 func handleHeaderParams(c *gin.Context) {
 	header := cmp.Or(strings.TrimSpace(c.GetHeader("X-Custom-Header")), "none")
-	c.JSON(200, gin.H{"header": header})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"header": header})
 }
 
 func handleBodyParams(c *gin.Context) {
 	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON body"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON)
 		return
 	}
-	c.JSON(200, gin.H{"body": body})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"body": body})
 }
 
 func handleCookieParams(c *gin.Context) {
@@ -67,17 +63,17 @@ func handleCookieParams(c *gin.Context) {
 
 	cookie := "none"
 	if trimmed := strings.TrimSpace(cookieStr); err == nil && trimmed != "" {
-		cookieStr = trimmed
+		cookie = trimmed
 	}
 
 	c.SetCookie("bar", "12345", 10, "/", "", false, true)
-	c.JSON(200, gin.H{"cookie": cookie})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"cookie": cookie})
 }
 
 func handleFormParams(c *gin.Context) {
 	contentType := strings.ToLower(c.GetHeader("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form data"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidForm)
 		return
 	}
 
@@ -85,77 +81,77 @@ func handleFormParams(c *gin.Context) {
 
 	age := 0
 	ageStr := strings.TrimSpace(c.PostForm("age"))
-	if ageStr != "" && !strings.Contains(ageStr, ".") {
+	if ageStr != "" {
 		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
 			age = int(n)
 		}
 	}
 
-	c.JSON(200, gin.H{"name": name, "age": age})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"name": name, "age": age})
 }
 
 func handleFileParams(c *gin.Context) {
 	contentType := strings.ToLower(c.GetHeader("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart form data"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidMultipart)
 		return
 	}
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file not found in form data"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrFileNotFound)
 		return
 	}
-	if fileHeader.Size > maxFileBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file size exceeds limit"})
+	if fileHeader.Size > consts.MaxFileBytes {
+		utils.WriteError(c, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
 		return
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to open uploaded file"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
 	defer file.Close()
 
 	br := bufio.NewReader(file)
 
-	head, err := br.Peek(sniffLen)
+	head, err := br.Peek(consts.SniffLen)
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read file"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "only text/plain files are allowed"})
+		utils.WriteError(c, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
 		return
 	}
 
-	if slices.Contains(head, nullByte) {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
+	if slices.Contains(head, consts.NullByte) {
+		utils.WriteError(c, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 
-	limited := io.LimitReader(br, maxFileBytes+1)
+	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read file content"})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
-	if int64(len(data)) > maxFileBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file size exceeds limit"})
+	if int64(len(data)) > consts.MaxFileBytes {
+		utils.WriteError(c, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
 		return
 	}
-	if slices.Contains(data, nullByte) {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
+	if slices.Contains(data, consts.NullByte) {
+		utils.WriteError(c, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 	if !utf8.Valid(data) {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "file does not look like plain text"})
+		utils.WriteError(c, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.WriteResponse(c, http.StatusOK, gin.H{
 		"filename": fileHeader.Filename,
 		"size":     len(data),
 		"content":  string(data),

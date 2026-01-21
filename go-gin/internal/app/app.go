@@ -1,20 +1,22 @@
 package app
 
 import (
+	"gin-server/internal/config"
+	"gin-server/internal/consts"
 	"gin-server/internal/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
 type App struct {
-	env    *Env
+	env    *config.Env
 	router *gin.Engine
 }
 
 func New() *App {
 	r := gin.New()
 
-	env := LoadEnv()
+	env := config.LoadEnv()
 
 	if env.ENV != "prod" {
 		r.Use(gin.Logger())
@@ -30,7 +32,7 @@ func New() *App {
 	routes.RegisterParams(r.Group("/params"))
 
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"error": "not found"})
+		c.JSON(404, gin.H{"error": consts.ErrNotFound})
 	})
 
 	return &App{env: env, router: r}
