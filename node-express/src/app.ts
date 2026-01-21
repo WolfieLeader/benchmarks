@@ -4,7 +4,7 @@ import morgan from "morgan";
 import { MulterError } from "multer";
 import { paramsRouter } from "./routes/params";
 import { env } from "./config/env";
-import { NOT_FOUND, FILE_TOO_LARGE, INVALID_MULTIPART, INVALID_JSON_BODY, INTERNAL_ERROR } from "./consts/errors";
+import { NOT_FOUND, FILE_SIZE_EXCEEDS, INVALID_MULTIPART, INVALID_JSON_BODY, INTERNAL_ERROR } from "./consts/errors";
 import { MAX_REQUEST_BYTES } from "./consts/defaults";
 
 export function createApp(): express.Express {
@@ -35,7 +35,7 @@ export function createApp(): express.Express {
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
-      res.status(413).json({ error: FILE_TOO_LARGE });
+      res.status(413).json({ error: FILE_SIZE_EXCEEDS });
       return;
     }
 
