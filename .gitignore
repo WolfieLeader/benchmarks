@@ -26,6 +26,29 @@ Thumbs.db
 *.sublime-workspace
 
 # ============================================
+# AI / Code Agents
+# ============================================
+# Claude
+.claude/
+.claudeignore
+CLAUDE.md
+claude.md
+
+# Gemini
+gemini.md
+gemini.*
+
+# Cursor
+.cursor/
+.cursorignore
+cursor-tmp-*
+
+# GitHub Copilot
+.copilot/
+.copilot-instructions.md
+.github/copilot-instructions.md
+
+# ============================================
 # Python
 # ============================================
 # Virtual environments
