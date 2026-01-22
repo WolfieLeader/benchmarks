@@ -1,12 +1,12 @@
 package results
 
 import (
+	"benchmark-client/internal/client"
 	"fmt"
 	"slices"
 	"time"
 )
 
-// PrintServerSummary outputs a summary for a single server result.
 func PrintServerSummary(result *ServerResult) {
 	if result.Error != "" {
 		fmt.Printf("  FAILED: %s\n\n", result.Error)
@@ -14,85 +14,105 @@ func PrintServerSummary(result *ServerResult) {
 	}
 
 	fmt.Printf("  Duration: %s\n", result.Duration)
-
-	if result.OverallStats != nil {
-		stats := result.OverallStats
-		fmt.Printf("  Endpoints tested: %d\n", stats.EndpointCount)
-		fmt.Printf("  Total requests: %d (success: %.2f%%)\n",
-			stats.TotalRequests, stats.SuccessRate*100)
-		fmt.Printf("  Latency - Avg: %s, Min: %s, Max: %s\n",
-			stats.AvgLatency, stats.MinLatency, stats.MaxLatency)
-		fmt.Printf("  Latency - P50: %s, P95: %s, P99: %s\n",
-			stats.P50Latency, stats.P95Latency, stats.P99Latency)
-	}
-
+	fmt.Printf("  Endpoints tested: %d\n", len(result.Endpoints))
 	fmt.Println("  Endpoints:")
 	for _, ep := range result.Endpoints {
-		status := "OK"
-		if ep.Error != "" {
-			status = "FAILED"
-		} else if ep.Stats != nil && ep.Stats.SuccessRate < 1.0 {
-			status = fmt.Sprintf("%.0f%%", ep.Stats.SuccessRate*100)
-		}
-		fmt.Printf("    %s %s [%s]\n", ep.Method, ep.Path, status)
+		status := formatStatus(ep.Error, ep.Stats)
+		avg := "-"
+		note := ""
+		lastErr := ""
 		if ep.Stats != nil {
-			fmt.Printf("      Avg: %s | P50: %s | P95: %s | P99: %s | Min: %s | Max: %s\n",
-				ep.Stats.Avg, ep.Stats.P50, ep.Stats.P95, ep.Stats.P99, ep.Stats.Low, ep.Stats.High)
+			avg = formatDurationMs(ep.Stats.Avg)
+			if ep.FailureCount > 0 {
+				note = fmt.Sprintf("fail %d", ep.FailureCount)
+				lastErr = ep.LastError
+			}
+		} else if ep.Error != "" {
+			note = "failed"
+			lastErr = ep.Error
+		} else {
+			note = "no stats"
+		}
+
+		fmt.Printf("    %-6s %-30s %6s  %8s", ep.Method, ep.Path, status, avg)
+		if note != "" {
+			fmt.Printf("  %s", note)
+		}
+		fmt.Println()
+		if lastErr != "" {
+			fmt.Printf("      last error: %s\n", truncate(lastErr, 160))
 		}
 	}
 	fmt.Println()
 }
 
-// PrintFinalSummary outputs the overall benchmark summary.
 func PrintFinalSummary(results *BenchmarkResults) {
 	fmt.Println("\n=== Benchmark Summary ===")
 	fmt.Printf("Total servers: %d\n", results.Summary.TotalServers)
 	fmt.Printf("Successful: %d\n", results.Summary.SuccessfulServers)
 	fmt.Printf("Failed: %d\n", results.Summary.FailedServers)
-	fmt.Printf("Total duration: %s\n", results.Summary.TotalDuration)
+	fmt.Printf("Total duration: %s\n", time.Duration(results.Summary.TotalDurationMs)*time.Millisecond)
 
 	type rankedServer struct {
-		Name       string
-		AvgLatency int64
-		P50Latency int64
-		P95Latency int64
-		P99Latency int64
+		name string
+		avg  int64
+		p50  int64
+		p95  int64
+		p99  int64
 	}
 
 	ranked := make([]rankedServer, 0)
 	for _, s := range results.Servers {
-		if s.Error == "" && s.OverallStats != nil {
-			ranked = append(ranked, rankedServer{
-				Name:       s.Name,
-				AvgLatency: s.OverallStats.AvgLatencyNs,
-				P50Latency: s.OverallStats.P50LatencyNs,
-				P95Latency: s.OverallStats.P95LatencyNs,
-				P99Latency: s.OverallStats.P99LatencyNs,
-			})
+		if s.Error == "" && s.Stats != nil {
+			ranked = append(ranked, rankedServer{name: s.Name, avg: s.Stats.AvgNs, p50: s.Stats.P50Ns, p95: s.Stats.P95Ns, p99: s.Stats.P99Ns})
 		}
 	}
 
 	if len(ranked) > 0 {
 		slices.SortFunc(ranked, func(a, b rankedServer) int {
-			if a.AvgLatency < b.AvgLatency {
+			if a.avg < b.avg {
 				return -1
 			}
-			if a.AvgLatency > b.AvgLatency {
+			if a.avg > b.avg {
 				return 1
 			}
 			return 0
 		})
 
-		fmt.Println("\n=== Server Rankings (by avg latency) ===")
+		fmt.Println("\n========= Server Rankings (by avg latency) =========")
+		fmt.Println("  #  Server          Avg      P50      P95      P99")
+		fmt.Println("  -- -------------- ------- ------- ------- -------")
 		for i, s := range ranked {
-			fmt.Printf("  %d. %s - Avg: %s | P50: %s | P95: %s | P99: %s\n",
+			fmt.Printf("  %-2d %-14s %7s %7s %7s %7s\n",
 				i+1,
-				s.Name,
-				time.Duration(s.AvgLatency).String(),
-				time.Duration(s.P50Latency).String(),
-				time.Duration(s.P95Latency).String(),
-				time.Duration(s.P99Latency).String(),
-			)
+				s.name,
+				formatDurationMs(s.avg),
+				formatDurationMs(s.p50),
+				formatDurationMs(s.p95),
+				formatDurationMs(s.p99))
 		}
+		fmt.Println("====================================================")
 	}
+}
+
+func formatDurationMs[T int64 | time.Duration](t T) string {
+	ms := float64(t) / float64(time.Millisecond)
+	return fmt.Sprintf("%.2fms", ms)
+}
+
+func formatStatus(errMsg string, stats *client.Stats) string {
+	if errMsg != "" {
+		return "FAIL"
+	}
+	if stats != nil && stats.SuccessRate < 1.0 {
+		return fmt.Sprintf("%.0f%%", stats.SuccessRate*100)
+	}
+	return "OK"
+}
+
+func truncate(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	return text[:maxLen] + "..."
 }

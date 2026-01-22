@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
+	"net"
 	"net/http"
 	"slices"
 	"sync"
@@ -15,68 +15,92 @@ import (
 type Suite struct {
 	ctx        context.Context
 	httpClient *http.Client
+	transport  *http.Transport
 	server     *config.ResolvedServer
 }
 
 type Stats struct {
-	Avg         time.Duration   `json:"avg"`
-	High        time.Duration   `json:"high"`
-	Low         time.Duration   `json:"low"`
-	P50         time.Duration   `json:"p50"`
-	P95         time.Duration   `json:"p95"`
-	P99         time.Duration   `json:"p99"`
-	SuccessRate float64         `json:"success_rate"`
-	Latencies   []time.Duration `json:"-"` // Raw latencies for aggregation (not serialized)
+	Avg         time.Duration `json:"avg"`
+	High        time.Duration `json:"high"`
+	Low         time.Duration `json:"low"`
+	P50         time.Duration `json:"p50"`
+	P95         time.Duration `json:"p95"`
+	P99         time.Duration `json:"p99"`
+	SuccessRate float64       `json:"success_rate"`
 }
 
 func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
 	transport := &http.Transport{
-		MaxIdleConns:        server.Workers,
-		MaxIdleConnsPerHost: server.Workers,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:        server.Workers * 2,
+		MaxIdleConnsPerHost: server.Workers * 2,
 		IdleConnTimeout:     90 * time.Second,
+		DisableCompression:  true,
+		ForceAttemptHTTP2:   false,
 	}
 
 	return &Suite{
 		ctx:        ctx,
 		httpClient: &http.Client{Transport: transport},
+		transport:  transport,
 		server:     server,
 	}
 }
 
 type EndpointResult struct {
-	Name      string           `json:"name"`
-	Path      string           `json:"path"`
-	Method    string           `json:"method"`
-	TestCases []TestCaseResult `json:"test_cases"`
-	Stats     *Stats           `json:"stats"`
-	Error     string           `json:"error,omitempty"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Method       string `json:"method"`
+	Stats        *Stats `json:"stats"`
+	Error        string `json:"error,omitempty"`
+	FailureCount int    `json:"failure_count,omitempty"`
+	LastError    string `json:"last_error,omitempty"`
 }
 
-type TestCaseResult struct {
-	Name    string        `json:"name"`
-	Success bool          `json:"success"`
-	Error   string        `json:"error,omitempty"`
-	Latency time.Duration `json:"latency"`
+func (s *Suite) Close() {
+	if s.transport != nil {
+		s.transport.CloseIdleConnections()
+	}
 }
 
 func (s *Suite) RunAll() ([]EndpointResult, error) {
-	// Group testcases by endpoint
 	endpointTestcases := make(map[string][]*config.Testcase)
 	for _, tc := range s.server.Testcases {
 		endpointTestcases[tc.EndpointName] = append(endpointTestcases[tc.EndpointName], tc)
 	}
 
 	results := make([]EndpointResult, 0, len(endpointTestcases))
-
-	for endpointName, testcases := range endpointTestcases {
-		if len(testcases) == 0 {
+	used := make(map[string]struct{}, len(endpointTestcases))
+	for _, endpointName := range s.server.EndpointOrder {
+		testcases, ok := endpointTestcases[endpointName]
+		if !ok || len(testcases) == 0 {
 			continue
 		}
-
-		// Use first testcase for endpoint metadata
 		first := testcases[0]
-		result := s.runEndpoint(endpointName, first.URL, first.Method, testcases)
-		results = append(results, result)
+		results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
+		used[endpointName] = struct{}{}
+	}
+
+	if len(used) != len(endpointTestcases) {
+		leftovers := make([]string, 0, len(endpointTestcases)-len(used))
+		for endpointName := range endpointTestcases {
+			if _, ok := used[endpointName]; ok {
+				continue
+			}
+			leftovers = append(leftovers, endpointName)
+		}
+		slices.Sort(leftovers)
+		for _, endpointName := range leftovers {
+			testcases := endpointTestcases[endpointName]
+			if len(testcases) == 0 {
+				continue
+			}
+			first := testcases[0]
+			results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
+		}
 	}
 
 	return results, nil
@@ -92,47 +116,40 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 		}
 	}
 
-	stats, testResults := s.runTestcases(testcases)
+	stats, failureCount, lastErr := s.runTestcases(testcases)
 
 	return EndpointResult{
-		Name:      name,
-		Path:      path,
-		Method:    method,
-		TestCases: testResults,
-		Stats:     stats,
+		Name:         name,
+		Path:         path,
+		Method:       method,
+		Stats:        stats,
+		FailureCount: failureCount,
+		LastError:    lastErr,
 	}
 }
 
-func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseResult) {
+func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, int, string) {
 	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
 	iterations := s.server.RequestsPerEndpoint
 
-	// Work channel - generator sends testcases
 	workCh := make(chan *config.Testcase)
 	go func() {
 		defer close(workCh)
 		for i := range iterations {
-			// Check context cancellation before sending
-			if s.ctx.Err() != nil {
-				return
-			}
 			select {
-			case workCh <- testcases[i%len(testcases)]:
 			case <-s.ctx.Done():
 				return
+			case workCh <- testcases[i%len(testcases)]:
 			}
 		}
 	}()
 
-	// Result collection
 	type result struct {
-		tcName  string
 		latency time.Duration
 		err     error
 	}
 	resultsCh := make(chan result, workers)
 
-	// Worker pool
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	for range workers {
@@ -140,7 +157,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseRe
 			defer wg.Done()
 			for tc := range workCh {
 				latency, err := s.executeTestcase(tc)
-				resultsCh <- result{tcName: tc.Name, latency: latency, err: err}
+				resultsCh <- result{latency: latency, err: err}
 			}
 		}()
 	}
@@ -150,23 +167,17 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseRe
 		close(resultsCh)
 	}()
 
-	// Aggregate results
-	testCaseResults := make(map[string]*TestCaseResult, len(testcases))
-	for _, tc := range testcases {
-		testCaseResults[tc.Name] = &TestCaseResult{Name: tc.Name, Success: true}
-	}
-
 	var count int
-	var totalLatency, high time.Duration
-	low := time.Duration(math.MaxInt64)
+	failureCount := 0
+	lastErr := ""
+	var totalLatency, high, low time.Duration
+	low = time.Hour
 	latencies := make([]time.Duration, 0, iterations)
 
 	for r := range resultsCh {
 		if r.err != nil {
-			if tcr, ok := testCaseResults[r.tcName]; ok {
-				tcr.Success = false
-				tcr.Error = r.err.Error()
-			}
+			failureCount++
+			lastErr = r.err.Error()
 			continue
 		}
 
@@ -175,13 +186,8 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseRe
 		high = max(high, r.latency)
 		low = min(low, r.latency)
 		latencies = append(latencies, r.latency)
-
-		if tcr, ok := testCaseResults[r.tcName]; ok && (tcr.Latency == 0 || r.latency < tcr.Latency) {
-			tcr.Latency = r.latency
-		}
 	}
 
-	// Calculate statistics
 	var avg, p50, p95, p99 time.Duration
 	if count > 0 {
 		avg = totalLatency / time.Duration(count)
@@ -190,13 +196,13 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseRe
 		p95 = percentile(latencies, 95)
 		p99 = percentile(latencies, 99)
 	}
-	if low == time.Duration(math.MaxInt64) {
+	if low == time.Hour {
 		low = 0
 	}
 
-	results := make([]TestCaseResult, 0, len(testCaseResults))
-	for _, tcr := range testCaseResults {
-		results = append(results, *tcr)
+	var successRate float64
+	if iterations > 0 {
+		successRate = float64(count) / float64(iterations)
 	}
 
 	return &Stats{
@@ -206,9 +212,8 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseRe
 		P50:         p50,
 		P95:         p95,
 		P99:         p99,
-		SuccessRate: float64(count) / float64(iterations),
-		Latencies:   latencies,
-	}, results
+		SuccessRate: successRate,
+	}, failureCount, lastErr
 }
 
 func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
@@ -227,7 +232,7 @@ func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB limit
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return 0, fmt.Errorf("failed to read response: %w", err)
 	}

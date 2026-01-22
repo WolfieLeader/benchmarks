@@ -19,7 +19,6 @@ func WriteError(c *fiber.Ctx, status int, message string) error {
 	return c.JSON(ErrorResponse{Error: message})
 }
 
-// Constants for limits
 const (
 	MaxFileBytes = 1 << 20 // 1MB
 	SniffLen     = 512

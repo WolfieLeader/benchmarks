@@ -13,7 +13,7 @@ import (
 
 func (app *App) Start() {
 	server := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", app.env.HOST, app.env.PORT), // `:PORT` valid as well
+		Addr:         fmt.Sprintf("%s:%d", app.env.HOST, app.env.PORT),
 		Handler:      app.router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,

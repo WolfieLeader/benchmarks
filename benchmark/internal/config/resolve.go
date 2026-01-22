@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -18,7 +19,20 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 	timeout, _ := time.ParseDuration(cfg.Global.Timeout)
 
 	var allTestcases []*Testcase
-	for endpointName, endpoint := range cfg.Endpoints {
+	order := cfg.EndpointOrder
+	if len(order) == 0 {
+		order = make([]string, 0, len(cfg.Endpoints))
+		for name := range cfg.Endpoints {
+			order = append(order, name)
+		}
+		slices.Sort(order)
+	}
+
+	for _, endpointName := range order {
+		endpoint, ok := cfg.Endpoints[endpointName]
+		if !ok {
+			continue
+		}
 		testcases, err := resolveEndpoint(cfg.Global.BaseURL, endpointName, &endpoint)
 		if err != nil {
 			return nil, err
@@ -39,6 +53,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 			Workers:             cfg.Global.Workers,
 			RequestsPerEndpoint: cfg.Global.RequestsPerEndpoint,
 			Testcases:           allTestcases,
+			EndpointOrder:       order,
 		})
 	}
 
@@ -46,13 +61,11 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 }
 
 func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {
-	// Load file if specified at endpoint level
 	endpointFile, err := loadFile(endpoint.File)
 	if err != nil {
 		return nil, fmt.Errorf("endpoint %q file: %w", endpointName, err)
 	}
 
-	// If no test cases defined, create a default one
 	if len(endpoint.TestCases) == 0 {
 		tc, err := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile)
 		if err != nil {
@@ -61,10 +74,8 @@ func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]
 		return []*Testcase{tc}, nil
 	}
 
-	// Build test case for each defined test case
 	testcases := make([]*Testcase, 0, len(endpoint.TestCases))
 	for i, tcConfig := range endpoint.TestCases {
-		// Load test case specific file if present
 		file := endpointFile
 		if tcConfig.File != "" {
 			file, err = loadFile(tcConfig.File)
@@ -84,7 +95,6 @@ func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]
 }
 
 func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig, tcOverride *TestCaseConfig, file *FileUpload) (*Testcase, error) {
-	// Start with endpoint values
 	path := endpoint.Path
 	method := strings.ToUpper(endpoint.Method)
 	headers := maps.Clone(endpoint.Headers)
@@ -96,7 +106,6 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 	expectedBody := endpoint.ExpectedBody
 	expectedText := endpoint.ExpectedText
 
-	// Apply test case overrides if present
 	if tcOverride != nil {
 		if tcOverride.Path != "" {
 			path = tcOverride.Path
@@ -139,7 +148,6 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		}
 	}
 
-	// Build full URL with query params
 	fullURL, err := buildURL(baseURL, path, query)
 	if err != nil {
 		return nil, err
@@ -148,6 +156,7 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 	tc := &Testcase{
 		EndpointName:    endpointName,
 		Name:            name,
+		Path:            path,
 		URL:             fullURL,
 		Method:          method,
 		Headers:         canonicalizeHeaders(headers),
@@ -157,16 +166,16 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		ExpectedText:    expectedText,
 	}
 
-	// Determine request type and prepare body
 	if file != nil {
 		tc.RequestType = RequestTypeMultipart
 		tc.MultipartFields = formData
 		tc.FileUpload = file
-		// Pre-build multipart body to avoid rebuilding per request
+
 		tc.CachedMultipartBody, tc.CachedContentType, err = buildMultipartBody(formData, file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build multipart body: %w", err)
 		}
+
 	} else if len(formData) > 0 {
 		tc.RequestType = RequestTypeForm
 		tc.FormData = formData

@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-// BuildRequest creates an HTTP request from a testcase
 func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, error) {
 	var bodyReader io.Reader
 	var contentType string
@@ -34,7 +33,6 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 		}
 
 	case config.RequestTypeMultipart:
-		// Use cached multipart body (pre-built during config resolution)
 		if len(tc.CachedMultipartBody) > 0 {
 			bodyReader = bytes.NewReader(tc.CachedMultipartBody)
 			contentType = tc.CachedContentType

@@ -31,7 +31,7 @@ func main() {
 			break
 		}
 
-		fmt.Printf("=== Benchmarking %s ===\n", server.Name)
+		fmt.Printf("\n== Server: %s ==\n", server.Name)
 
 		result := runServerBenchmark(ctx, server)
 		collector.AddServerResult(result)
@@ -93,13 +93,16 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *res
 
 	fmt.Printf("  Server ready at %s (container: %s)\n", serverURL, containerId)
 
-	endpoints, err := client.NewSuite(ctx, server).RunAll()
+	suite := client.NewSuite(ctx, server)
+	defer suite.Close()
+
+	endpoints, err := suite.RunAll()
 	if err != nil {
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
 		return result
 	}
 
-	result.Complete(endpoints, server.RequestsPerEndpoint)
+	result.Complete(endpoints)
 
 	return result
 }

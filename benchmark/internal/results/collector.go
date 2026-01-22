@@ -5,66 +5,75 @@ import (
 	"benchmark-client/internal/config"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
-	"slices"
 	"sync"
 	"time"
 )
 
-// ServerResult contains benchmark results for a single server
 type ServerResult struct {
-	Name         string                  `json:"name"`
-	ContainerID  string                  `json:"container_id"`
-	ImageName    string                  `json:"image_name"`
-	Port         int                     `json:"port"`
-	StartTime    time.Time               `json:"start_time"`
-	EndTime      time.Time               `json:"end_time"`
-	Duration     string                  `json:"duration"`
-	Endpoints    []client.EndpointResult `json:"endpoints"`
-	OverallStats *OverallStats           `json:"overall_stats"`
-	Error        string                  `json:"error,omitempty"`
+	Name        string                  `json:"name"`
+	ContainerID string                  `json:"-"`
+	ImageName   string                  `json:"-"`
+	Port        int                     `json:"-"`
+	StartTime   time.Time               `json:"-"`
+	EndTime     time.Time               `json:"-"`
+	Duration    time.Duration           `json:"-"`
+	Endpoints   []client.EndpointResult `json:"-"`
+	Error       string                  `json:"-"`
 }
 
-// OverallStats contains aggregated statistics across all endpoints
-type OverallStats struct {
-	TotalRequests int     `json:"total_requests"`
-	SuccessCount  int     `json:"success_count"`
-	FailureCount  int     `json:"failure_count"`
-	SuccessRate   float64 `json:"success_rate"`
-	AvgLatency    string  `json:"avg_latency"`
-	MinLatency    string  `json:"min_latency"`
-	MaxLatency    string  `json:"max_latency"`
-	P50Latency    string  `json:"p50_latency"`
-	P95Latency    string  `json:"p95_latency"`
-	P99Latency    string  `json:"p99_latency"`
-	AvgLatencyNs  int64   `json:"avg_latency_ns"`
-	MinLatencyNs  int64   `json:"min_latency_ns"`
-	MaxLatencyNs  int64   `json:"max_latency_ns"`
-	P50LatencyNs  int64   `json:"p50_latency_ns"`
-	P95LatencyNs  int64   `json:"p95_latency_ns"`
-	P99LatencyNs  int64   `json:"p99_latency_ns"`
-	EndpointCount int     `json:"endpoint_count"`
-	TestCaseCount int     `json:"test_case_count"`
-}
-
-// BenchmarkResults contains all benchmark results
 type BenchmarkResults struct {
-	Timestamp time.Time            `json:"timestamp"`
-	Config    *config.GlobalConfig `json:"config"`
-	Servers   []ServerResult       `json:"servers"`
-	Summary   *BenchmarkSummary    `json:"summary"`
+	Meta    ResultMeta       `json:"meta"`
+	Summary BenchmarkSummary `json:"summary"`
+	Servers []ServerSummary  `json:"servers"`
 }
 
-// BenchmarkSummary contains overall benchmark summary
+type ResultMeta struct {
+	Timestamp time.Time    `json:"timestamp"`
+	Config    ResultConfig `json:"config"`
+}
+
+type ResultConfig struct {
+	BaseURL             string `json:"base_url"`
+	Workers             int    `json:"workers"`
+	RequestsPerEndpoint int    `json:"requests_per_endpoint"`
+}
+
 type BenchmarkSummary struct {
-	TotalServers      int    `json:"total_servers"`
-	SuccessfulServers int    `json:"successful_servers"`
-	FailedServers     int    `json:"failed_servers"`
-	TotalDuration     string `json:"total_duration"`
+	TotalServers      int   `json:"total_servers"`
+	SuccessfulServers int   `json:"successful_servers"`
+	FailedServers     int   `json:"failed_servers"`
+	TotalDurationMs   int64 `json:"total_duration_ms"`
 }
 
-// Collector aggregates benchmark results
+type ServerSummary struct {
+	Name       string            `json:"name"`
+	DurationMs int64             `json:"duration_ms"`
+	Error      string            `json:"error,omitempty"`
+	Stats      *StatsSummary     `json:"stats,omitempty"`
+	Endpoints  []EndpointSummary `json:"endpoints,omitempty"`
+}
+
+type EndpointSummary struct {
+	Name         string        `json:"name"`
+	Path         string        `json:"path"`
+	Method       string        `json:"method"`
+	Error        string        `json:"error,omitempty"`
+	Stats        *StatsSummary `json:"stats,omitempty"`
+	FailureCount int           `json:"failure_count,omitempty"`
+	LastError    string        `json:"last_error,omitempty"`
+}
+
+type StatsSummary struct {
+	AvgNs       int64   `json:"avg_ns"`
+	P50Ns       int64   `json:"p50_ns"`
+	P95Ns       int64   `json:"p95_ns"`
+	P99Ns       int64   `json:"p99_ns"`
+	MinNs       int64   `json:"min_ns"`
+	MaxNs       int64   `json:"max_ns"`
+	SuccessRate float64 `json:"success_rate"`
+}
+
 type Collector struct {
 	mu        sync.Mutex
 	startTime time.Time
@@ -72,7 +81,6 @@ type Collector struct {
 	servers   []ServerResult
 }
 
-// NewCollector creates a new results collector
 func NewCollector(config *config.GlobalConfig) *Collector {
 	return &Collector{
 		startTime: time.Now(),
@@ -81,43 +89,69 @@ func NewCollector(config *config.GlobalConfig) *Collector {
 	}
 }
 
-// AddServerResult adds a server's benchmark results
 func (c *Collector) AddServerResult(result *ServerResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.servers = append(c.servers, *result)
 }
 
-// GetResults returns all collected results
 func (c *Collector) GetResults() *BenchmarkResults {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	totalDuration := time.Since(c.startTime)
-
 	var successCount, failCount int
+	servers := make([]ServerSummary, 0, len(c.servers))
+
 	for _, s := range c.servers {
 		if s.Error == "" {
 			successCount++
 		} else {
 			failCount++
 		}
+
+		endpoints := make([]EndpointSummary, 0, len(s.Endpoints))
+		for _, ep := range s.Endpoints {
+			endpoints = append(endpoints, EndpointSummary{
+				Name:         ep.Name,
+				Path:         ep.Path,
+				Method:       ep.Method,
+				Error:        ep.Error,
+				Stats:        statsFromClient(ep.Stats),
+				FailureCount: ep.FailureCount,
+				LastError:    ep.LastError,
+			})
+		}
+
+		servers = append(servers, ServerSummary{
+			Name:       s.Name,
+			DurationMs: s.Duration.Milliseconds(),
+			Error:      s.Error,
+			Stats:      aggregateEndpointStats(s.Endpoints, c.config.RequestsPerEndpoint),
+			Endpoints:  endpoints,
+		})
 	}
 
+	totalDuration := time.Since(c.startTime)
+
 	return &BenchmarkResults{
-		Timestamp: c.startTime,
-		Config:    c.config,
-		Servers:   c.servers,
-		Summary: &BenchmarkSummary{
+		Meta: ResultMeta{
+			Timestamp: c.startTime,
+			Config: ResultConfig{
+				BaseURL:             c.config.BaseURL,
+				Workers:             c.config.Workers,
+				RequestsPerEndpoint: c.config.RequestsPerEndpoint,
+			},
+		},
+		Summary: BenchmarkSummary{
 			TotalServers:      len(c.servers),
 			SuccessfulServers: successCount,
 			FailedServers:     failCount,
-			TotalDuration:     totalDuration.String(),
+			TotalDurationMs:   totalDuration.Milliseconds(),
 		},
+		Servers: servers,
 	}
 }
 
-// Export writes the results to a JSON file
 func (c *Collector) Export(filename string) error {
 	results := c.GetResults()
 
@@ -133,108 +167,84 @@ func (c *Collector) Export(filename string) error {
 	return nil
 }
 
-// AggregateEndpointStats calculates overall stats from endpoint results
-// by combining all latencies and computing proper percentiles on the full dataset
-func AggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *OverallStats {
+func (r *ServerResult) Complete(endpoints []client.EndpointResult) {
+	r.EndTime = time.Now()
+	r.Duration = r.EndTime.Sub(r.StartTime)
+	r.Endpoints = endpoints
+}
+
+func (r *ServerResult) SetError(err error) {
+	r.EndTime = time.Now()
+	r.Duration = r.EndTime.Sub(r.StartTime)
+	r.Error = err.Error()
+}
+
+func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *StatsSummary {
 	if len(endpoints) == 0 {
-		return &OverallStats{}
+		return nil
 	}
 
-	// Collect all latencies from all endpoints for proper percentile calculation
-	var allLatencies []time.Duration
-	var minLatency, maxLatency time.Duration
-	minLatency = time.Duration(math.MaxInt64)
-	var successCount, testCaseCount int
+	var totalAvg, totalP50, totalP95, totalP99 time.Duration
+	var minLatency time.Duration = time.Hour
+	var maxLatency time.Duration
+	var successCount int
+	var endpointCount int
 
 	for _, ep := range endpoints {
-		if ep.Stats != nil {
-			// Append all raw latencies for proper percentile calculation
-			allLatencies = append(allLatencies, ep.Stats.Latencies...)
-
-			if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
-				minLatency = ep.Stats.Low
-			}
-			if ep.Stats.High > maxLatency {
-				maxLatency = ep.Stats.High
-			}
-			successCount += int(ep.Stats.SuccessRate * float64(iterations))
+		if ep.Stats == nil {
+			continue
 		}
-		testCaseCount += len(ep.TestCases)
+		endpointCount++
+		totalAvg += ep.Stats.Avg
+		totalP50 += ep.Stats.P50
+		totalP95 += ep.Stats.P95
+		totalP99 += ep.Stats.P99
+		if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
+			minLatency = ep.Stats.Low
+		}
+		if ep.Stats.High > maxLatency {
+			maxLatency = ep.Stats.High
+		}
+		successCount += int(ep.Stats.SuccessRate * float64(iterations))
 	}
 
-	// Calculate statistics from combined latencies
-	var avgLatency, p50, p95, p99 time.Duration
-	if len(allLatencies) > 0 {
-		var total time.Duration
-		for _, l := range allLatencies {
-			total += l
-		}
-		avgLatency = total / time.Duration(len(allLatencies))
-
-		// Sort for percentile calculation
-		slices.Sort(allLatencies)
-		p50 = percentile(allLatencies, 50)
-		p95 = percentile(allLatencies, 95)
-		p99 = percentile(allLatencies, 99)
+	if endpointCount == 0 {
+		return nil
 	}
 
-	if minLatency == time.Duration(math.MaxInt64) {
+	avg := totalAvg / time.Duration(endpointCount)
+	p50 := totalP50 / time.Duration(endpointCount)
+	p95 := totalP95 / time.Duration(endpointCount)
+	p99 := totalP99 / time.Duration(endpointCount)
+	if minLatency == time.Hour {
 		minLatency = 0
 	}
 
-	totalRequests := iterations * len(endpoints)
-	failureCount := totalRequests - successCount
+	totalRequests := iterations * endpointCount
 
-	return &OverallStats{
-		TotalRequests: totalRequests,
-		SuccessCount:  successCount,
-		FailureCount:  failureCount,
-		SuccessRate:   float64(successCount) / float64(totalRequests),
-		AvgLatency:    avgLatency.String(),
-		MinLatency:    minLatency.String(),
-		MaxLatency:    maxLatency.String(),
-		P50Latency:    p50.String(),
-		P95Latency:    p95.String(),
-		P99Latency:    p99.String(),
-		AvgLatencyNs:  avgLatency.Nanoseconds(),
-		MinLatencyNs:  minLatency.Nanoseconds(),
-		MaxLatencyNs:  maxLatency.Nanoseconds(),
-		P50LatencyNs:  p50.Nanoseconds(),
-		P95LatencyNs:  p95.Nanoseconds(),
-		P99LatencyNs:  p99.Nanoseconds(),
-		EndpointCount: len(endpoints),
-		TestCaseCount: testCaseCount,
+	return &StatsSummary{
+		AvgNs:       avg.Nanoseconds(),
+		P50Ns:       p50.Nanoseconds(),
+		P95Ns:       p95.Nanoseconds(),
+		P99Ns:       p99.Nanoseconds(),
+		MinNs:       minLatency.Nanoseconds(),
+		MaxNs:       maxLatency.Nanoseconds(),
+		SuccessRate: float64(successCount) / float64(totalRequests),
 	}
 }
 
-func percentile(sorted []time.Duration, p int) time.Duration {
-	if len(sorted) == 0 {
-		return 0
+func statsFromClient(stats *client.Stats) *StatsSummary {
+	if stats == nil {
+		return nil
 	}
-	if p <= 0 {
-		return sorted[0]
-	}
-	if p >= 100 {
-		return sorted[len(sorted)-1]
-	}
-	idx := (p * len(sorted)) / 100
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-	return sorted[idx]
-}
 
-// Complete marks the server result as complete
-func (r *ServerResult) Complete(endpoints []client.EndpointResult, iterations int) {
-	r.EndTime = time.Now()
-	r.Duration = r.EndTime.Sub(r.StartTime).String()
-	r.Endpoints = endpoints
-	r.OverallStats = AggregateEndpointStats(endpoints, iterations)
-}
-
-// SetError marks the server result as failed
-func (r *ServerResult) SetError(err error) {
-	r.EndTime = time.Now()
-	r.Duration = r.EndTime.Sub(r.StartTime).String()
-	r.Error = err.Error()
+	return &StatsSummary{
+		AvgNs:       stats.Avg.Nanoseconds(),
+		P50Ns:       stats.P50.Nanoseconds(),
+		P95Ns:       stats.P95.Nanoseconds(),
+		P99Ns:       stats.P99.Nanoseconds(),
+		MinNs:       stats.Low.Nanoseconds(),
+		MaxNs:       stats.High.Nanoseconds(),
+		SuccessRate: stats.SuccessRate,
+	}
 }

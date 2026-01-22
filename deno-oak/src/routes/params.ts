@@ -79,7 +79,6 @@ paramsRoutes.post("/form", async (ctx) => {
       }
     } else if (body.type() === "form-data") {
       const result = await body.formData();
-      // result is FormData
       result.forEach((value: FormDataEntryValue, key: string) => {
         if (typeof value === "string") {
           form[key] = value;
@@ -148,7 +147,6 @@ paramsRoutes.post("/file", async (ctx) => {
   const buffer = await file.arrayBuffer();
   const data = new Uint8Array(buffer);
 
-  // Additional size check if strictly needed, though file.size should suffice
   if (data.length > MAX_FILE_BYTES) {
     ctx.response.status = 413;
     ctx.response.body = { error: FILE_SIZE_EXCEEDS };

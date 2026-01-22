@@ -17,7 +17,6 @@ func WriteError(c *gin.Context, status int, message string) {
 	c.JSON(status, ErrorResponse{Error: message})
 }
 
-// Constants for error messages
 const (
 	ErrInvalidJSON         = "invalid JSON body"
 	ErrInvalidForm         = "invalid form data"
@@ -33,7 +32,6 @@ const (
 	ErrUnableToReadContent = "unable to read file content"
 )
 
-// Constants for limits
 const (
 	MaxFileBytes = 1 << 20 // 1MB
 	SniffLen     = 512

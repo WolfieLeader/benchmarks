@@ -22,7 +22,6 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
 }
 
-// Constants for limits
 const (
 	MaxFileBytes = 1 << 20 // 1MB
 	SniffLen     = 512

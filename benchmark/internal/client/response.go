@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// ValidateResponse validates the HTTP response against expected values
 func ValidateResponse(tc *config.Testcase, resp *http.Response, body []byte) error {
 	if resp.StatusCode != tc.ExpectedStatus {
 		return fmt.Errorf("unexpected status code: got %d, want %d (body: %s)",
@@ -18,7 +17,6 @@ func ValidateResponse(tc *config.Testcase, resp *http.Response, body []byte) err
 	for key, expectedValue := range tc.ExpectedHeaders {
 		actualValue := strings.TrimSpace(resp.Header.Get(key))
 
-		// Content-Type gets substring match
 		if strings.EqualFold(key, "Content-Type") {
 			if !strings.Contains(actualValue, expectedValue) {
 				return fmt.Errorf("unexpected header %s: got %q, want substring %q",
@@ -102,8 +100,6 @@ func truncate(body []byte, maxLen int) string {
 	return string(body[:maxLen]) + "..."
 }
 
-// jsonMatch checks if expected is a subset of got (for objects)
-// or an exact match (for arrays and primitives)
 func jsonMatch(want, got any) bool {
 	switch w := want.(type) {
 	case map[string]any:
