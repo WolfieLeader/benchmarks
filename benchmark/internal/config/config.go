@@ -21,15 +21,9 @@ type GlobalConfig struct {
 }
 
 func (s *Config) String() string {
-	return fmt.Sprintf("----- Configuration -----\n - Base URL: %s, Servers: %d, Endpoints: %d\n - Workers: %d, Requests per Endpoint: %d, Timeout: %s\n - CPU Limit: %s, Memory Limit: %s\n-------------------------",
-		s.Global.BaseURL,
-		len(s.Servers),
-		len(s.Endpoints),
-		s.Global.Workers,
-		s.Global.RequestsPerEndpoint,
-		s.Global.Timeout,
-		s.Global.CPULimit,
-		s.Global.MemoryLimit,
+	return fmt.Sprintf(
+		"----- Configuration -----\n - Base URL: %s, Servers: %d, Endpoints: %d\n - Workers: %d, Requests per Endpoint: %d, Timeout: %s\n - CPU Limit: %s, Memory Limit: %s\n-------------------------",
+		s.Global.BaseURL, len(s.Servers), len(s.Endpoints), s.Global.Workers, s.Global.RequestsPerEndpoint, s.Global.Timeout, s.Global.CPULimit, s.Global.MemoryLimit,
 	)
 }
 
@@ -40,19 +34,12 @@ type EndpointConfig struct {
 	Query           map[string]string `json:"query,omitempty"`
 	Body            any               `json:"body,omitempty"`
 	FormData        map[string]string `json:"form_data,omitempty"`
-	File            *FileConfig       `json:"file,omitempty"`
+	File            string            `json:"file,omitempty"`
 	ExpectedStatus  int               `json:"expected_status,omitempty"`
 	ExpectedHeaders map[string]string `json:"expected_headers,omitempty"`
 	ExpectedBody    any               `json:"expected_body,omitempty"`
 	ExpectedText    string            `json:"expected_text,omitempty"`
 	TestCases       []TestCaseConfig  `json:"test_cases,omitempty"`
-}
-
-type FileConfig struct {
-	FieldName   string `json:"field_name"`
-	Filename    string `json:"filename"`
-	Content     string `json:"content"`
-	ContentType string `json:"content_type,omitempty"`
 }
 
 type TestCaseConfig struct {
@@ -62,38 +49,62 @@ type TestCaseConfig struct {
 	Query           map[string]string `json:"query,omitempty"`
 	Body            any               `json:"body,omitempty"`
 	FormData        map[string]string `json:"form_data,omitempty"`
-	File            *FileConfig       `json:"file,omitempty"`
+	File            string            `json:"file,omitempty"`
 	ExpectedStatus  int               `json:"expected_status,omitempty"`
 	ExpectedHeaders map[string]string `json:"expected_headers,omitempty"`
 	ExpectedBody    any               `json:"expected_body,omitempty"`
 	ExpectedText    string            `json:"expected_text,omitempty"`
 }
 
-type ResolvedTestCase struct {
-	EndpointName    string
-	Name            string
-	Method          string
-	Path            string
-	Headers         map[string]string
-	Query           map[string]string
-	Body            any
-	FormData        map[string]string
-	File            *FileConfig
-	ExpectedStatus  int
-	ExpectedHeaders map[string]string
-	ExpectedBody    any
-	ExpectedText    string
+// RequestType indicates the type of request body
+type RequestType int
+
+const (
+	RequestTypeNone RequestType = iota
+	RequestTypeJSON
+	RequestTypeForm
+	RequestTypeMultipart
+)
+
+// FileUpload represents a file to upload in multipart requests
+type FileUpload struct {
+	FieldName   string
+	Filename    string
+	Content     []byte
+	ContentType string
 }
 
+// Testcase is a fully resolved, ready-to-execute test case
+type Testcase struct {
+	EndpointName    string
+	Name            string
+	URL             string
+	Method          string
+	Headers         map[string]string
+	RequestType     RequestType
+	Body            string            // Pre-serialized JSON body
+	FormData        map[string]string // URL-encoded form data
+	MultipartFields map[string]string // Multipart form fields
+	FileUpload      *FileUpload       // File for multipart upload
+	// Cached multipart body (pre-built to avoid rebuilding per request)
+	CachedMultipartBody []byte
+	CachedContentType   string
+	ExpectedStatus      int
+	ExpectedHeaders     map[string]string
+	ExpectedBody        any
+	ExpectedText        string
+}
+
+// ResolvedServer contains all resolved configuration for benchmarking a server
 type ResolvedServer struct {
-	BaseURL             string
+	Name                string
+	ImageName           string
 	Port                int
+	BaseURL             string
 	Timeout             time.Duration
 	CPULimit            string
 	MemoryLimit         string
-	Name                string
-	ImageName           string
 	Workers             int
 	RequestsPerEndpoint int
-	TestCases           []*ResolvedTestCase
+	Testcases           []*Testcase
 }

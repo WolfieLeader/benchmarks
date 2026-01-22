@@ -8,12 +8,12 @@
     "memory_limit": "1g"
   },
   "servers": {
-    "bun-honojs": 3005,
-    "bun-elysia": 3006,
-    "deno-oak": 3004,
     "node-express": 3001,
     "node-nestjs": 3002,
     "node-fastify": 3003,
+    "deno-oak": 3004,
+    "bun-honojs": 3005,
+    "bun-elysia": 3006,
     "python-fastapi": 4001,
     "go-chi": 5001,
     "go-gin": 5002,
@@ -151,32 +151,22 @@
     "params_file": {
       "path": "/params/file",
       "method": "POST",
-      "file": {
-        "field_name": "file",
-        "filename": "test.txt",
-        "content": "Hello, World!",
-        "content_type": "text/plain"
-      },
+      "file": "test.txt",
       "expected_status": 200,
       "expected_body": {
         "filename": "test.txt",
-        "size": 13,
-        "content": "Hello, World!"
+        "size": 14,
+        "content": "Hello, World!\n"
       },
       "test_cases": [
         { "name": "default" },
         {
           "name": "multiline_file",
-          "file": {
-            "field_name": "file",
-            "filename": "multi.txt",
-            "content": "Line 1\nLine 2\nLine 3",
-            "content_type": "text/plain"
-          },
+          "file": "multi.txt",
           "expected_body": {
             "filename": "multi.txt",
-            "size": 20,
-            "content": "Line 1\nLine 2\nLine 3"
+            "size": 21,
+            "content": "Line 1\nLine 2\nLine 3\n"
           }
         }
       ]

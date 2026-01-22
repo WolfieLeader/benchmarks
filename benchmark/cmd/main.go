@@ -16,7 +16,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, resolvedServers, err := config.Load(ctx, "config.jsonc")
+	cfg, resolvedServers, err := config.Load("config.jsonc")
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		return
@@ -93,8 +93,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *res
 
 	fmt.Printf("  Server ready at %s (container: %s)\n", serverURL, containerId)
 
-	suite := client.NewSuite(ctx, server, serverURL)
-	endpoints, err := suite.RunAll()
+	endpoints, err := client.NewSuite(ctx, server).RunAll()
 	if err != nil {
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
 		return result

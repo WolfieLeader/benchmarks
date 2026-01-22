@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+const (
+	// HealthCheckInterval is the time between health check attempts
+	HealthCheckInterval = 200 * time.Millisecond
+	// HealthCheckRequestTimeout is the timeout for each health check request
+	HealthCheckRequestTimeout = 2 * time.Second
+)
+
 type Id string
 
 // StartOptions contains configuration for starting a container
@@ -77,28 +84,44 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 }
 
 func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string) error {
-	client := http.Client{Timeout: 2 * time.Second}
+	client := http.Client{}
 	deadline := time.Now().Add(timeout)
 	url := strings.TrimRight(serverUrl, "/") + "/health"
 
 	var lastErr error
 
 	for time.Now().Before(deadline) {
-		resp, err := client.Get(url)
+		// Check context cancellation first
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		// Create request with context timeout
+		reqCtx, cancel := context.WithTimeout(ctx, HealthCheckRequestTimeout)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+		if err != nil {
+			cancel()
+			return fmt.Errorf("failed to create health check request: %w", err)
+		}
+
+		resp, err := client.Do(req)
+		cancel()
+
 		if err != nil {
 			lastErr = err
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(HealthCheckInterval)
 			continue
 		}
 
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(HealthCheckInterval)
 			continue
 		}
 		return nil
 	}
+
 	if lastErr != nil {
 		return fmt.Errorf("server did not become ready in %s: last error: %v", timeout, lastErr)
 	}

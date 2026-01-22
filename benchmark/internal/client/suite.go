@@ -5,24 +5,41 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/textproto"
+	"math"
+	"net/http"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 )
 
 type Suite struct {
-	client    *Client
-	server    *config.ResolvedServer
-	serverURL string
+	ctx        context.Context
+	httpClient *http.Client
+	server     *config.ResolvedServer
 }
 
-func NewSuite(ctx context.Context, server *config.ResolvedServer, serverURL string) *Suite {
+type Stats struct {
+	Avg         time.Duration   `json:"avg"`
+	High        time.Duration   `json:"high"`
+	Low         time.Duration   `json:"low"`
+	P50         time.Duration   `json:"p50"`
+	P95         time.Duration   `json:"p95"`
+	P99         time.Duration   `json:"p99"`
+	SuccessRate float64         `json:"success_rate"`
+	Latencies   []time.Duration `json:"-"` // Raw latencies for aggregation (not serialized)
+}
+
+func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
+	transport := &http.Transport{
+		MaxIdleConns:        server.Workers,
+		MaxIdleConnsPerHost: server.Workers,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
 	return &Suite{
-		client:    newClient(ctx, serverURL),
-		server:    server,
-		serverURL: serverURL,
+		ctx:        ctx,
+		httpClient: &http.Client{Transport: transport},
+		server:     server,
 	}
 }
 
@@ -43,152 +60,79 @@ type TestCaseResult struct {
 }
 
 func (s *Suite) RunAll() ([]EndpointResult, error) {
-	endpointCases := make(map[string][]*config.ResolvedTestCase)
-	for _, tc := range s.server.TestCases {
-		endpointCases[tc.EndpointName] = append(endpointCases[tc.EndpointName], tc)
+	// Group testcases by endpoint
+	endpointTestcases := make(map[string][]*config.Testcase)
+	for _, tc := range s.server.Testcases {
+		endpointTestcases[tc.EndpointName] = append(endpointTestcases[tc.EndpointName], tc)
 	}
 
-	results := make([]EndpointResult, 0, len(endpointCases))
+	results := make([]EndpointResult, 0, len(endpointTestcases))
 
-	for endpointName, testCases := range endpointCases {
-		if len(testCases) == 0 {
+	for endpointName, testcases := range endpointTestcases {
+		if len(testcases) == 0 {
 			continue
 		}
 
-		firstTC := testCases[0]
-
-		result, err := s.RunEndpoint(endpointName, firstTC.Path, firstTC.Method, testCases)
-		if err != nil {
-			results = append(results, EndpointResult{
-				Name:   endpointName,
-				Path:   firstTC.Path,
-				Method: firstTC.Method,
-				Error:  err.Error(),
-			})
-			continue
-		}
-		results = append(results, *result)
+		// Use first testcase for endpoint metadata
+		first := testcases[0]
+		result := s.runEndpoint(endpointName, first.URL, first.Method, testcases)
+		results = append(results, result)
 	}
 
 	return results, nil
 }
 
-func (s *Suite) RunEndpoint(name, path, method string, testCases []*config.ResolvedTestCase) (*EndpointResult, error) {
-	executableCases, err := s.convertToExecutable(testCases)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare test cases: %w", err)
+func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testcase) EndpointResult {
+	if len(testcases) == 0 {
+		return EndpointResult{
+			Name:   name,
+			Path:   path,
+			Method: method,
+			Error:  "no test cases",
+		}
 	}
 
-	if len(executableCases) == 0 {
-		return nil, fmt.Errorf("no valid test cases for endpoint %s", name)
-	}
+	stats, testResults := s.runTestcases(testcases)
 
-	stats, testResults, err := s.runTestCases(executableCases, s.server.Workers, s.server.RequestsPerEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EndpointResult{
+	return EndpointResult{
 		Name:      name,
 		Path:      path,
 		Method:    method,
 		TestCases: testResults,
 		Stats:     stats,
-	}, nil
+	}
 }
 
-func (s *Suite) convertToExecutable(resolved []*config.ResolvedTestCase) ([]*ExecutableTestcase, error) {
-	executable := make([]*ExecutableTestcase, 0, len(resolved))
+func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, []TestCaseResult) {
+	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
+	iterations := s.server.RequestsPerEndpoint
 
-	for _, tc := range resolved {
-		exec, err := s.buildExecutable(tc)
-		if err != nil {
-			return nil, fmt.Errorf("test case %q: %w", tc.Name, err)
-		}
-		executable = append(executable, exec)
-	}
-
-	return executable, nil
-}
-
-func (s *Suite) buildExecutable(tc *config.ResolvedTestCase) (*ExecutableTestcase, error) {
-	fullURL, err := BuildURLWithQuery(s.serverURL, tc.Path, tc.Query)
-	if err != nil {
-		return nil, err
-	}
-
-	exec := &ExecutableTestcase{
-		Name:            tc.Name,
-		URL:             fullURL,
-		Method:          strings.ToUpper(tc.Method),
-		Headers:         canonicalizeHeaders(tc.Headers),
-		ExpectedStatus:  tc.ExpectedStatus,
-		ExpectedHeaders: canonicalizeHeaders(tc.ExpectedHeaders),
-		ExpectedBody:    tc.ExpectedBody,
-		ExpectedText:    tc.ExpectedText,
-	}
-
-	if tc.File != nil {
-		exec.RequestType = RequestTypeMultipart
-		exec.MultipartFields = tc.FormData
-		exec.FileUpload = &FileUpload{
-			FieldName:   tc.File.FieldName,
-			Filename:    tc.File.Filename,
-			Content:     []byte(tc.File.Content),
-			ContentType: tc.File.ContentType,
-		}
-	} else if len(tc.FormData) > 0 {
-		exec.RequestType = RequestTypeForm
-		exec.FormData = tc.FormData
-	} else if tc.Body != nil {
-		exec.RequestType = RequestTypeJSON
-		body, err := PrepareJSONBody(tc.Body)
-		if err != nil {
-			return nil, err
-		}
-		exec.Body = body
-	} else {
-		exec.RequestType = RequestTypeNone
-	}
-
-	return exec, nil
-}
-
-func canonicalizeHeaders(headers map[string]string) map[string]string {
-	if headers == nil {
-		return nil
-	}
-	result := make(map[string]string, len(headers))
-	for k, v := range headers {
-		key := textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(k))
-		if key != "" {
-			result[key] = strings.TrimSpace(v)
-		}
-	}
-	return result
-}
-
-func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iterations int) (*Stats, []TestCaseResult, error) {
-	if workers > iterations {
-		workers = iterations
-	}
-
-	workCh := make(chan *ExecutableTestcase)
+	// Work channel - generator sends testcases
+	workCh := make(chan *config.Testcase)
 	go func() {
 		defer close(workCh)
 		for i := range iterations {
-			index := i % len(testcases)
-			workCh <- testcases[index]
+			// Check context cancellation before sending
+			if s.ctx.Err() != nil {
+				return
+			}
+			select {
+			case workCh <- testcases[i%len(testcases)]:
+			case <-s.ctx.Done():
+				return
+			}
 		}
 	}()
 
+	// Result collection
 	type result struct {
 		tcName  string
 		latency time.Duration
 		err     error
 	}
-	resultsCh := make(chan result)
+	resultsCh := make(chan result, workers)
 
+	// Worker pool
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	for range workers {
@@ -196,11 +140,7 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 			defer wg.Done()
 			for tc := range workCh {
 				latency, err := s.executeTestcase(tc)
-				resultsCh <- result{
-					tcName:  tc.Name,
-					latency: latency,
-					err:     err,
-				}
+				resultsCh <- result{tcName: tc.Name, latency: latency, err: err}
 			}
 		}()
 	}
@@ -210,17 +150,15 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		close(resultsCh)
 	}()
 
-	testCaseResults := make(map[string]*TestCaseResult)
+	// Aggregate results
+	testCaseResults := make(map[string]*TestCaseResult, len(testcases))
 	for _, tc := range testcases {
-		testCaseResults[tc.Name] = &TestCaseResult{
-			Name:    tc.Name,
-			Success: true,
-		}
+		testCaseResults[tc.Name] = &TestCaseResult{Name: tc.Name, Success: true}
 	}
 
 	var count int
-	var totalLatency, high, low time.Duration
-	low = time.Hour
+	var totalLatency, high time.Duration
+	low := time.Duration(math.MaxInt64)
 	latencies := make([]time.Duration, 0, iterations)
 
 	for r := range resultsCh {
@@ -238,13 +176,12 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		low = min(low, r.latency)
 		latencies = append(latencies, r.latency)
 
-		if tcr, ok := testCaseResults[r.tcName]; ok {
-			if tcr.Latency == 0 || r.latency < tcr.Latency {
-				tcr.Latency = r.latency
-			}
+		if tcr, ok := testCaseResults[r.tcName]; ok && (tcr.Latency == 0 || r.latency < tcr.Latency) {
+			tcr.Latency = r.latency
 		}
 	}
 
+	// Calculate statistics
 	var avg, p50, p95, p99 time.Duration
 	if count > 0 {
 		avg = totalLatency / time.Duration(count)
@@ -253,18 +190,8 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		p95 = percentile(latencies, 95)
 		p99 = percentile(latencies, 99)
 	}
-	if low == time.Hour {
+	if low == time.Duration(math.MaxInt64) {
 		low = 0
-	}
-
-	stats := &Stats{
-		Avg:         avg,
-		High:        high,
-		Low:         low,
-		P50:         p50,
-		P95:         p95,
-		P99:         p99,
-		SuccessRate: float64(count) / float64(iterations),
 	}
 
 	results := make([]TestCaseResult, 0, len(testCaseResults))
@@ -272,20 +199,29 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		results = append(results, *tcr)
 	}
 
-	return stats, results, nil
+	return &Stats{
+		Avg:         avg,
+		High:        high,
+		Low:         low,
+		P50:         p50,
+		P95:         p95,
+		P99:         p99,
+		SuccessRate: float64(count) / float64(iterations),
+		Latencies:   latencies,
+	}, results
 }
 
-func (s *Suite) executeTestcase(tc *ExecutableTestcase) (time.Duration, error) {
-	ctx, cancel := context.WithTimeout(s.client.ctx, s.server.Timeout)
+func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
+	ctx, cancel := context.WithTimeout(s.ctx, s.server.Timeout)
 	defer cancel()
 
-	req, err := s.client.BuildRequest(ctx, tc)
+	req, err := BuildRequest(ctx, tc)
 	if err != nil {
 		return 0, err
 	}
 
 	start := time.Now()
-	resp, err := s.client.httpClient.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("request failed: %w", err)
 	}

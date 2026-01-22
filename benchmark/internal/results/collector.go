@@ -5,7 +5,9 @@ import (
 	"benchmark-client/internal/config"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
+	"slices"
 	"sync"
 	"time"
 )
@@ -132,22 +134,23 @@ func (c *Collector) Export(filename string) error {
 }
 
 // AggregateEndpointStats calculates overall stats from endpoint results
+// by combining all latencies and computing proper percentiles on the full dataset
 func AggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *OverallStats {
 	if len(endpoints) == 0 {
 		return &OverallStats{}
 	}
 
-	var totalLatency, minLatency, maxLatency time.Duration
-	var totalP50, totalP95, totalP99 time.Duration
-	minLatency = time.Hour // Start with a large value
+	// Collect all latencies from all endpoints for proper percentile calculation
+	var allLatencies []time.Duration
+	var minLatency, maxLatency time.Duration
+	minLatency = time.Duration(math.MaxInt64)
 	var successCount, testCaseCount int
 
 	for _, ep := range endpoints {
 		if ep.Stats != nil {
-			totalLatency += ep.Stats.Avg
-			totalP50 += ep.Stats.P50
-			totalP95 += ep.Stats.P95
-			totalP99 += ep.Stats.P99
+			// Append all raw latencies for proper percentile calculation
+			allLatencies = append(allLatencies, ep.Stats.Latencies...)
+
 			if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
 				minLatency = ep.Stats.Low
 			}
@@ -159,18 +162,23 @@ func AggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 		testCaseCount += len(ep.TestCases)
 	}
 
-	avgLatency := time.Duration(0)
-	avgP50 := time.Duration(0)
-	avgP95 := time.Duration(0)
-	avgP99 := time.Duration(0)
-	if len(endpoints) > 0 {
-		avgLatency = totalLatency / time.Duration(len(endpoints))
-		avgP50 = totalP50 / time.Duration(len(endpoints))
-		avgP95 = totalP95 / time.Duration(len(endpoints))
-		avgP99 = totalP99 / time.Duration(len(endpoints))
+	// Calculate statistics from combined latencies
+	var avgLatency, p50, p95, p99 time.Duration
+	if len(allLatencies) > 0 {
+		var total time.Duration
+		for _, l := range allLatencies {
+			total += l
+		}
+		avgLatency = total / time.Duration(len(allLatencies))
+
+		// Sort for percentile calculation
+		slices.Sort(allLatencies)
+		p50 = percentile(allLatencies, 50)
+		p95 = percentile(allLatencies, 95)
+		p99 = percentile(allLatencies, 99)
 	}
 
-	if minLatency == time.Hour {
+	if minLatency == time.Duration(math.MaxInt64) {
 		minLatency = 0
 	}
 
@@ -185,18 +193,35 @@ func AggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 		AvgLatency:    avgLatency.String(),
 		MinLatency:    minLatency.String(),
 		MaxLatency:    maxLatency.String(),
-		P50Latency:    avgP50.String(),
-		P95Latency:    avgP95.String(),
-		P99Latency:    avgP99.String(),
+		P50Latency:    p50.String(),
+		P95Latency:    p95.String(),
+		P99Latency:    p99.String(),
 		AvgLatencyNs:  avgLatency.Nanoseconds(),
 		MinLatencyNs:  minLatency.Nanoseconds(),
 		MaxLatencyNs:  maxLatency.Nanoseconds(),
-		P50LatencyNs:  avgP50.Nanoseconds(),
-		P95LatencyNs:  avgP95.Nanoseconds(),
-		P99LatencyNs:  avgP99.Nanoseconds(),
+		P50LatencyNs:  p50.Nanoseconds(),
+		P95LatencyNs:  p95.Nanoseconds(),
+		P99LatencyNs:  p99.Nanoseconds(),
 		EndpointCount: len(endpoints),
 		TestCaseCount: testCaseCount,
 	}
+}
+
+func percentile(sorted []time.Duration, p int) time.Duration {
+	if len(sorted) == 0 {
+		return 0
+	}
+	if p <= 0 {
+		return sorted[0]
+	}
+	if p >= 100 {
+		return sorted[len(sorted)-1]
+	}
+	idx := (p * len(sorted)) / 100
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
+	return sorted[idx]
 }
 
 // Complete marks the server result as complete

@@ -1,7 +1,7 @@
 package client
 
 import (
-	"benchmark-client/internal/utils"
+	"benchmark-client/internal/config"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,14 +9,12 @@ import (
 )
 
 // ValidateResponse validates the HTTP response against expected values
-func ValidateResponse(tc *ExecutableTestcase, resp *http.Response, body []byte) error {
-	// Validate status code
+func ValidateResponse(tc *config.Testcase, resp *http.Response, body []byte) error {
 	if resp.StatusCode != tc.ExpectedStatus {
 		return fmt.Errorf("unexpected status code: got %d, want %d (body: %s)",
-			resp.StatusCode, tc.ExpectedStatus, truncateBody(body, 200))
+			resp.StatusCode, tc.ExpectedStatus, truncate(body, 200))
 	}
 
-	// Validate expected headers
 	for key, expectedValue := range tc.ExpectedHeaders {
 		actualValue := strings.TrimSpace(resp.Header.Get(key))
 
@@ -35,7 +33,6 @@ func ValidateResponse(tc *ExecutableTestcase, resp *http.Response, body []byte) 
 		}
 	}
 
-	// Validate body based on expected type
 	if tc.ExpectedBody != nil {
 		if err := validateJSONBody(tc.ExpectedBody, body); err != nil {
 			return err
@@ -50,38 +47,36 @@ func ValidateResponse(tc *ExecutableTestcase, resp *http.Response, body []byte) 
 }
 
 func validateJSONBody(expected any, actual []byte) error {
-	// Handle different expected types
 	switch exp := expected.(type) {
 	case map[string]any:
 		var actualBody map[string]any
 		if err := json.Unmarshal(actual, &actualBody); err != nil {
 			return fmt.Errorf("failed to parse response as JSON object: %w (body: %s)",
-				err, truncateBody(actual, 200))
+				err, truncate(actual, 200))
 		}
-		if !utils.JsonMatch(exp, actualBody) {
+		if !jsonMatch(exp, actualBody) {
 			return fmt.Errorf("JSON body mismatch: got %s, want %v",
-				truncateBody(actual, 500), exp)
+				truncate(actual, 500), exp)
 		}
 
 	case []any:
 		var actualBody []any
 		if err := json.Unmarshal(actual, &actualBody); err != nil {
 			return fmt.Errorf("failed to parse response as JSON array: %w (body: %s)",
-				err, truncateBody(actual, 200))
+				err, truncate(actual, 200))
 		}
-		if !utils.JsonMatch(exp, actualBody) {
+		if !jsonMatch(exp, actualBody) {
 			return fmt.Errorf("JSON array mismatch: got %s, want %v",
-				truncateBody(actual, 500), exp)
+				truncate(actual, 500), exp)
 		}
 
 	default:
-		// For primitive types, try to unmarshal and compare
 		var actualValue any
 		if err := json.Unmarshal(actual, &actualValue); err != nil {
 			return fmt.Errorf("failed to parse response as JSON: %w (body: %s)",
-				err, truncateBody(actual, 200))
+				err, truncate(actual, 200))
 		}
-		if !utils.JsonMatch(exp, actualValue) {
+		if !jsonMatch(exp, actualValue) {
 			return fmt.Errorf("JSON value mismatch: got %v, want %v", actualValue, exp)
 		}
 	}
@@ -95,18 +90,48 @@ func validateTextBody(expected string, actual []byte) error {
 
 	if actualText != expectedText {
 		return fmt.Errorf("text body mismatch: got %q, want %q",
-			truncateString(actualText, 200), expectedText)
+			truncate([]byte(actualText), 200), expectedText)
 	}
 	return nil
 }
 
-func truncateBody(body []byte, maxLen int) string {
-	return truncateString(string(body), maxLen)
+func truncate(body []byte, maxLen int) string {
+	if len(body) <= maxLen {
+		return string(body)
+	}
+	return string(body[:maxLen]) + "..."
 }
 
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
+// jsonMatch checks if expected is a subset of got (for objects)
+// or an exact match (for arrays and primitives)
+func jsonMatch(want, got any) bool {
+	switch w := want.(type) {
+	case map[string]any:
+		g, ok := got.(map[string]any)
+		if !ok {
+			return false
+		}
+		for k, wv := range w {
+			gv, exists := g[k]
+			if !exists || !jsonMatch(wv, gv) {
+				return false
+			}
+		}
+		return true
+
+	case []any:
+		g, ok := got.([]any)
+		if !ok || len(w) != len(g) {
+			return false
+		}
+		for i := range w {
+			if !jsonMatch(w[i], g[i]) {
+				return false
+			}
+		}
+		return true
+
+	default:
+		return want == got
 	}
-	return s[:maxLen] + "..."
 }

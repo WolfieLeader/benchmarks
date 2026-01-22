@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -28,23 +27,15 @@ const (
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
-func Load(ctx context.Context, filename string) (*Config, []*ResolvedServer, error) {
-	if err := checkCtx(ctx); err != nil {
-		return nil, nil, err
-	}
-
+func Load(filename string) (*Config, []*ResolvedServer, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if err := checkCtx(ctx); err != nil {
-		return nil, nil, err
-	}
-
-	fileExtension := strings.ToLower(filepath.Ext(filename))
-	if fileExtension != ".jsonc" && fileExtension != ".json" {
-		return nil, nil, fmt.Errorf("unsupported config file format: %s", fileExtension)
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".jsonc" && ext != ".json" {
+		return nil, nil, fmt.Errorf("unsupported config file format: %s", ext)
 	}
 
 	var cfg Config
@@ -52,16 +43,8 @@ func Load(ctx context.Context, filename string) (*Config, []*ResolvedServer, err
 		return nil, nil, fmt.Errorf("failed to parse JSON config: %w", err)
 	}
 
-	if err := checkCtx(ctx); err != nil {
-		return nil, nil, err
-	}
-
 	if err := applyDefaults(&cfg); err != nil {
 		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
-	}
-
-	if err := checkCtx(ctx); err != nil {
-		return nil, nil, err
 	}
 
 	resolved, err := resolve(&cfg)
@@ -192,10 +175,8 @@ func applyEndpointDefaults(name string, e *EndpointConfig) error {
 		}
 	}
 
-	if e.File != nil {
-		if e.File.FieldName == "" || e.File.Filename == "" {
-			return fmt.Errorf("file field_name and filename are required")
-		}
+	if strings.TrimSpace(e.File) == "" && e.File != "" {
+		return fmt.Errorf("file filename is required")
 	}
 
 	return nil
@@ -214,10 +195,8 @@ func applyTestCaseDefaults(index int, tc *TestCaseConfig) error {
 		return fmt.Errorf("expected_status override must be between 100 and 599")
 	}
 
-	if tc.File != nil {
-		if tc.File.FieldName == "" || tc.File.Filename == "" {
-			return fmt.Errorf("file field_name and filename are required")
-		}
+	if strings.TrimSpace(tc.File) == "" && tc.File != "" {
+		return fmt.Errorf("file filename is required")
 	}
 
 	return nil
