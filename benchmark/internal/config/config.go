@@ -92,8 +92,9 @@ type Testcase struct {
 	FormData            map[string]string
 	MultipartFields     map[string]string
 	FileUpload          *FileUpload
-	CachedMultipartBody []byte
 	CachedContentType   string
+	CachedFormBody      string
+	CachedMultipartBody string
 	ExpectedStatus      int
 	ExpectedHeaders     map[string]string
 	ExpectedBody        any

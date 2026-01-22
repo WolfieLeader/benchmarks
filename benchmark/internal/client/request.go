@@ -2,7 +2,6 @@ package client
 
 import (
 	"benchmark-client/internal/config"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -23,6 +22,11 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 		}
 
 	case config.RequestTypeForm:
+		if tc.CachedFormBody != "" {
+			bodyReader = strings.NewReader(tc.CachedFormBody)
+			contentType = "application/x-www-form-urlencoded"
+			break
+		}
 		if len(tc.FormData) > 0 {
 			formData := url.Values{}
 			for k, v := range tc.FormData {
@@ -34,7 +38,7 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 
 	case config.RequestTypeMultipart:
 		if len(tc.CachedMultipartBody) > 0 {
-			bodyReader = bytes.NewReader(tc.CachedMultipartBody)
+			bodyReader = strings.NewReader(tc.CachedMultipartBody)
 			contentType = tc.CachedContentType
 		}
 	}

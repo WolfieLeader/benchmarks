@@ -179,6 +179,7 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 	} else if len(formData) > 0 {
 		tc.RequestType = RequestTypeForm
 		tc.FormData = formData
+		tc.CachedFormBody = encodeFormBody(formData)
 	} else if body != nil {
 		tc.RequestType = RequestTypeJSON
 		tc.Body, err = serializeBody(body)
@@ -192,13 +193,13 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 	return tc, nil
 }
 
-func buildMultipartBody(fields map[string]string, file *FileUpload) ([]byte, string, error) {
+func buildMultipartBody(fields map[string]string, file *FileUpload) (string, string, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
 	for key, value := range fields {
 		if err := writer.WriteField(key, value); err != nil {
-			return nil, "", fmt.Errorf("failed to write field %s: %w", key, err)
+			return "", "", fmt.Errorf("failed to write field %s: %w", key, err)
 		}
 	}
 
@@ -215,18 +216,18 @@ func buildMultipartBody(fields map[string]string, file *FileUpload) ([]byte, str
 
 		part, err := writer.CreatePart(h)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to create form file: %w", err)
+			return "", "", fmt.Errorf("failed to create form file: %w", err)
 		}
 		if _, err := part.Write(file.Content); err != nil {
-			return nil, "", fmt.Errorf("failed to write file content: %w", err)
+			return "", "", fmt.Errorf("failed to write file content: %w", err)
 		}
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, "", fmt.Errorf("failed to close multipart writer: %w", err)
+		return "", "", fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	return buf.Bytes(), writer.FormDataContentType(), nil
+	return buf.String(), writer.FormDataContentType(), nil
 }
 
 func escapeQuotes(s string) string {
@@ -275,6 +276,17 @@ func buildURL(baseURL, path string, query map[string]string) (string, error) {
 	}
 
 	return fullURL.String(), nil
+}
+
+func encodeFormBody(formData map[string]string) string {
+	if len(formData) == 0 {
+		return ""
+	}
+	values := url.Values{}
+	for k, v := range formData {
+		values.Set(k, v)
+	}
+	return values.Encode()
 }
 
 func canonicalizeHeaders(headers map[string]string) map[string]string {
