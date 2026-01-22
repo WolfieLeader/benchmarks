@@ -5,36 +5,31 @@ import (
 	"time"
 )
 
-func resolve(cfg *Config) (*ResolvedConfig, error) {
+func resolve(cfg *Config) ([]*ResolvedServer, error) {
 	timeout, _ := time.ParseDuration(cfg.Global.Timeout)
-
-	resolved := &ResolvedConfig{
-		BaseURL:     cfg.Global.BaseURL,
-		Timeout:     timeout,
-		Workers:     cfg.Global.Workers,
-		Iterations:  cfg.Global.RequestsPerEndpoint,
-		Servers:     make([]*ResolvedServer, 0, len(cfg.Servers)),
-		CPULimit:    cfg.Global.CPULimit,
-		MemoryLimit: cfg.Global.MemoryLimit,
-	}
 
 	var allCases []*ResolvedTestCase
 	for endpointName, endpoint := range cfg.Endpoints {
 		allCases = append(allCases, resolveEndpointTestCases(endpointName, &endpoint)...)
 	}
 
+	resolvedServers := make([]*ResolvedServer, 0, len(cfg.Servers))
 	for name, port := range cfg.Servers {
-		resolved.Servers = append(resolved.Servers, &ResolvedServer{
-			Name:       name,
-			ImageName:  name,
-			Port:       port,
-			Workers:    cfg.Global.Workers,
-			Iterations: cfg.Global.RequestsPerEndpoint,
-			TestCases:  allCases,
+		resolvedServers = append(resolvedServers, &ResolvedServer{
+			BaseURL:             cfg.Global.BaseURL,
+			Timeout:             timeout,
+			CPULimit:            cfg.Global.CPULimit,
+			MemoryLimit:         cfg.Global.MemoryLimit,
+			Name:                name,
+			ImageName:           name,
+			Port:                port,
+			Workers:             cfg.Global.Workers,
+			RequestsPerEndpoint: cfg.Global.RequestsPerEndpoint,
+			TestCases:           allCases,
 		})
 	}
 
-	return resolved, nil
+	return resolvedServers, nil
 }
 
 func resolveEndpointTestCases(endpointName string, endpoint *EndpointConfig) []*ResolvedTestCase {

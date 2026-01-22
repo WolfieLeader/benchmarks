@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -17,6 +18,19 @@ type GlobalConfig struct {
 	Timeout             string `json:"timeout"`
 	CPULimit            string `json:"cpu_limit,omitempty"`
 	MemoryLimit         string `json:"memory_limit,omitempty"`
+}
+
+func (s *Config) String() string {
+	return fmt.Sprintf("----- Configuration -----\n - Base URL: %s, Servers: %d, Endpoints: %d\n - Workers: %d, Requests per Endpoint: %d, Timeout: %s\n - CPU Limit: %s, Memory Limit: %s\n-------------------------",
+		s.Global.BaseURL,
+		len(s.Servers),
+		len(s.Endpoints),
+		s.Global.Workers,
+		s.Global.RequestsPerEndpoint,
+		s.Global.Timeout,
+		s.Global.CPULimit,
+		s.Global.MemoryLimit,
+	)
 }
 
 type EndpointConfig struct {
@@ -72,20 +86,14 @@ type ResolvedTestCase struct {
 }
 
 type ResolvedServer struct {
-	Name       string
-	ImageName  string
-	Port       int
-	Workers    int
-	Iterations int
-	TestCases  []*ResolvedTestCase
-}
-
-type ResolvedConfig struct {
-	BaseURL     string
-	Timeout     time.Duration
-	Workers     int
-	Iterations  int
-	CPULimit    string
-	MemoryLimit string
-	Servers     []*ResolvedServer
+	BaseURL             string
+	Port                int
+	Timeout             time.Duration
+	CPULimit            string
+	MemoryLimit         string
+	Name                string
+	ImageName           string
+	Workers             int
+	RequestsPerEndpoint int
+	TestCases           []*ResolvedTestCase
 }

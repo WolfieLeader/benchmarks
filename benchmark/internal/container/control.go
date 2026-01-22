@@ -20,16 +20,6 @@ type StartOptions struct {
 	MemoryLimit string // Memory limit (e.g., "512m", "1g")
 }
 
-// Start starts a container with default options (backward compatible)
-// Deprecated: Use StartWithOptions for new code
-func Start(ctx context.Context, timeout time.Duration, image string) (Id, error) {
-	return StartWithOptions(ctx, timeout, StartOptions{
-		Image:    image,
-		Port:     8080,
-		HostPort: 8080,
-	})
-}
-
 // StartWithOptions starts a container with the specified options
 // Returns the container ID and the actual host port used
 func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOptions) (Id, error) {

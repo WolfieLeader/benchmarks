@@ -1,9 +1,11 @@
 {
   "global": {
     "base_url": "http://localhost:8080",
-    "workers": 100,
-    "requests_per_endpoint": 1500,
-    "timeout": "10s"
+    "workers": 50,
+    "requests_per_endpoint": 1000,
+    "timeout": "10s",
+    "cpu_limit": "2",
+    "memory_limit": "1g"
   },
   "servers": {
     "bun-honojs": 3005,

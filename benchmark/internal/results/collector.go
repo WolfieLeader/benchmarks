@@ -2,6 +2,7 @@ package results
 
 import (
 	"benchmark-client/internal/client"
+	"benchmark-client/internal/config"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -45,20 +46,12 @@ type OverallStats struct {
 	TestCaseCount int     `json:"test_case_count"`
 }
 
-// ConfigSummary contains a summary of the configuration used
-type ConfigSummary struct {
-	BaseURL    string `json:"base_url"`
-	Timeout    string `json:"timeout"`
-	Workers    int    `json:"workers"`
-	Iterations int    `json:"iterations"`
-}
-
 // BenchmarkResults contains all benchmark results
 type BenchmarkResults struct {
-	Timestamp time.Time         `json:"timestamp"`
-	Config    *ConfigSummary    `json:"config"`
-	Servers   []ServerResult    `json:"servers"`
-	Summary   *BenchmarkSummary `json:"summary"`
+	Timestamp time.Time            `json:"timestamp"`
+	Config    *config.GlobalConfig `json:"config"`
+	Servers   []ServerResult       `json:"servers"`
+	Summary   *BenchmarkSummary    `json:"summary"`
 }
 
 // BenchmarkSummary contains overall benchmark summary
@@ -73,12 +66,12 @@ type BenchmarkSummary struct {
 type Collector struct {
 	mu        sync.Mutex
 	startTime time.Time
-	config    *ConfigSummary
+	config    *config.GlobalConfig
 	servers   []ServerResult
 }
 
 // NewCollector creates a new results collector
-func NewCollector(config *ConfigSummary) *Collector {
+func NewCollector(config *config.GlobalConfig) *Collector {
 	return &Collector{
 		startTime: time.Now(),
 		config:    config,

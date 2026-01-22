@@ -28,48 +28,48 @@ const (
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
-func Load(ctx context.Context, filename string) (*ResolvedConfig, error) {
+func Load(ctx context.Context, filename string) (*Config, []*ResolvedServer, error) {
 	if err := checkCtx(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	if err := checkCtx(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	fileExtension := strings.ToLower(filepath.Ext(filename))
 	if fileExtension != ".jsonc" && fileExtension != ".json" {
-		return nil, fmt.Errorf("unsupported config file format: %s", fileExtension)
+		return nil, nil, fmt.Errorf("unsupported config file format: %s", fileExtension)
 	}
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON config: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse JSON config: %w", err)
 	}
 
 	if err := checkCtx(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := applyDefaults(&cfg); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
+		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	if err := checkCtx(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	resolved, err := resolve(&cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve configuration: %w", err)
+		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
 	}
 
-	return resolved, nil
+	return &cfg, resolved, nil
 }
 
 func applyDefaults(cfg *Config) error {

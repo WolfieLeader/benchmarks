@@ -14,19 +14,15 @@ import (
 
 type Suite struct {
 	client    *Client
-	config    *config.ResolvedConfig
 	server    *config.ResolvedServer
 	serverURL string
-	timeout   time.Duration
 }
 
-func NewSuite(ctx context.Context, cfg *config.ResolvedConfig, server *config.ResolvedServer, serverURL string) *Suite {
+func NewSuite(ctx context.Context, server *config.ResolvedServer, serverURL string) *Suite {
 	return &Suite{
 		client:    newClient(ctx, serverURL),
-		config:    cfg,
 		server:    server,
 		serverURL: serverURL,
-		timeout:   cfg.Timeout,
 	}
 }
 
@@ -87,7 +83,7 @@ func (s *Suite) RunEndpoint(name, path, method string, testCases []*config.Resol
 		return nil, fmt.Errorf("no valid test cases for endpoint %s", name)
 	}
 
-	stats, testResults, err := s.runTestCases(executableCases, s.server.Workers, s.server.Iterations)
+	stats, testResults, err := s.runTestCases(executableCases, s.server.Workers, s.server.RequestsPerEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +276,7 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 }
 
 func (s *Suite) executeTestcase(tc *ExecutableTestcase) (time.Duration, error) {
-	ctx, cancel := context.WithTimeout(s.client.ctx, s.timeout)
+	ctx, cancel := context.WithTimeout(s.client.ctx, s.server.Timeout)
 	defer cancel()
 
 	req, err := s.client.BuildRequest(ctx, tc)
