@@ -145,21 +145,21 @@ update-all: update-honojs update-elysia update-oak update-express update-nestjs 
 # ==============================================================================
 
 build-images:
-	docker build -t bun-honojs-image ./bun-honojs
-	docker build -t bun-elysia-image ./bun-elysia
-	docker build -t deno-oak-image ./deno-oak
-	docker build -t node-express-image ./node-express
-	docker build -t node-nestjs-image ./node-nestjs
-	docker build -t node-fastify-image ./node-fastify
-	docker build -t python-fastapi-image ./python-fastapi
-	docker build -t go-chi-image ./go-chi
-	docker build -t go-gin-image ./go-gin
-	docker build -t go-fiber-image ./go-fiber
+	docker build -t bun-honojs ./bun-honojs
+	docker build -t bun-elysia ./bun-elysia
+	docker build -t deno-oak ./deno-oak
+	docker build -t node-express ./node-express
+	docker build -t node-nestjs ./node-nestjs
+	docker build -t node-fastify ./node-fastify
+	docker build -t python-fastapi ./python-fastapi
+	docker build -t go-chi ./go-chi
+	docker build -t go-gin ./go-gin
+	docker build -t go-fiber ./go-fiber
 
 clean-images:
-	docker rmi bun-honojs-image bun-elysia-image deno-oak-image \
-		node-express-image node-nestjs-image node-fastify-image \
-		python-fastapi-image go-chi-image go-gin-image go-fiber-image
+	docker rmi bun-honojs bun-elysia deno-oak \
+		node-express node-nestjs node-fastify \
+		python-fastapi go-chi go-gin go-fiber
 
 # ==============================================================================
 # Cleanup

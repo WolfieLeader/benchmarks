@@ -42,7 +42,7 @@ async function bootstrap() {
 
       const message = exception instanceof Error ? exception.message : INTERNAL_ERROR;
       response.status(500).json({ error: message || INTERNAL_ERROR });
-    },
+    }
   });
 
   await app.listen(env.PORT, env.HOST);

@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-01-21T23:18:59.730704+02:00",
+  "timestamp": "2026-01-22T02:39:07.168919+02:00",
   "config": {
     "base_url": "http://localhost:8080",
     "timeout": "10s",
-    "workers": 50,
-    "iterations": 1000
+    "workers": 100,
+    "iterations": 1500
   },
   "servers": [
     {
-      "name": "express",
-      "container_id": "b527b0b9a0c9",
-      "image_name": "node-express-image",
-      "port": 3001,
-      "start_time": "2026-01-21T23:18:59.730706+02:00",
-      "end_time": "2026-01-21T23:19:02.222745+02:00",
-      "duration": "2.492036959s",
+      "name": "bun-elysia",
+      "container_id": "4c03ad2a79d5",
+      "image_name": "bun-elysia",
+      "port": 3006,
+      "start_time": "2026-01-22T02:39:07.168921+02:00",
+      "end_time": "2026-01-22T02:39:08.121881+02:00",
+      "duration": "952.96ms",
       "endpoints": [
         {
           "name": "params_cookie",
@@ -22,54 +22,85 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "default_no_cookie",
+              "name": "default",
               "success": true,
-              "latency": 308916
+              "latency": 669541
             },
             {
               "name": "with_cookie",
               "success": true,
-              "latency": 327333
+              "latency": 644167
             },
             {
               "name": "cookie_with_spaces",
               "success": true,
-              "latency": 376000
+              "latency": 729083
             }
           ],
           "stats": {
-            "Avg": 3895808,
-            "High": 31291209,
-            "Low": 308916,
-            "P50": 1436666,
-            "P95": 19055125,
-            "P99": 25120750,
+            "Avg": 5773847,
+            "High": 32420875,
+            "Low": 644167,
+            "P50": 3172000,
+            "P95": 20235500,
+            "P99": 31973625,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_file",
-          "path": "/params/file",
+          "name": "params_form",
+          "path": "/params/form",
           "method": "POST",
           "test_cases": [
             {
-              "name": "basic_text_file",
+              "name": "default",
               "success": true,
-              "latency": 413416
+              "latency": 619958
             },
             {
-              "name": "multiline_file",
+              "name": "form_with_spaces",
               "success": true,
-              "latency": 480084
+              "latency": 491334
             }
           ],
           "stats": {
-            "Avg": 7560478,
-            "High": 102939458,
-            "Low": 413416,
-            "P50": 2183458,
-            "P95": 42705250,
-            "P99": 76700833,
+            "Avg": 3761937,
+            "High": 12529250,
+            "Low": 491334,
+            "P50": 2976792,
+            "P95": 8008917,
+            "P99": 10941041,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 681167
+            },
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 700750
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 672542
+            }
+          ],
+          "stats": {
+            "Avg": 3291628,
+            "High": 12088375,
+            "Low": 672542,
+            "P50": 2672458,
+            "P95": 7157583,
+            "P99": 10417167,
             "SuccessRate": 1
           }
         },
@@ -79,33 +110,54 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "invalid_limit_uses_default",
+              "name": "default",
               "success": true,
-              "latency": 410042
-            },
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 354583
+              "latency": 421417
             },
             {
               "name": "custom_query",
               "success": true,
-              "latency": 299083
+              "latency": 445667
             },
             {
               "name": "query_with_spaces",
               "success": true,
-              "latency": 281583
+              "latency": 520625
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 475750
             }
           ],
           "stats": {
-            "Avg": 4569695,
-            "High": 48000875,
-            "Low": 281583,
-            "P50": 1192542,
-            "P95": 26562917,
-            "P99": 45641167,
+            "Avg": 3407931,
+            "High": 11075959,
+            "Low": 421417,
+            "P50": 2596083,
+            "P95": 8113292,
+            "P99": 9667834,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 218791
+            }
+          ],
+          "stats": {
+            "Avg": 3355814,
+            "High": 14171333,
+            "Low": 218791,
+            "P50": 2549209,
+            "P95": 8283458,
+            "P99": 10085292,
             "SuccessRate": 1
           }
         },
@@ -115,28 +167,339 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "special_chars",
-              "success": true,
-              "latency": 461834
-            },
-            {
               "name": "default",
               "success": true,
-              "latency": 465958
+              "latency": 724583
             },
             {
               "name": "numeric_value",
               "success": true,
-              "latency": 415042
+              "latency": 844500
+            },
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 819625
             }
           ],
           "stats": {
-            "Avg": 5325559,
-            "High": 48552958,
-            "Low": 415042,
-            "P50": 2338875,
-            "P95": 39008750,
-            "P99": 47603416,
+            "Avg": 4218920,
+            "High": 12943375,
+            "Low": 724583,
+            "P50": 3382166,
+            "P95": 8862916,
+            "P99": 11391833,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 929209
+            },
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 893083
+            }
+          ],
+          "stats": {
+            "Avg": 4018749,
+            "High": 13592375,
+            "Low": 893083,
+            "P50": 3009416,
+            "P95": 8885583,
+            "P99": 10795875,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 533000
+            }
+          ],
+          "stats": {
+            "Avg": 3593548,
+            "High": 16437167,
+            "Low": 533000,
+            "P50": 2337958,
+            "P95": 9298583,
+            "P99": 14361667,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 493917
+            },
+            {
+              "name": "custom_header",
+              "success": true,
+              "latency": 507208
+            },
+            {
+              "name": "header_with_spaces",
+              "success": true,
+              "latency": 746541
+            }
+          ],
+          "stats": {
+            "Avg": 4074593,
+            "High": 15518250,
+            "Low": 493917,
+            "P50": 3163625,
+            "P95": 8786000,
+            "P99": 10475916,
+            "SuccessRate": 1
+          }
+        }
+      ],
+      "overall_stats": {
+        "total_requests": 13500,
+        "success_count": 13500,
+        "failure_count": 0,
+        "success_rate": 1,
+        "avg_latency": "3.944107ms",
+        "min_latency": "218.791µs",
+        "max_latency": "32.420875ms",
+        "p50_latency": "2.8733ms",
+        "p95_latency": "9.73687ms",
+        "p99_latency": "13.345583ms",
+        "avg_latency_ns": 3944107,
+        "min_latency_ns": 218791,
+        "max_latency_ns": 32420875,
+        "p50_latency_ns": 2873300,
+        "p95_latency_ns": 9736870,
+        "p99_latency_ns": 13345583,
+        "endpoint_count": 9,
+        "test_case_count": 22
+      }
+    },
+    {
+      "name": "deno-oak",
+      "container_id": "c1e247505cd2",
+      "image_name": "deno-oak",
+      "port": 3004,
+      "start_time": "2026-01-22T02:39:09.379566+02:00",
+      "end_time": "2026-01-22T02:39:10.59113+02:00",
+      "duration": "1.211563958s",
+      "endpoints": [
+        {
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 2144875
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 2834292
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 2934083
+            }
+          ],
+          "stats": {
+            "Avg": 5974359,
+            "High": 32926625,
+            "Low": 2144875,
+            "P50": 4373625,
+            "P95": 25616083,
+            "P99": 31647750,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 1290458
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 1282834
+            }
+          ],
+          "stats": {
+            "Avg": 8198769,
+            "High": 41507542,
+            "Low": 1282834,
+            "P50": 5524292,
+            "P95": 39271250,
+            "P99": 40594958,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 761750
+            }
+          ],
+          "stats": {
+            "Avg": 3991169,
+            "High": 12542334,
+            "Low": 761750,
+            "P50": 3758833,
+            "P95": 6696917,
+            "P99": 10626375,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 3976166
+            },
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 4024584
+            }
+          ],
+          "stats": {
+            "Avg": 13343016,
+            "High": 40130750,
+            "Low": 3976166,
+            "P50": 11194333,
+            "P95": 35533584,
+            "P99": 37642875,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 783167
+            },
+            {
+              "name": "custom_query",
+              "success": true,
+              "latency": 668750
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 821917
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 790166
+            }
+          ],
+          "stats": {
+            "Avg": 4694389,
+            "High": 22527958,
+            "Low": 668750,
+            "P50": 3716292,
+            "P95": 16339208,
+            "P99": 18273792,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 589458
+            },
+            {
+              "name": "custom_header",
+              "success": true,
+              "latency": 605625
+            },
+            {
+              "name": "header_with_spaces",
+              "success": true,
+              "latency": 519792
+            }
+          ],
+          "stats": {
+            "Avg": 4826990,
+            "High": 16142292,
+            "Low": 519792,
+            "P50": 4179750,
+            "P95": 11300417,
+            "P99": 13875875,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 332709
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 337916
+            },
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 489041
+            }
+          ],
+          "stats": {
+            "Avg": 4365637,
+            "High": 11572083,
+            "Low": 332709,
+            "P50": 4088792,
+            "P95": 7476833,
+            "P99": 10033584,
             "SuccessRate": 1
           }
         },
@@ -148,26 +511,109 @@
             {
               "name": "object_with_array",
               "success": true,
-              "latency": 505917
+              "latency": 1265667
             },
             {
-              "name": "simple_object",
+              "name": "default",
               "success": true,
-              "latency": 463125
+              "latency": 492250
             },
             {
               "name": "nested_object",
               "success": true,
-              "latency": 373583
+              "latency": 665666
             }
           ],
           "stats": {
-            "Avg": 7011721,
-            "High": 57009750,
-            "Low": 373583,
-            "P50": 1786958,
-            "P95": 48935041,
-            "P99": 56178250,
+            "Avg": 5384179,
+            "High": 17412500,
+            "Low": 492250,
+            "P50": 4946291,
+            "P95": 10295916,
+            "P99": 14589084,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 550042
+            }
+          ],
+          "stats": {
+            "Avg": 5866149,
+            "High": 36274417,
+            "Low": 550042,
+            "P50": 4169458,
+            "P95": 27001333,
+            "P99": 34402292,
+            "SuccessRate": 1
+          }
+        }
+      ],
+      "overall_stats": {
+        "total_requests": 13500,
+        "success_count": 13500,
+        "failure_count": 0,
+        "success_rate": 1,
+        "avg_latency": "6.29385ms",
+        "min_latency": "332.709µs",
+        "max_latency": "41.507542ms",
+        "p50_latency": "5.10574ms",
+        "p95_latency": "19.947949ms",
+        "p99_latency": "23.520731ms",
+        "avg_latency_ns": 6293850,
+        "min_latency_ns": 332709,
+        "max_latency_ns": 41507542,
+        "p50_latency_ns": 5105740,
+        "p95_latency_ns": 19947949,
+        "p99_latency_ns": 23520731,
+        "endpoint_count": 9,
+        "test_case_count": 22
+      }
+    },
+    {
+      "name": "node-express",
+      "container_id": "9f0ebb2692ce",
+      "image_name": "node-express",
+      "port": 3001,
+      "start_time": "2026-01-22T02:39:10.783659+02:00",
+      "end_time": "2026-01-22T02:39:12.337822+02:00",
+      "duration": "1.554162334s",
+      "endpoints": [
+        {
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 245333
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 238041
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 219292
+            }
+          ],
+          "stats": {
+            "Avg": 9160531,
+            "High": 125732125,
+            "Low": 219292,
+            "P50": 1195958,
+            "P95": 78641750,
+            "P99": 120785000,
             "SuccessRate": 1
           }
         },
@@ -177,44 +623,23 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 332292
-            },
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 347709
-            }
-          ],
-          "stats": {
-            "Avg": 3146163,
-            "High": 22627250,
-            "Low": 332292,
-            "P50": 1313750,
-            "P95": 13233833,
-            "P99": 22127792,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
               "name": "default",
               "success": true,
-              "latency": 296000
+              "latency": 272625
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 275125
             }
           ],
           "stats": {
-            "Avg": 3649503,
-            "High": 34676250,
-            "Low": 296000,
-            "P50": 1428875,
-            "P95": 18235375,
-            "P99": 31455958,
+            "Avg": 7884771,
+            "High": 104903333,
+            "Low": 272625,
+            "P50": 942417,
+            "P95": 65168709,
+            "P99": 98165875,
             "SuccessRate": 1
           }
         },
@@ -226,16 +651,130 @@
             {
               "name": "default",
               "success": true,
-              "latency": 376917
+              "latency": 188000
             }
           ],
           "stats": {
-            "Avg": 3900367,
-            "High": 35353583,
-            "Low": 376917,
-            "P50": 1655834,
-            "P95": 28334125,
-            "P99": 32826083,
+            "Avg": 6423398,
+            "High": 69537875,
+            "Low": 188000,
+            "P50": 887167,
+            "P95": 44333792,
+            "P99": 64705416,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 266042
+            },
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 170291
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 134791
+            }
+          ],
+          "stats": {
+            "Avg": 6830176,
+            "High": 68353833,
+            "Low": 134791,
+            "P50": 781500,
+            "P95": 39779333,
+            "P99": 64468333,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 440291
+            },
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 440542
+            }
+          ],
+          "stats": {
+            "Avg": 12787038,
+            "High": 192401375,
+            "Low": 440291,
+            "P50": 2014125,
+            "P95": 65549333,
+            "P99": 191437250,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 130750
+            }
+          ],
+          "stats": {
+            "Avg": 7139765,
+            "High": 60212625,
+            "Low": 130750,
+            "P50": 868958,
+            "P95": 44281625,
+            "P99": 54464084,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 255875
+            },
+            {
+              "name": "custom_query",
+              "success": true,
+              "latency": 184792
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 304208
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 270709
+            }
+          ],
+          "stats": {
+            "Avg": 5146971,
+            "High": 45844417,
+            "Low": 184792,
+            "P50": 838500,
+            "P95": 24874500,
+            "P99": 40978500,
             "SuccessRate": 1
           }
         },
@@ -245,105 +784,126 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 271916
-            },
-            {
               "name": "custom_header",
               "success": true,
-              "latency": 307833
+              "latency": 163666
             },
             {
               "name": "header_with_spaces",
               "success": true,
-              "latency": 286750
+              "latency": 218875
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 249250
             }
           ],
           "stats": {
-            "Avg": 3377098,
-            "High": 18379083,
-            "Low": 271916,
-            "P50": 1413833,
-            "P95": 13295791,
-            "P99": 16815417,
+            "Avg": 7162332,
+            "High": 69829416,
+            "Low": 163666,
+            "P50": 730791,
+            "P95": 50717667,
+            "P99": 64905000,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 200125
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 231458
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 275500
+            }
+          ],
+          "stats": {
+            "Avg": 5313261,
+            "High": 41069000,
+            "Low": 200125,
+            "P50": 1054167,
+            "P95": 27487167,
+            "P99": 40026792,
             "SuccessRate": 1
           }
         }
       ],
       "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
+        "total_requests": 13500,
+        "success_count": 13500,
         "failure_count": 0,
         "success_rate": 1,
-        "avg_latency": "4.715154ms",
-        "min_latency": "271.916µs",
-        "max_latency": "102.939458ms",
-        "p50_latency": "1.638976ms",
-        "p95_latency": "27.707356ms",
-        "p99_latency": "39.385518ms",
-        "avg_latency_ns": 4715154,
-        "min_latency_ns": 271916,
-        "max_latency_ns": 102939458,
-        "p50_latency_ns": 1638976,
-        "p95_latency_ns": 27707356,
-        "p99_latency_ns": 39385518,
+        "avg_latency": "7.538693ms",
+        "min_latency": "130.75µs",
+        "max_latency": "192.401375ms",
+        "p50_latency": "1.034842ms",
+        "p95_latency": "48.981541ms",
+        "p99_latency": "82.215138ms",
+        "avg_latency_ns": 7538693,
+        "min_latency_ns": 130750,
+        "max_latency_ns": 192401375,
+        "p50_latency_ns": 1034842,
+        "p95_latency_ns": 48981541,
+        "p99_latency_ns": 82215138,
         "endpoint_count": 9,
         "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
       }
     },
     {
-      "name": "fastify",
-      "container_id": "90207fddf325",
-      "image_name": "node-fastify-image",
-      "port": 3003,
-      "start_time": "2026-01-21T23:19:04.450757+02:00",
-      "end_time": "2026-01-21T23:19:05.658568+02:00",
-      "duration": "1.207812417s",
+      "name": "node-nestjs",
+      "container_id": "51bc15d60fea",
+      "image_name": "node-nestjs",
+      "port": 3002,
+      "start_time": "2026-01-22T02:39:13.545547+02:00",
+      "end_time": "2026-01-22T02:39:15.046081+02:00",
+      "duration": "1.500533417s",
       "endpoints": [
         {
-          "name": "root",
-          "path": "/",
+          "name": "params_search",
+          "path": "/params/search",
           "method": "GET",
           "test_cases": [
             {
-              "name": "default",
+              "name": "custom_query",
               "success": true,
-              "latency": 622208
-            }
-          ],
-          "stats": {
-            "Avg": 4780840,
-            "High": 97166667,
-            "Low": 622208,
-            "P50": 1724959,
-            "P95": 24861792,
-            "P99": 87017083,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
+              "latency": 243459
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 231667
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 293083
+            },
             {
               "name": "default",
               "success": true,
-              "latency": 231166
+              "latency": 304917
             }
           ],
           "stats": {
-            "Avg": 2640882,
-            "High": 45305459,
-            "Low": 231166,
-            "P50": 1130917,
-            "P95": 11102792,
-            "P99": 39430958,
+            "Avg": 8686726,
+            "High": 114848792,
+            "Low": 231667,
+            "P50": 1134084,
+            "P95": 72871292,
+            "P99": 107223084,
             "SuccessRate": 1
           }
         },
@@ -353,28 +913,28 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "default_no_header",
+              "name": "default",
               "success": true,
-              "latency": 305291
+              "latency": 250458
             },
             {
               "name": "custom_header",
               "success": true,
-              "latency": 218750
+              "latency": 226625
             },
             {
               "name": "header_with_spaces",
               "success": true,
-              "latency": 287583
+              "latency": 249625
             }
           ],
           "stats": {
-            "Avg": 2635488,
-            "High": 39115291,
-            "Low": 218750,
-            "P50": 1029333,
-            "P95": 13975084,
-            "P99": 35076208,
+            "Avg": 6796549,
+            "High": 68842292,
+            "Low": 226625,
+            "P50": 782250,
+            "P95": 61300500,
+            "P99": 63738792,
             "SuccessRate": 1
           }
         },
@@ -384,317 +944,562 @@
           "method": "GET",
           "test_cases": [
             {
-              "name": "default_no_cookie",
+              "name": "default",
+              "success": true,
+              "latency": 220375
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 259875
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 174541
+            }
+          ],
+          "stats": {
+            "Avg": 7125596,
+            "High": 73210959,
+            "Low": 174541,
+            "P50": 802792,
+            "P95": 63131167,
+            "P99": 68937375,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 260875
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 228417
+            }
+          ],
+          "stats": {
+            "Avg": 11946784,
+            "High": 167876917,
+            "Low": 228417,
+            "P50": 1050667,
+            "P95": 90505000,
+            "P99": 162362417,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 184166
+            }
+          ],
+          "stats": {
+            "Avg": 6502677,
+            "High": 59960666,
+            "Low": 184166,
+            "P50": 784375,
+            "P95": 51213709,
+            "P99": 57764167,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 400333
+            }
+          ],
+          "stats": {
+            "Avg": 6406217,
+            "High": 94538291,
+            "Low": 400333,
+            "P50": 1074542,
+            "P95": 51854708,
+            "P99": 88093625,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 184000
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 250583
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 276791
+            }
+          ],
+          "stats": {
+            "Avg": 5564699,
+            "High": 44199708,
+            "Low": 184000,
+            "P50": 793333,
+            "P95": 37039208,
+            "P99": 43179708,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 294791
+            },
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 188875
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 263458
+            }
+          ],
+          "stats": {
+            "Avg": 6603320,
+            "High": 69924541,
+            "Low": 188875,
+            "P50": 816584,
+            "P95": 50770416,
+            "P99": 66049250,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 448125
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 567125
+            }
+          ],
+          "stats": {
+            "Avg": 17617339,
+            "High": 280529000,
+            "Low": 448125,
+            "P50": 3090125,
+            "P95": 93379083,
+            "P99": 279125625,
+            "SuccessRate": 1
+          }
+        }
+      ],
+      "overall_stats": {
+        "total_requests": 13500,
+        "success_count": 13500,
+        "failure_count": 0,
+        "success_rate": 1,
+        "avg_latency": "8.583323ms",
+        "min_latency": "174.541µs",
+        "max_latency": "280.529ms",
+        "p50_latency": "1.147639ms",
+        "p95_latency": "63.562787ms",
+        "p99_latency": "104.052671ms",
+        "avg_latency_ns": 8583323,
+        "min_latency_ns": 174541,
+        "max_latency_ns": 280529000,
+        "p50_latency_ns": 1147639,
+        "p95_latency_ns": 63562787,
+        "p99_latency_ns": 104052671,
+        "endpoint_count": 9,
+        "test_case_count": 22
+      }
+    },
+    {
+      "name": "node-fastify",
+      "container_id": "84e3dbc31baf",
+      "image_name": "node-fastify",
+      "port": 3003,
+      "start_time": "2026-01-22T02:39:16.272978+02:00",
+      "end_time": "2026-01-22T02:39:19.205846+02:00",
+      "duration": "2.93286725s",
+      "endpoints": [
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 254667
+            },
+            {
+              "name": "custom_query",
+              "success": true,
+              "latency": 246542
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 234125
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 290500
+            }
+          ],
+          "stats": {
+            "Avg": 5921311,
+            "High": 62995208,
+            "Low": 234125,
+            "P50": 847417,
+            "P95": 43665417,
+            "P99": 57367709,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 276000
+            },
+            {
+              "name": "custom_header",
+              "success": true,
+              "latency": 272375
+            },
+            {
+              "name": "header_with_spaces",
+              "success": true,
+              "latency": 263625
+            }
+          ],
+          "stats": {
+            "Avg": 6366574,
+            "High": 49280625,
+            "Low": 263625,
+            "P50": 1011000,
+            "P95": 37636125,
+            "P99": 46034375,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 280667
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 228750
+            }
+          ],
+          "stats": {
+            "Avg": 6920199,
+            "High": 70088834,
+            "Low": 228750,
+            "P50": 1903416,
+            "P95": 42320250,
+            "P99": 62264000,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 1448000
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 816917
+            },
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 701084
+            }
+          ],
+          "stats": {
+            "Avg": 22436751,
+            "High": 59320791,
+            "Low": 701084,
+            "P50": 22410458,
+            "P95": 42912833,
+            "P99": 49683958,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 1085000
+            },
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 1119125
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 1603292
+            }
+          ],
+          "stats": {
+            "Avg": 23174329,
+            "High": 55886167,
+            "Low": 1085000,
+            "P50": 22154625,
+            "P95": 41488917,
+            "P99": 43118917,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
               "success": true,
               "latency": 258916
             },
             {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 192792
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 163291
-            }
-          ],
-          "stats": {
-            "Avg": 2941671,
-            "High": 26796625,
-            "Low": 163291,
-            "P50": 676042,
-            "P95": 15184667,
-            "P99": 25179209,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 445708
-            },
-            {
               "name": "multiline_file",
               "success": true,
-              "latency": 437084
+              "latency": 325875
             }
           ],
           "stats": {
-            "Avg": 7354973,
-            "High": 114503958,
-            "Low": 437084,
-            "P50": 1633958,
-            "P95": 52082792,
-            "P99": 103157000,
+            "Avg": 18686931,
+            "High": 98525625,
+            "Low": 258916,
+            "P50": 15066166,
+            "P95": 58808834,
+            "P99": 91905084,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 273250
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 352958
-            },
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 324083
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 318417
-            }
-          ],
-          "stats": {
-            "Avg": 2158532,
-            "High": 14929375,
-            "Low": 273250,
-            "P50": 889667,
-            "P95": 8273667,
-            "P99": 11206667,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
+          "name": "root",
+          "path": "/",
           "method": "GET",
           "test_cases": [
             {
               "name": "default",
               "success": true,
-              "latency": 212500
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 267792
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 220333
+              "latency": 649042
             }
           ],
           "stats": {
-            "Avg": 2840768,
-            "High": 25148458,
-            "Low": 212500,
-            "P50": 810875,
-            "P95": 16923542,
-            "P99": 24020875,
+            "Avg": 23955520,
+            "High": 64905792,
+            "Low": 649042,
+            "P50": 20955834,
+            "P95": 52910125,
+            "P99": 62372458,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
           "test_cases": [
             {
-              "name": "simple_object",
+              "name": "cookie_with_spaces",
               "success": true,
-              "latency": 204125
+              "latency": 375333
             },
             {
-              "name": "nested_object",
+              "name": "default",
               "success": true,
-              "latency": 246625
+              "latency": 462041
             },
             {
-              "name": "object_with_array",
+              "name": "with_cookie",
               "success": true,
-              "latency": 233125
+              "latency": 849708
             }
           ],
           "stats": {
-            "Avg": 2631862,
-            "High": 18219292,
-            "Low": 204125,
-            "P50": 835500,
-            "P95": 15838208,
-            "P99": 17328042,
+            "Avg": 23703798,
+            "High": 48257500,
+            "Low": 375333,
+            "P50": 22512625,
+            "P95": 42374791,
+            "P99": 46401584,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
           "test_cases": [
             {
-              "name": "basic_form",
+              "name": "default",
               "success": true,
-              "latency": 192333
-            },
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 127792
+              "latency": 195250
             }
           ],
           "stats": {
-            "Avg": 4154463,
-            "High": 72234125,
-            "Low": 127792,
-            "P50": 1060583,
-            "P95": 30311458,
-            "P99": 62300583,
+            "Avg": 25677033,
+            "High": 89352500,
+            "Low": 195250,
+            "P50": 23475125,
+            "P95": 50955000,
+            "P99": 55971000,
             "SuccessRate": 1
           }
         }
       ],
       "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
+        "total_requests": 13500,
+        "success_count": 13500,
         "failure_count": 0,
         "success_rate": 1,
-        "avg_latency": "3.571053ms",
-        "min_latency": "127.792µs",
-        "max_latency": "114.503958ms",
-        "p50_latency": "1.087981ms",
-        "p95_latency": "20.950444ms",
-        "p99_latency": "44.968513ms",
-        "avg_latency_ns": 3571053,
-        "min_latency_ns": 127792,
-        "max_latency_ns": 114503958,
-        "p50_latency_ns": 1087981,
-        "p95_latency_ns": 20950444,
-        "p99_latency_ns": 44968513,
+        "avg_latency": "17.426938ms",
+        "min_latency": "195.25µs",
+        "max_latency": "98.525625ms",
+        "p50_latency": "14.481851ms",
+        "p95_latency": "45.896921ms",
+        "p99_latency": "57.235453ms",
+        "avg_latency_ns": 17426938,
+        "min_latency_ns": 195250,
+        "max_latency_ns": 98525625,
+        "p50_latency_ns": 14481851,
+        "p95_latency_ns": 45896921,
+        "p99_latency_ns": 57235453,
         "endpoint_count": 9,
         "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
       }
     },
     {
-      "name": "fastapi",
-      "container_id": "2a3e2ff17504",
-      "image_name": "python-fastapi-image",
+      "name": "python-fastapi",
+      "container_id": "9146bc714d2a",
+      "image_name": "python-fastapi",
       "port": 4001,
-      "start_time": "2026-01-21T23:19:07.864878+02:00",
-      "end_time": "2026-01-21T23:19:11.01252+02:00",
-      "duration": "3.147643708s",
+      "start_time": "2026-01-22T02:39:20.477612+02:00",
+      "end_time": "2026-01-22T02:39:25.664702+02:00",
+      "duration": "5.187089375s",
       "endpoints": [
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 6177083
-            }
-          ],
-          "stats": {
-            "Avg": 11915661,
-            "High": 31142792,
-            "Low": 6177083,
-            "P50": 9399209,
-            "P95": 26451958,
-            "P99": 30596750,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 1184500
-            }
-          ],
-          "stats": {
-            "Avg": 10884148,
-            "High": 27336625,
-            "Low": 1184500,
-            "P50": 9325667,
-            "P95": 21751250,
-            "P99": 23601625,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 1029333
-            },
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 994500
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 7315167
-            }
-          ],
-          "stats": {
-            "Avg": 12148379,
-            "High": 27931750,
-            "Low": 994500,
-            "P50": 10782209,
-            "P95": 24381542,
-            "P99": 25708792,
-            "SuccessRate": 1
-          }
-        },
         {
           "name": "params_cookie",
           "path": "/params/cookie",
           "method": "GET",
           "test_cases": [
             {
+              "name": "default",
+              "success": true,
+              "latency": 17025458
+            },
+            {
               "name": "with_cookie",
               "success": true,
-              "latency": 1926000
+              "latency": 17257958
             },
             {
               "name": "cookie_with_spaces",
               "success": true,
-              "latency": 5329042
-            },
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 1898125
+              "latency": 16995416
             }
           ],
           "stats": {
-            "Avg": 12228612,
-            "High": 28406833,
-            "Low": 1898125,
-            "P50": 10438292,
-            "P95": 22319458,
-            "P99": 28010208,
+            "Avg": 33318909,
+            "High": 133207000,
+            "Low": 16995416,
+            "P50": 26012875,
+            "P95": 120452125,
+            "P99": 132431209,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 19820125
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 19710917
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 19690875
+            }
+          ],
+          "stats": {
+            "Avg": 30110498,
+            "High": 70404291,
+            "Low": 19690875,
+            "P50": 26555333,
+            "P95": 50428833,
+            "P99": 62927833,
             "SuccessRate": 1
           }
         },
@@ -704,306 +1509,23 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "basic_text_file",
+              "name": "default",
               "success": true,
-              "latency": 5604666
+              "latency": 7762833
             },
             {
               "name": "multiline_file",
               "success": true,
-              "latency": 1411500
+              "latency": 7687250
             }
           ],
           "stats": {
-            "Avg": 12923621,
-            "High": 17907250,
-            "Low": 1411500,
-            "P50": 12688541,
-            "P95": 16416792,
-            "P99": 17433917,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 7222542
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 991250
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 995000
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 7035708
-            }
-          ],
-          "stats": {
-            "Avg": 12407803,
-            "High": 29382000,
-            "Low": 991250,
-            "P50": 10865250,
-            "P95": 24349625,
-            "P99": 26507958,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 944875
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 885959
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 2415125
-            }
-          ],
-          "stats": {
-            "Avg": 11420730,
-            "High": 27851917,
-            "Low": 885959,
-            "P50": 10249083,
-            "P95": 23287375,
-            "P99": 26947417,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "nested_object",
-              "success": true,
-              "latency": 1483334
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 4983000
-            },
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 1495959
-            }
-          ],
-          "stats": {
-            "Avg": 12837161,
-            "High": 28359708,
-            "Low": 1483334,
-            "P50": 11623458,
-            "P95": 21366958,
-            "P99": 25057459,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 1376834
-            },
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 1047792
-            }
-          ],
-          "stats": {
-            "Avg": 10213418,
-            "High": 17564417,
-            "Low": 1047792,
-            "P50": 9888000,
-            "P95": 15087583,
-            "P99": 15671500,
-            "SuccessRate": 1
-          }
-        }
-      ],
-      "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "11.886614ms",
-        "min_latency": "885.959µs",
-        "max_latency": "31.142792ms",
-        "p50_latency": "10.584412ms",
-        "p95_latency": "21.712504ms",
-        "p99_latency": "24.392847ms",
-        "avg_latency_ns": 11886614,
-        "min_latency_ns": 885959,
-        "max_latency_ns": 31142792,
-        "p50_latency_ns": 10584412,
-        "p95_latency_ns": 21712504,
-        "p99_latency_ns": 24392847,
-        "endpoint_count": 9,
-        "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
-      }
-    },
-    {
-      "name": "gin",
-      "container_id": "26e274c7458c",
-      "image_name": "go-gin-image",
-      "port": 5002,
-      "start_time": "2026-01-21T23:19:12.458274+02:00",
-      "end_time": "2026-01-21T23:19:13.171489+02:00",
-      "duration": "713.215375ms",
-      "endpoints": [
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 104958
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 102792
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 103875
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 108166
-            }
-          ],
-          "stats": {
-            "Avg": 2951232,
-            "High": 28643958,
-            "Low": 102792,
-            "P50": 1474083,
-            "P95": 10407417,
-            "P99": 27373167,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 278708
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 362916
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 298500
-            }
-          ],
-          "stats": {
-            "Avg": 1711107,
-            "High": 6252584,
-            "Low": 278708,
-            "P50": 1415916,
-            "P95": 3869875,
-            "P99": 5591000,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 218125
-            },
-            {
-              "name": "nested_object",
-              "success": true,
-              "latency": 261500
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 239084
-            }
-          ],
-          "stats": {
-            "Avg": 1869834,
-            "High": 6338709,
-            "Low": 218125,
-            "P50": 1489834,
-            "P95": 4562583,
-            "P99": 5829500,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 448000
-            },
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 353792
-            }
-          ],
-          "stats": {
-            "Avg": 1855641,
-            "High": 6772792,
-            "Low": 353792,
-            "P50": 1473917,
-            "P95": 4246459,
-            "P99": 5573084,
+            "Avg": 34161509,
+            "High": 72588917,
+            "Low": 7687250,
+            "P50": 31169625,
+            "P95": 56356708,
+            "P99": 72462583,
             "SuccessRate": 1
           }
         },
@@ -1015,378 +1537,16 @@
             {
               "name": "default",
               "success": true,
-              "latency": 208333
+              "latency": 12665333
             }
           ],
           "stats": {
-            "Avg": 1598649,
-            "High": 6919291,
-            "Low": 208333,
-            "P50": 1328750,
-            "P95": 3273709,
-            "P99": 5664625,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 399959
-            }
-          ],
-          "stats": {
-            "Avg": 1499087,
-            "High": 5705791,
-            "Low": 399959,
-            "P50": 1221542,
-            "P95": 3259959,
-            "P99": 4667459,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 363541
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 379583
-            },
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 185833
-            }
-          ],
-          "stats": {
-            "Avg": 1721458,
-            "High": 8328667,
-            "Low": 185833,
-            "P50": 1350208,
-            "P95": 3875333,
-            "P99": 7219916,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 252125
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 233792
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 278875
-            }
-          ],
-          "stats": {
-            "Avg": 1776653,
-            "High": 7280375,
-            "Low": 233792,
-            "P50": 1336750,
-            "P95": 4322709,
-            "P99": 5884208,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 248667
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 248666
-            }
-          ],
-          "stats": {
-            "Avg": 2116939,
-            "High": 6771958,
-            "Low": 248666,
-            "P50": 1840625,
-            "P95": 4446625,
-            "P99": 5617208,
-            "SuccessRate": 1
-          }
-        }
-      ],
-      "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "1.900066ms",
-        "min_latency": "102.792µs",
-        "max_latency": "28.643958ms",
-        "p50_latency": "1.436847ms",
-        "p95_latency": "4.696074ms",
-        "p99_latency": "8.157796ms",
-        "avg_latency_ns": 1900066,
-        "min_latency_ns": 102792,
-        "max_latency_ns": 28643958,
-        "p50_latency_ns": 1436847,
-        "p95_latency_ns": 4696074,
-        "p99_latency_ns": 8157796,
-        "endpoint_count": 9,
-        "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
-      }
-    },
-    {
-      "name": "fiber",
-      "container_id": "4a8327716c06",
-      "image_name": "go-fiber-image",
-      "port": 5003,
-      "start_time": "2026-01-21T23:19:14.353303+02:00",
-      "end_time": "2026-01-21T23:19:15.025396+02:00",
-      "duration": "672.092709ms",
-      "endpoints": [
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 569125
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 456084
-            },
-            {
-              "name": "default",
-              "success": true,
-              "latency": 443625
-            }
-          ],
-          "stats": {
-            "Avg": 1980050,
-            "High": 8866666,
-            "Low": 443625,
-            "P50": 1560959,
-            "P95": 4480500,
-            "P99": 6342959,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 96083
-            },
-            {
-              "name": "nested_object",
-              "success": true,
-              "latency": 99209
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 102458
-            }
-          ],
-          "stats": {
-            "Avg": 2185392,
-            "High": 20683917,
-            "Low": 96083,
-            "P50": 1378959,
-            "P95": 8004375,
-            "P99": 16340958,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 267583
-            },
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 307666
-            }
-          ],
-          "stats": {
-            "Avg": 2097876,
-            "High": 10265916,
-            "Low": 267583,
-            "P50": 1697333,
-            "P95": 4909292,
-            "P99": 7553292,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 294083
-            }
-          ],
-          "stats": {
-            "Avg": 1767125,
-            "High": 8992958,
-            "Low": 294083,
-            "P50": 1305583,
-            "P95": 4419375,
-            "P99": 6127167,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 230417
-            }
-          ],
-          "stats": {
-            "Avg": 1710179,
-            "High": 7087667,
-            "Low": 230417,
-            "P50": 1429958,
-            "P95": 3908750,
-            "P99": 5517041,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 263000
-            },
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 320459
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 333417
-            }
-          ],
-          "stats": {
-            "Avg": 1771226,
-            "High": 6320708,
-            "Low": 263000,
-            "P50": 1436584,
-            "P95": 4100834,
-            "P99": 5533167,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 468291
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 459042
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 311875
-            }
-          ],
-          "stats": {
-            "Avg": 1823099,
-            "High": 8086417,
-            "Low": 311875,
-            "P50": 1503291,
-            "P95": 3980583,
-            "P99": 6201000,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 598083
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 489250
-            }
-          ],
-          "stats": {
-            "Avg": 2221911,
-            "High": 6475542,
-            "Low": 489250,
-            "P50": 1812459,
-            "P95": 4523833,
-            "P99": 5437083,
+            "Avg": 29251378,
+            "High": 72550084,
+            "Low": 12665333,
+            "P50": 25905167,
+            "P95": 52648583,
+            "P99": 65408708,
             "SuccessRate": 1
           }
         },
@@ -1396,89 +1556,90 @@
           "method": "GET",
           "test_cases": [
             {
+              "name": "custom_query",
+              "success": true,
+              "latency": 16101500
+            },
+            {
               "name": "query_with_spaces",
               "success": true,
-              "latency": 245750
+              "latency": 9608041
             },
             {
               "name": "invalid_limit_uses_default",
               "success": true,
-              "latency": 245208
+              "latency": 2732166
             },
             {
-              "name": "default_values",
+              "name": "default",
               "success": true,
-              "latency": 437959
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 429208
+              "latency": 16855416
             }
           ],
           "stats": {
-            "Avg": 1923908,
-            "High": 6079083,
-            "Low": 245208,
-            "P50": 1568041,
-            "P95": 4002083,
-            "P99": 5004916,
+            "Avg": 32351220,
+            "High": 75781625,
+            "Low": 2732166,
+            "P50": 29395000,
+            "P95": 58811666,
+            "P99": 73072542,
             "SuccessRate": 1
           }
-        }
-      ],
-      "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "1.942307ms",
-        "min_latency": "96.083µs",
-        "max_latency": "20.683917ms",
-        "p50_latency": "1.521463ms",
-        "p95_latency": "4.703291ms",
-        "p99_latency": "7.117509ms",
-        "avg_latency_ns": 1942307,
-        "min_latency_ns": 96083,
-        "max_latency_ns": 20683917,
-        "p50_latency_ns": 1521463,
-        "p95_latency_ns": 4703291,
-        "p99_latency_ns": 7117509,
-        "endpoint_count": 9,
-        "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
-      }
-    },
-    {
-      "name": "elysia",
-      "container_id": "70cd1e58c7d1",
-      "image_name": "bun-elysia-image",
-      "port": 3006,
-      "start_time": "2026-01-21T23:19:16.198785+02:00",
-      "end_time": "2026-01-21T23:19:16.999459+02:00",
-      "duration": "800.6745ms",
-      "endpoints": [
+        },
         {
-          "name": "root",
-          "path": "/",
+          "name": "params_header",
+          "path": "/params/header",
           "method": "GET",
+          "test_cases": [
+            {
+              "name": "header_with_spaces",
+              "success": true,
+              "latency": 16490958
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 18059250
+            },
+            {
+              "name": "custom_header",
+              "success": true,
+              "latency": 16649750
+            }
+          ],
+          "stats": {
+            "Avg": 33103630,
+            "High": 72720041,
+            "Low": 16490958,
+            "P50": 28404834,
+            "P95": 55512166,
+            "P99": 69524500,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
           "test_cases": [
             {
               "name": "default",
               "success": true,
-              "latency": 278584
+              "latency": 5268291
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 5334417
             }
           ],
           "stats": {
-            "Avg": 2863005,
-            "High": 27041000,
-            "Low": 278584,
-            "P50": 1344875,
-            "P95": 23988167,
-            "P99": 26761917,
+            "Avg": 31449096,
+            "High": 74039500,
+            "Low": 5268291,
+            "P50": 27308792,
+            "P95": 65876834,
+            "P99": 70846500,
             "SuccessRate": 1
           }
         },
@@ -1490,171 +1651,16 @@
             {
               "name": "default",
               "success": true,
-              "latency": 490209
+              "latency": 13513584
             }
           ],
           "stats": {
-            "Avg": 2138828,
-            "High": 8207166,
-            "Low": 490209,
-            "P50": 1809458,
-            "P95": 4220834,
-            "P99": 6096000,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 626792
-            },
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 449959
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 413541
-            }
-          ],
-          "stats": {
-            "Avg": 2260175,
-            "High": 6934458,
-            "Low": 413541,
-            "P50": 1873291,
-            "P95": 4657083,
-            "P99": 6586458,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 1121708
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 1067291
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 1125333
-            }
-          ],
-          "stats": {
-            "Avg": 2852300,
-            "High": 11987291,
-            "Low": 1067291,
-            "P50": 2168666,
-            "P95": 7979458,
-            "P99": 10783166,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 1299958
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 1327083
-            }
-          ],
-          "stats": {
-            "Avg": 3038641,
-            "High": 12838291,
-            "Low": 1299958,
-            "P50": 2392291,
-            "P95": 9316666,
-            "P99": 12406125,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 781208
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 719792
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 645167
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 633041
-            }
-          ],
-          "stats": {
-            "Avg": 3115481,
-            "High": 22898500,
-            "Low": 633041,
-            "P50": 1975208,
-            "P95": 16379917,
-            "P99": 22334875,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 689666
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 719375
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 668583
-            }
-          ],
-          "stats": {
-            "Avg": 2088145,
-            "High": 5694750,
-            "Low": 668583,
-            "P50": 1734292,
-            "P95": 4301125,
-            "P99": 5407709,
+            "Avg": 31654250,
+            "High": 75541875,
+            "Low": 13513584,
+            "P50": 28202667,
+            "P95": 57147750,
+            "P99": 75432042,
             "SuccessRate": 1
           }
         },
@@ -1664,487 +1670,90 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "object_with_array",
+              "name": "default",
               "success": true,
-              "latency": 355333
-            },
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 339708
+              "latency": 21945875
             },
             {
               "name": "nested_object",
               "success": true,
-              "latency": 526625
-            }
-          ],
-          "stats": {
-            "Avg": 2232520,
-            "High": 17318750,
-            "Low": 339708,
-            "P50": 1451833,
-            "P95": 9974875,
-            "P99": 14904375,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 381666
+              "latency": 21815625
             },
             {
-              "name": "form_with_spaces",
+              "name": "object_with_array",
               "success": true,
-              "latency": 379333
+              "latency": 21671375
             }
           ],
           "stats": {
-            "Avg": 1773763,
-            "High": 5912917,
-            "Low": 379333,
-            "P50": 1432667,
-            "P95": 3918417,
-            "P99": 5204250,
+            "Avg": 36383109,
+            "High": 82305541,
+            "Low": 21671375,
+            "P50": 34354958,
+            "P95": 57574709,
+            "P99": 74182542,
             "SuccessRate": 1
           }
         }
       ],
       "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
+        "total_requests": 13500,
+        "success_count": 13500,
         "failure_count": 0,
         "success_rate": 1,
-        "avg_latency": "2.484762ms",
-        "min_latency": "278.584µs",
-        "max_latency": "27.041ms",
-        "p50_latency": "1.798064ms",
-        "p95_latency": "9.415171ms",
-        "p99_latency": "12.276097ms",
-        "avg_latency_ns": 2484762,
-        "min_latency_ns": 278584,
-        "max_latency_ns": 27041000,
-        "p50_latency_ns": 1798064,
-        "p95_latency_ns": 9415171,
-        "p99_latency_ns": 12276097,
+        "avg_latency": "32.420399ms",
+        "min_latency": "2.732166ms",
+        "max_latency": "133.207ms",
+        "p50_latency": "28.589916ms",
+        "p95_latency": "63.867708ms",
+        "p99_latency": "77.365384ms",
+        "avg_latency_ns": 32420399,
+        "min_latency_ns": 2732166,
+        "max_latency_ns": 133207000,
+        "p50_latency_ns": 28589916,
+        "p95_latency_ns": 63867708,
+        "p99_latency_ns": 77365384,
         "endpoint_count": 9,
         "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
       }
     },
     {
-      "name": "nestjs",
-      "container_id": "5d3a61062321",
-      "image_name": "node-nestjs-image",
-      "port": 3002,
-      "start_time": "2026-01-21T23:19:19.240901+02:00",
-      "end_time": "2026-01-21T23:19:20.711491+02:00",
-      "duration": "1.470590375s",
-      "endpoints": [
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 428167
-            }
-          ],
-          "stats": {
-            "Avg": 5391845,
-            "High": 111704959,
-            "Low": 428167,
-            "P50": 2021792,
-            "P95": 18067667,
-            "P99": 90927541,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 332125
-            }
-          ],
-          "stats": {
-            "Avg": 3667888,
-            "High": 76303625,
-            "Low": 332125,
-            "P50": 1774625,
-            "P95": 13692875,
-            "P99": 52391333,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 231541
-            },
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 349667
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 232958
-            }
-          ],
-          "stats": {
-            "Avg": 5282399,
-            "High": 108290708,
-            "Low": 231541,
-            "P50": 2059750,
-            "P95": 34880375,
-            "P99": 91679667,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 289875
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 282000
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 326334
-            }
-          ],
-          "stats": {
-            "Avg": 4013591,
-            "High": 82163375,
-            "Low": 282000,
-            "P50": 1785458,
-            "P95": 17959917,
-            "P99": 52380833,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 586209
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 659875
-            }
-          ],
-          "stats": {
-            "Avg": 11255347,
-            "High": 227174333,
-            "Low": 586209,
-            "P50": 3081041,
-            "P95": 48732500,
-            "P99": 200774083,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 299625
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 247333
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 279917
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 272416
-            }
-          ],
-          "stats": {
-            "Avg": 4465101,
-            "High": 57469875,
-            "Low": 247333,
-            "P50": 740667,
-            "P95": 38147458,
-            "P99": 54920542,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 211458
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 274167
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 258125
-            }
-          ],
-          "stats": {
-            "Avg": 2605749,
-            "High": 21223667,
-            "Low": 211458,
-            "P50": 769042,
-            "P95": 16764250,
-            "P99": 19668959,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 296833
-            },
-            {
-              "name": "nested_object",
-              "success": true,
-              "latency": 219375
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 288959
-            }
-          ],
-          "stats": {
-            "Avg": 4346703,
-            "High": 62674542,
-            "Low": 219375,
-            "P50": 941041,
-            "P95": 29646250,
-            "P99": 52679666,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 146375
-            },
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 323458
-            }
-          ],
-          "stats": {
-            "Avg": 4296361,
-            "High": 57518667,
-            "Low": 146375,
-            "P50": 888042,
-            "P95": 26894417,
-            "P99": 53326500,
-            "SuccessRate": 1
-          }
-        }
-      ],
-      "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "5.036109ms",
-        "min_latency": "146.375µs",
-        "max_latency": "227.174333ms",
-        "p50_latency": "1.562384ms",
-        "p95_latency": "27.198412ms",
-        "p99_latency": "74.305458ms",
-        "avg_latency_ns": 5036109,
-        "min_latency_ns": 146375,
-        "max_latency_ns": 227174333,
-        "p50_latency_ns": 1562384,
-        "p95_latency_ns": 27198412,
-        "p99_latency_ns": 74305458,
-        "endpoint_count": 9,
-        "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
-      }
-    },
-    {
-      "name": "chi",
-      "container_id": "fe4dbbd01517",
-      "image_name": "go-chi-image",
+      "name": "go-chi",
+      "container_id": "67483d669620",
+      "image_name": "go-chi",
       "port": 5001,
-      "start_time": "2026-01-21T23:19:22.925846+02:00",
-      "end_time": "2026-01-21T23:19:24.304398+02:00",
-      "duration": "1.378551875s",
+      "start_time": "2026-01-22T02:39:26.133039+02:00",
+      "end_time": "2026-01-22T02:39:35.402577+02:00",
+      "duration": "9.269535542s",
       "endpoints": [
         {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 132875
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 125417
-            },
-            {
-              "name": "default",
-              "success": true,
-              "latency": 100542
-            }
-          ],
-          "stats": {
-            "Avg": 2700675,
-            "High": 18827291,
-            "Low": 100542,
-            "P50": 2037167,
-            "P95": 7230792,
-            "P99": 16737667,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_body",
-          "path": "/params/body",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "simple_object",
-              "success": true,
-              "latency": 355209
-            },
-            {
-              "name": "nested_object",
-              "success": true,
-              "latency": 272209
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 289042
-            }
-          ],
-          "stats": {
-            "Avg": 1817000,
-            "High": 6581292,
-            "Low": 272209,
-            "P50": 1507334,
-            "P95": 3895958,
-            "P99": 5408583,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 254042
-            },
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 332750
-            }
-          ],
-          "stats": {
-            "Avg": 1928437,
-            "High": 6716584,
-            "Low": 254042,
-            "P50": 1569584,
-            "P95": 4206792,
-            "P99": 5470541,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "root",
-          "path": "/",
+          "name": "params_cookie",
+          "path": "/params/cookie",
           "method": "GET",
           "test_cases": [
             {
               "name": "default",
               "success": true,
-              "latency": 280333
+              "latency": 546834
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 630042
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 698416
             }
           ],
           "stats": {
-            "Avg": 1793272,
-            "High": 8702041,
-            "Low": 280333,
-            "P50": 1464292,
-            "P95": 3768125,
-            "P99": 6112167,
+            "Avg": 32354029,
+            "High": 101290917,
+            "Low": 546834,
+            "P50": 29712541,
+            "P95": 79919250,
+            "P99": 101000125,
             "SuccessRate": 1
           }
         },
@@ -2156,78 +1765,47 @@
             {
               "name": "default",
               "success": true,
-              "latency": 263209
+              "latency": 217208
             }
           ],
           "stats": {
-            "Avg": 1700546,
-            "High": 6537875,
-            "Low": 263209,
-            "P50": 1389208,
-            "P95": 4004792,
-            "P99": 5132791,
+            "Avg": 28822059,
+            "High": 77547542,
+            "Low": 217208,
+            "P50": 26720209,
+            "P95": 64630667,
+            "P99": 77264000,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
           "test_cases": [
             {
-              "name": "default_no_header",
+              "name": "default",
               "success": true,
-              "latency": 326709
+              "latency": 308958
             },
             {
-              "name": "custom_header",
+              "name": "nested_object",
               "success": true,
-              "latency": 283917
+              "latency": 1956666
             },
             {
-              "name": "header_with_spaces",
+              "name": "object_with_array",
               "success": true,
-              "latency": 312250
+              "latency": 514125
             }
           ],
           "stats": {
-            "Avg": 8966728,
-            "High": 22011459,
-            "Low": 283917,
-            "P50": 8796708,
-            "P95": 15756916,
-            "P99": 17754000,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 272708
-            },
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 330750
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 180250
-            }
-          ],
-          "stats": {
-            "Avg": 9908906,
-            "High": 27236125,
-            "Low": 180250,
-            "P50": 10533167,
-            "P95": 17940875,
-            "P99": 20186334,
+            "Avg": 27641729,
+            "High": 70829459,
+            "Low": 308958,
+            "P50": 25314667,
+            "P95": 49513667,
+            "P99": 63312083,
             "SuccessRate": 1
           }
         },
@@ -2237,23 +1815,44 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "basic_text_file",
+              "name": "default",
               "success": true,
-              "latency": 190166
+              "latency": 473667
             },
             {
               "name": "multiline_file",
               "success": true,
-              "latency": 212250
+              "latency": 458792
             }
           ],
           "stats": {
-            "Avg": 9644304,
-            "High": 23570167,
-            "Low": 190166,
-            "P50": 9750625,
-            "P95": 17517334,
-            "P99": 19779125,
+            "Avg": 25508069,
+            "High": 50555166,
+            "Low": 458792,
+            "P50": 23877625,
+            "P95": 42539917,
+            "P99": 50418625,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 1760083
+            }
+          ],
+          "stats": {
+            "Avg": 27601313,
+            "High": 57634250,
+            "Low": 1760083,
+            "P50": 25492042,
+            "P95": 53286042,
+            "P99": 56565334,
             "SuccessRate": 1
           }
         },
@@ -2263,234 +1862,777 @@
           "method": "GET",
           "test_cases": [
             {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 631041
+            },
+            {
               "name": "custom_query",
-              "success": true,
-              "latency": 315292
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=5\u0026q=hello\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 516417
             },
             {
               "name": "query_with_spaces",
-              "success": true,
-              "latency": 388833
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=20\u0026q=++trimmed++\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 652291
             },
             {
               "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 419750
-            },
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 493417
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=abc\u0026q=test\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 453542
             }
           ],
           "stats": {
-            "Avg": 11852253,
-            "High": 33755292,
-            "Low": 315292,
-            "P50": 12064042,
-            "P95": 23999417,
-            "P99": 24557792,
+            "Avg": 435281198,
+            "High": 1355498750,
+            "Low": 453542,
+            "P50": 254353625,
+            "P95": 1230423667,
+            "P99": 1352345041,
+            "SuccessRate": 0.226
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "custom_header",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 115360708
+            },
+            {
+              "name": "header_with_spaces",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 118619917
+            },
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 114485500
+            }
+          ],
+          "stats": {
+            "Avg": 248442598,
+            "High": 447346708,
+            "Low": 114485500,
+            "P50": 256657167,
+            "P95": 389713709,
+            "P99": 447346708,
+            "SuccessRate": 0.048666666666666664
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "form_with_spaces",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/form\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 20872583
+            },
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/form\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 638667
+            }
+          ],
+          "stats": {
+            "Avg": 233830703,
+            "High": 421562792,
+            "Low": 638667,
+            "P50": 231584250,
+            "P95": 377430833,
+            "P99": 409760959,
+            "SuccessRate": 0.09533333333333334
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/testvalue\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 8684167
+            },
+            {
+              "name": "numeric_value",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/12345\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 8690125
+            },
+            {
+              "name": "special_chars",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/hello-world_123\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 43031792
+            }
+          ],
+          "stats": {
+            "Avg": 229409578,
+            "High": 391084542,
+            "Low": 8684167,
+            "P50": 223602292,
+            "P95": 332531333,
+            "P99": 367908000,
+            "SuccessRate": 0.082
+          }
+        }
+      ],
+      "overall_stats": {
+        "total_requests": 13500,
+        "success_count": 8178,
+        "failure_count": 5322,
+        "success_rate": 0.6057777777777777,
+        "avg_latency": "143.210141ms",
+        "min_latency": "217.208µs",
+        "max_latency": "1.35549875s",
+        "p50_latency": "121.923824ms",
+        "p95_latency": "291.109898ms",
+        "p99_latency": "325.102319ms",
+        "avg_latency_ns": 143210141,
+        "min_latency_ns": 217208,
+        "max_latency_ns": 1355498750,
+        "p50_latency_ns": 121923824,
+        "p95_latency_ns": 291109898,
+        "p99_latency_ns": 325102319,
+        "endpoint_count": 9,
+        "test_case_count": 22
+      }
+    },
+    {
+      "name": "go-gin",
+      "container_id": "52881a1822b4",
+      "image_name": "go-gin",
+      "port": 5002,
+      "start_time": "2026-01-22T02:39:35.647322+02:00",
+      "end_time": "2026-01-22T02:39:39.89619+02:00",
+      "duration": "4.248867083s",
+      "endpoints": [
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 119700541
+            },
+            {
+              "name": "custom_query",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=5\u0026q=hello\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 137874416
+            },
+            {
+              "name": "query_with_spaces",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=20\u0026q=++trimmed++\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 131568042
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/search?limit=abc\u0026q=test\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 103302875
+            }
+          ],
+          "stats": {
+            "Avg": 242916859,
+            "High": 480520875,
+            "Low": 103302875,
+            "P50": 241723791,
+            "P95": 392487208,
+            "P99": 480520875,
+            "SuccessRate": 0.03933333333333333
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "custom_header",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 5000375
+            },
+            {
+              "name": "header_with_spaces",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 8941292
+            },
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/header\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 375750
+            }
+          ],
+          "stats": {
+            "Avg": 176433640,
+            "High": 463536458,
+            "Low": 375750,
+            "P50": 151426791,
+            "P95": 392585708,
+            "P99": 430226333,
+            "SuccessRate": 0.08466666666666667
+          }
+        },
+        {
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 135084
+            }
+          ],
+          "stats": {
+            "Avg": 5221396,
+            "High": 34074500,
+            "Low": 135084,
+            "P50": 3527125,
+            "P95": 17018166,
+            "P99": 33009333,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "special_chars",
+              "success": true,
+              "latency": 221917
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 327083
+            },
+            {
+              "name": "numeric_value",
+              "success": true,
+              "latency": 342125
+            }
+          ],
+          "stats": {
+            "Avg": 3706964,
+            "High": 14803542,
+            "Low": 221917,
+            "P50": 2695791,
+            "P95": 8872834,
+            "P99": 12608542,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 370291
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 419042
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 371667
+            }
+          ],
+          "stats": {
+            "Avg": 3181512,
+            "High": 12470000,
+            "Low": 370291,
+            "P50": 2502917,
+            "P95": 7822042,
+            "P99": 9838000,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 237583
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 454667
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 315208
+            }
+          ],
+          "stats": {
+            "Avg": 3263483,
+            "High": 13086083,
+            "Low": 237583,
+            "P50": 2490750,
+            "P95": 8529083,
+            "P99": 10331041,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 221000
+            },
+            {
+              "name": "form_with_spaces",
+              "success": true,
+              "latency": 185292
+            }
+          ],
+          "stats": {
+            "Avg": 4251931,
+            "High": 13551375,
+            "Low": 185292,
+            "P50": 3236167,
+            "P95": 9506875,
+            "P99": 11711125,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 371833
+            },
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 394792
+            }
+          ],
+          "stats": {
+            "Avg": 4173560,
+            "High": 13977083,
+            "Low": 371833,
+            "P50": 3326625,
+            "P95": 9783833,
+            "P99": 12106958,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 396916
+            }
+          ],
+          "stats": {
+            "Avg": 3934838,
+            "High": 12442875,
+            "Low": 396916,
+            "P50": 2948958,
+            "P95": 9187416,
+            "P99": 10754167,
             "SuccessRate": 1
           }
         }
       ],
       "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "5.590235ms",
-        "min_latency": "100.542µs",
-        "max_latency": "33.755292ms",
-        "p50_latency": "5.456903ms",
-        "p95_latency": "10.924555ms",
-        "p99_latency": "13.459888ms",
-        "avg_latency_ns": 5590235,
-        "min_latency_ns": 100542,
-        "max_latency_ns": 33755292,
-        "p50_latency_ns": 5456903,
-        "p95_latency_ns": 10924555,
-        "p99_latency_ns": 13459888,
+        "total_requests": 13500,
+        "success_count": 10686,
+        "failure_count": 2814,
+        "success_rate": 0.7915555555555556,
+        "avg_latency": "49.67602ms",
+        "min_latency": "135.084µs",
+        "max_latency": "480.520875ms",
+        "p50_latency": "45.986546ms",
+        "p95_latency": "95.088129ms",
+        "p99_latency": "112.345152ms",
+        "avg_latency_ns": 49676020,
+        "min_latency_ns": 135084,
+        "max_latency_ns": 480520875,
+        "p50_latency_ns": 45986546,
+        "p95_latency_ns": 95088129,
+        "p99_latency_ns": 112345152,
         "endpoint_count": 9,
         "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
       }
     },
     {
-      "name": "honojs",
-      "container_id": "ade7c22dfb2e",
-      "image_name": "bun-honojs-image",
+      "name": "go-fiber",
+      "container_id": "9bbe439f43d6",
+      "image_name": "go-fiber",
+      "port": 5003,
+      "start_time": "2026-01-22T02:39:40.08138+02:00",
+      "end_time": "2026-01-22T02:39:41.669025+02:00",
+      "duration": "1.587645s",
+      "endpoints": [
+        {
+          "name": "params_form",
+          "path": "/params/form",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/form\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 106708
+            },
+            {
+              "name": "form_with_spaces",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/form\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 106291
+            }
+          ],
+          "stats": {
+            "Avg": 16926988,
+            "High": 235393583,
+            "Low": 106291,
+            "P50": 1847250,
+            "P95": 143015417,
+            "P99": 231599708,
+            "SuccessRate": 0.92
+          }
+        },
+        {
+          "name": "params_url",
+          "path": "/params/url/testvalue",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/testvalue\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 707792
+            },
+            {
+              "name": "numeric_value",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/12345\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 676584
+            },
+            {
+              "name": "special_chars",
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/params/url/hello-world_123\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 704500
+            }
+          ],
+          "stats": {
+            "Avg": 18189550,
+            "High": 513104750,
+            "Low": 676584,
+            "P50": 3365916,
+            "P95": 77704625,
+            "P99": 267576541,
+            "SuccessRate": 0.6553333333333333
+          }
+        },
+        {
+          "name": "params_file",
+          "path": "/params/file",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 295167
+            },
+            {
+              "name": "multiline_file",
+              "success": true,
+              "latency": 240958
+            }
+          ],
+          "stats": {
+            "Avg": 5471165,
+            "High": 25796375,
+            "Low": 240958,
+            "P50": 4283250,
+            "P95": 13468333,
+            "P99": 18612333,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 195250
+            }
+          ],
+          "stats": {
+            "Avg": 3282027,
+            "High": 14120916,
+            "Low": 195250,
+            "P50": 2297584,
+            "P95": 10070833,
+            "P99": 12130708,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 312666
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 299750
+            },
+            {
+              "name": "custom_query",
+              "success": true,
+              "latency": 177417
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 342417
+            }
+          ],
+          "stats": {
+            "Avg": 3256008,
+            "High": 12762958,
+            "Low": 177417,
+            "P50": 2561250,
+            "P95": 8328750,
+            "P99": 10337500,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "health",
+          "path": "/health",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 294542
+            }
+          ],
+          "stats": {
+            "Avg": 3259983,
+            "High": 14274542,
+            "Low": 294542,
+            "P50": 2502750,
+            "P95": 8177958,
+            "P99": 11393375,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_body",
+          "path": "/params/body",
+          "method": "POST",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 317000
+            },
+            {
+              "name": "nested_object",
+              "success": true,
+              "latency": 402834
+            },
+            {
+              "name": "object_with_array",
+              "success": true,
+              "latency": 418250
+            }
+          ],
+          "stats": {
+            "Avg": 3610663,
+            "High": 12849834,
+            "Low": 317000,
+            "P50": 2718709,
+            "P95": 9077709,
+            "P99": 11130833,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_header",
+          "path": "/params/header",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 329500
+            },
+            {
+              "name": "custom_header",
+              "success": true,
+              "latency": 301125
+            },
+            {
+              "name": "header_with_spaces",
+              "success": true,
+              "latency": 343542
+            }
+          ],
+          "stats": {
+            "Avg": 3511523,
+            "High": 26307625,
+            "Low": 301125,
+            "P50": 2106000,
+            "P95": 11809792,
+            "P99": 17875000,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 708333
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 581084
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 539125
+            }
+          ],
+          "stats": {
+            "Avg": 4275904,
+            "High": 13279209,
+            "Low": 539125,
+            "P50": 3351500,
+            "P95": 8998584,
+            "P99": 11286959,
+            "SuccessRate": 1
+          }
+        }
+      ],
+      "overall_stats": {
+        "total_requests": 13500,
+        "success_count": 12863,
+        "failure_count": 637,
+        "success_rate": 0.9528148148148148,
+        "avg_latency": "6.864867ms",
+        "min_latency": "106.291µs",
+        "max_latency": "513.10475ms",
+        "p50_latency": "2.781578ms",
+        "p95_latency": "32.294666ms",
+        "p99_latency": "65.771439ms",
+        "avg_latency_ns": 6864867,
+        "min_latency_ns": 106291,
+        "max_latency_ns": 513104750,
+        "p50_latency_ns": 2781578,
+        "p95_latency_ns": 32294666,
+        "p99_latency_ns": 65771439,
+        "endpoint_count": 9,
+        "test_case_count": 22
+      }
+    },
+    {
+      "name": "bun-honojs",
+      "container_id": "a9f7021ff22a",
+      "image_name": "bun-honojs",
       "port": 3005,
-      "start_time": "2026-01-21T23:19:25.492659+02:00",
-      "end_time": "2026-01-21T23:19:28.012555+02:00",
-      "duration": "2.519895833s",
+      "start_time": "2026-01-22T02:39:41.858255+02:00",
+      "end_time": "2026-01-22T02:39:44.55451+02:00",
+      "duration": "2.69625475s",
       "endpoints": [
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 362792
-            }
-          ],
-          "stats": {
-            "Avg": 12482438,
-            "High": 52656208,
-            "Low": 362792,
-            "P50": 10829958,
-            "P95": 35418541,
-            "P99": 46114334,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "health",
-          "path": "/health",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 295500
-            }
-          ],
-          "stats": {
-            "Avg": 10127247,
-            "High": 27086166,
-            "Low": 295500,
-            "P50": 9406292,
-            "P95": 16677750,
-            "P99": 26727417,
-            "SuccessRate": 1
-          }
-        },
         {
           "name": "params_header",
           "path": "/params/header",
           "method": "GET",
           "test_cases": [
             {
-              "name": "default_no_header",
+              "name": "default",
               "success": true,
-              "latency": 206708
+              "latency": 1467041
             },
             {
               "name": "custom_header",
               "success": true,
-              "latency": 269791
+              "latency": 1575042
             },
             {
               "name": "header_with_spaces",
               "success": true,
-              "latency": 187375
+              "latency": 1473667
             }
           ],
           "stats": {
-            "Avg": 11179024,
-            "High": 24161542,
-            "Low": 187375,
-            "P50": 11147833,
-            "P95": 17972542,
-            "P99": 22945583,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 600958
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 648709
-            },
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 772291
-            }
-          ],
-          "stats": {
-            "Avg": 11962893,
-            "High": 29040000,
-            "Low": 600958,
-            "P50": 11175417,
-            "P95": 21439791,
-            "P99": 28946334,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 671041
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 663958
-            }
-          ],
-          "stats": {
-            "Avg": 11748733,
-            "High": 28912625,
-            "Low": 663958,
-            "P50": 11965208,
-            "P95": 22993958,
-            "P99": 26049000,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 324834
-            },
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 345792
-            },
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 915000
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 316750
-            }
-          ],
-          "stats": {
-            "Avg": 11426043,
-            "High": 30241625,
-            "Low": 316750,
-            "P50": 11301000,
-            "P95": 23602166,
-            "P99": 28199833,
+            "Avg": 4594389,
+            "High": 26837125,
+            "Low": 1467041,
+            "P50": 2839167,
+            "P95": 20943750,
+            "P99": 25077292,
             "SuccessRate": 1
           }
         },
@@ -2502,57 +2644,142 @@
             {
               "name": "default",
               "success": true,
-              "latency": 469666
+              "latency": 394542
             },
             {
               "name": "numeric_value",
               "success": true,
-              "latency": 269125
+              "latency": 405709
             },
             {
               "name": "special_chars",
               "success": true,
-              "latency": 508958
+              "latency": 322458
             }
           ],
           "stats": {
-            "Avg": 12607701,
-            "High": 33770166,
-            "Low": 269125,
-            "P50": 12447292,
-            "P95": 22929958,
-            "P99": 26024333,
+            "Avg": 3472974,
+            "High": 12119084,
+            "Low": 322458,
+            "P50": 2788000,
+            "P95": 8448584,
+            "P99": 10103250,
             "SuccessRate": 1
           }
         },
         {
-          "name": "params_body",
-          "path": "/params/body",
+          "name": "params_file",
+          "path": "/params/file",
           "method": "POST",
           "test_cases": [
             {
-              "name": "simple_object",
-              "success": true,
-              "latency": 601292
+              "name": "default",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/file\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 624792
             },
             {
-              "name": "nested_object",
-              "success": true,
-              "latency": 331875
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 409250
+              "name": "multiline_file",
+              "success": false,
+              "error": "request failed: Post \"http://localhost:8080/params/file\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 473459
             }
           ],
           "stats": {
-            "Avg": 13035851,
-            "High": 46730125,
-            "Low": 331875,
-            "P50": 11547708,
-            "P95": 33109250,
-            "P99": 46137375,
+            "Avg": 10675414,
+            "High": 185845833,
+            "Low": 473459,
+            "P50": 3271292,
+            "P95": 76722542,
+            "P99": 162857375,
+            "SuccessRate": 0.9266666666666666
+          }
+        },
+        {
+          "name": "root",
+          "path": "/",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 588708
+            }
+          ],
+          "stats": {
+            "Avg": 3159475,
+            "High": 14202250,
+            "Low": 588708,
+            "P50": 2473042,
+            "P95": 8167791,
+            "P99": 11085500,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_search",
+          "path": "/params/search",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 590208
+            },
+            {
+              "name": "custom_query",
+              "success": true,
+              "latency": 778083
+            },
+            {
+              "name": "query_with_spaces",
+              "success": true,
+              "latency": 334250
+            },
+            {
+              "name": "invalid_limit_uses_default",
+              "success": true,
+              "latency": 735375
+            }
+          ],
+          "stats": {
+            "Avg": 3457367,
+            "High": 11128417,
+            "Low": 334250,
+            "P50": 2547583,
+            "P95": 7900792,
+            "P99": 10121792,
+            "SuccessRate": 1
+          }
+        },
+        {
+          "name": "params_cookie",
+          "path": "/params/cookie",
+          "method": "GET",
+          "test_cases": [
+            {
+              "name": "default",
+              "success": true,
+              "latency": 348500
+            },
+            {
+              "name": "with_cookie",
+              "success": true,
+              "latency": 331167
+            },
+            {
+              "name": "cookie_with_spaces",
+              "success": true,
+              "latency": 405625
+            }
+          ],
+          "stats": {
+            "Avg": 3537436,
+            "High": 11887042,
+            "Low": 331167,
+            "P50": 2886875,
+            "P95": 7775584,
+            "P99": 10496125,
             "SuccessRate": 1
           }
         },
@@ -2562,79 +2789,23 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "basic_form",
+              "name": "default",
               "success": true,
-              "latency": 469375
+              "latency": 385500
             },
             {
               "name": "form_with_spaces",
               "success": true,
-              "latency": 523333
+              "latency": 600042
             }
           ],
           "stats": {
-            "Avg": 11028852,
-            "High": 25665792,
-            "Low": 469375,
-            "P50": 11310917,
-            "P95": 20531542,
-            "P99": 25610209,
-            "SuccessRate": 1
-          }
-        }
-      ],
-      "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "11.733198ms",
-        "min_latency": "187.375µs",
-        "max_latency": "52.656208ms",
-        "p50_latency": "11.236847ms",
-        "p95_latency": "23.852833ms",
-        "p99_latency": "30.75049ms",
-        "avg_latency_ns": 11733198,
-        "min_latency_ns": 187375,
-        "max_latency_ns": 52656208,
-        "p50_latency_ns": 11236847,
-        "p95_latency_ns": 23852833,
-        "p99_latency_ns": 30750490,
-        "endpoint_count": 9,
-        "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
-      }
-    },
-    {
-      "name": "oak",
-      "container_id": "df1d18847c7f",
-      "image_name": "deno-oak-image",
-      "port": 3004,
-      "start_time": "2026-01-21T23:19:30.244502+02:00",
-      "end_time": "2026-01-21T23:19:32.528876+02:00",
-      "duration": "2.284374208s",
-      "endpoints": [
-        {
-          "name": "root",
-          "path": "/",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 469125
-            }
-          ],
-          "stats": {
-            "Avg": 14978189,
-            "High": 58024458,
-            "Low": 469125,
-            "P50": 12623042,
-            "P95": 33624000,
-            "P99": 49821958,
+            "Avg": 4084297,
+            "High": 16805416,
+            "Low": 385500,
+            "P50": 3224042,
+            "P95": 9692834,
+            "P99": 11602333,
             "SuccessRate": 1
           }
         },
@@ -2645,173 +2816,19 @@
           "test_cases": [
             {
               "name": "default",
-              "success": true,
-              "latency": 259375
+              "success": false,
+              "error": "request failed: Get \"http://localhost:8080/health\": dial tcp [::1]:8080: connect: resource temporarily unavailable",
+              "latency": 560042
             }
           ],
           "stats": {
-            "Avg": 12656015,
-            "High": 32282792,
-            "Low": 259375,
-            "P50": 12889000,
-            "P95": 23623042,
-            "P99": 28741042,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_header",
-          "path": "/params/header",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default_no_header",
-              "success": true,
-              "latency": 971417
-            },
-            {
-              "name": "custom_header",
-              "success": true,
-              "latency": 782208
-            },
-            {
-              "name": "header_with_spaces",
-              "success": true,
-              "latency": 506083
-            }
-          ],
-          "stats": {
-            "Avg": 13491665,
-            "High": 35724125,
-            "Low": 506083,
-            "P50": 12768042,
-            "P95": 24725750,
-            "P99": 29200958,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_cookie",
-          "path": "/params/cookie",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "cookie_with_spaces",
-              "success": true,
-              "latency": 682458
-            },
-            {
-              "name": "default_no_cookie",
-              "success": true,
-              "latency": 551875
-            },
-            {
-              "name": "with_cookie",
-              "success": true,
-              "latency": 918833
-            }
-          ],
-          "stats": {
-            "Avg": 14485966,
-            "High": 32556667,
-            "Low": 551875,
-            "P50": 13490125,
-            "P95": 24537625,
-            "P99": 30538667,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_file",
-          "path": "/params/file",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_text_file",
-              "success": true,
-              "latency": 1376667
-            },
-            {
-              "name": "multiline_file",
-              "success": true,
-              "latency": 1192625
-            }
-          ],
-          "stats": {
-            "Avg": 15337038,
-            "High": 46865375,
-            "Low": 1192625,
-            "P50": 14949000,
-            "P95": 26047833,
-            "P99": 29998875,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_search",
-          "path": "/params/search",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "custom_query",
-              "success": true,
-              "latency": 454916
-            },
-            {
-              "name": "query_with_spaces",
-              "success": true,
-              "latency": 865542
-            },
-            {
-              "name": "invalid_limit_uses_default",
-              "success": true,
-              "latency": 865542
-            },
-            {
-              "name": "default_values",
-              "success": true,
-              "latency": 725583
-            }
-          ],
-          "stats": {
-            "Avg": 13965415,
-            "High": 43343083,
-            "Low": 454916,
-            "P50": 13561917,
-            "P95": 34230750,
-            "P99": 35196417,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_url",
-          "path": "/params/url/testvalue",
-          "method": "GET",
-          "test_cases": [
-            {
-              "name": "default",
-              "success": true,
-              "latency": 501666
-            },
-            {
-              "name": "numeric_value",
-              "success": true,
-              "latency": 422709
-            },
-            {
-              "name": "special_chars",
-              "success": true,
-              "latency": 371083
-            }
-          ],
-          "stats": {
-            "Avg": 1985583,
-            "High": 6673416,
-            "Low": 371083,
-            "P50": 1757416,
-            "P95": 3948917,
-            "P99": 5568375,
-            "SuccessRate": 1
+            "Avg": 320887199,
+            "High": 962471625,
+            "Low": 560042,
+            "P50": 168110041,
+            "P95": 904136917,
+            "P99": 940343416,
+            "SuccessRate": 0.24
           }
         },
         {
@@ -2820,81 +2837,51 @@
           "method": "POST",
           "test_cases": [
             {
-              "name": "simple_object",
+              "name": "object_with_array",
               "success": true,
-              "latency": 495167
+              "latency": 636541
+            },
+            {
+              "name": "default",
+              "success": true,
+              "latency": 442042
             },
             {
               "name": "nested_object",
               "success": true,
-              "latency": 479083
-            },
-            {
-              "name": "object_with_array",
-              "success": true,
-              "latency": 564292
+              "latency": 438042
             }
           ],
           "stats": {
-            "Avg": 2746578,
-            "High": 7331917,
-            "Low": 479083,
-            "P50": 2581416,
-            "P95": 4860000,
-            "P99": 5821417,
-            "SuccessRate": 1
-          }
-        },
-        {
-          "name": "params_form",
-          "path": "/params/form",
-          "method": "POST",
-          "test_cases": [
-            {
-              "name": "basic_form",
-              "success": true,
-              "latency": 494334
-            },
-            {
-              "name": "form_with_spaces",
-              "success": true,
-              "latency": 272875
-            }
-          ],
-          "stats": {
-            "Avg": 3702624,
-            "High": 20632333,
-            "Low": 272875,
-            "P50": 2804834,
-            "P95": 18080458,
-            "P99": 20084916,
+            "Avg": 4108286,
+            "High": 16301417,
+            "Low": 438042,
+            "P50": 3164208,
+            "P95": 9830208,
+            "P99": 13393792,
             "SuccessRate": 1
           }
         }
       ],
       "overall_stats": {
-        "total_requests": 9000,
-        "success_count": 9000,
-        "failure_count": 0,
-        "success_rate": 1,
-        "avg_latency": "10.372119ms",
-        "min_latency": "259.375µs",
-        "max_latency": "58.024458ms",
-        "p50_latency": "9.713865ms",
-        "p95_latency": "21.519819ms",
-        "p99_latency": "26.108069ms",
-        "avg_latency_ns": 10372119,
-        "min_latency_ns": 259375,
-        "max_latency_ns": 58024458,
-        "p50_latency_ns": 9713865,
-        "p95_latency_ns": 21519819,
-        "p99_latency_ns": 26108069,
+        "total_requests": 13500,
+        "success_count": 12250,
+        "failure_count": 1250,
+        "success_rate": 0.9074074074074074,
+        "avg_latency": "39.775204ms",
+        "min_latency": "322.458µs",
+        "max_latency": "962.471625ms",
+        "p50_latency": "21.256027ms",
+        "p95_latency": "117.068778ms",
+        "p99_latency": "132.786763ms",
+        "avg_latency_ns": 39775204,
+        "min_latency_ns": 322458,
+        "max_latency_ns": 962471625,
+        "p50_latency_ns": 21256027,
+        "p95_latency_ns": 117068778,
+        "p99_latency_ns": 132786763,
         "endpoint_count": 9,
         "test_case_count": 22
-      },
-      "resource_usage": {
-        "cpu_limit": "1.0",
-        "memory_limit": "512m"
       }
     }
   ],
@@ -2902,6 +2889,6 @@
     "total_servers": 10,
     "successful_servers": 10,
     "failed_servers": 0,
-    "total_duration": "34.012156417s"
+    "total_duration": "38.632126584s"
   }
 }

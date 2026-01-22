@@ -11,17 +11,16 @@ import (
 
 // ServerResult contains benchmark results for a single server
 type ServerResult struct {
-	Name          string                  `json:"name"`
-	ContainerID   string                  `json:"container_id"`
-	ImageName     string                  `json:"image_name"`
-	Port          int                     `json:"port"`
-	StartTime     time.Time               `json:"start_time"`
-	EndTime       time.Time               `json:"end_time"`
-	Duration      string                  `json:"duration"`
-	Endpoints     []client.EndpointResult `json:"endpoints"`
-	OverallStats  *OverallStats           `json:"overall_stats"`
-	Error         string                  `json:"error,omitempty"`
-	ResourceUsage *ResourceUsage          `json:"resource_usage,omitempty"`
+	Name         string                  `json:"name"`
+	ContainerID  string                  `json:"container_id"`
+	ImageName    string                  `json:"image_name"`
+	Port         int                     `json:"port"`
+	StartTime    time.Time               `json:"start_time"`
+	EndTime      time.Time               `json:"end_time"`
+	Duration     string                  `json:"duration"`
+	Endpoints    []client.EndpointResult `json:"endpoints"`
+	OverallStats *OverallStats           `json:"overall_stats"`
+	Error        string                  `json:"error,omitempty"`
 }
 
 // OverallStats contains aggregated statistics across all endpoints
@@ -44,12 +43,6 @@ type OverallStats struct {
 	P99LatencyNs  int64   `json:"p99_latency_ns"`
 	EndpointCount int     `json:"endpoint_count"`
 	TestCaseCount int     `json:"test_case_count"`
-}
-
-// ResourceUsage contains container resource configuration
-type ResourceUsage struct {
-	CPULimit    string `json:"cpu_limit,omitempty"`
-	MemoryLimit string `json:"memory_limit,omitempty"`
 }
 
 // ConfigSummary contains a summary of the configuration used
@@ -210,18 +203,6 @@ func AggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 		P99LatencyNs:  avgP99.Nanoseconds(),
 		EndpointCount: len(endpoints),
 		TestCaseCount: testCaseCount,
-	}
-}
-
-// NewServerResult creates a new server result with start time
-func NewServerResult(name, containerID, imageName string, port int) *ServerResult {
-	return &ServerResult{
-		Name:        name,
-		ContainerID: containerID,
-		ImageName:   imageName,
-		Port:        port,
-		StartTime:   time.Now(),
-		Endpoints:   make([]client.EndpointResult, 0),
 	}
 }
 

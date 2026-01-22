@@ -17,99 +17,78 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Load configuration
-	cfg, err := config.Load("config.json")
+	cfg, err := config.Load(ctx, "config.jsonc")
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		return
 	}
 
-	// Validate configuration
-	if err := config.Validate(cfg); err != nil {
-		fmt.Printf("Invalid configuration: %v\n", err)
-		return
-	}
+	fmt.Println("=== Benchmark Configuration ===")
+	fmt.Printf("- Base URL: %s\n", cfg.BaseURL)
+	fmt.Printf("- Workers: %d\n", cfg.Workers)
+	fmt.Printf("- Iterations: %d\n", cfg.Iterations)
+	fmt.Printf("- Servers: %d\n", len(cfg.Servers))
+	fmt.Printf("- Timeout: %s\n\n", cfg.Timeout)
 
-	fmt.Printf("Loaded configuration with %d endpoints and %d servers\n",
-		len(cfg.Endpoints), len(cfg.Servers))
-	fmt.Printf("Global settings: workers=%d, iterations=%d, timeout=%s\n\n",
-		cfg.Global.Workers, cfg.Global.Iterations, cfg.Global.Timeout)
-
-	// Initialize results collector
 	collector := results.NewCollector(&results.ConfigSummary{
-		BaseURL:    cfg.Global.BaseURL,
-		Timeout:    cfg.Global.Timeout,
-		Workers:    cfg.Global.Workers,
-		Iterations: cfg.Global.Iterations,
+		BaseURL:    cfg.BaseURL,
+		Timeout:    cfg.Timeout.String(),
+		Workers:    cfg.Workers,
+		Iterations: cfg.Iterations,
 	})
 
-	// Run benchmarks for each server
-	for name, serverCfg := range cfg.Servers {
-		// Check if context was cancelled (Ctrl+C)
+	for _, server := range cfg.Servers {
 		if ctx.Err() != nil {
 			fmt.Println("\nInterrupted, stopping...")
 			break
 		}
 
-		fmt.Printf("=== Benchmarking %s ===\n", name)
+		fmt.Printf("=== Benchmarking %s ===\n", server.Name)
 
-		result := runServerBenchmark(ctx, cfg, name, serverCfg)
+		result := runServerBenchmark(ctx, cfg, server)
 		collector.AddServerResult(result)
-		printServerSummary(name, result)
+		printServerSummary(server.Name, result)
 
-		// Check again after benchmark
 		if ctx.Err() != nil {
 			fmt.Println("\nInterrupted, stopping...")
 			break
 		}
-
-		// Small delay between servers
-		time.Sleep(1 * time.Second)
 	}
 
-	// Export results
 	if err := collector.Export("results.json"); err != nil {
 		fmt.Printf("Failed to export results: %v\n", err)
 	} else {
 		fmt.Println("\nResults exported to results.json")
 	}
 
-	// Print final summary
 	printFinalSummary(collector.GetResults())
 }
 
-func runServerBenchmark(ctx context.Context, cfg *config.Config, name string, serverCfg config.ServerConfig) *results.ServerResult {
-	// Apply server-specific overrides to global config
-	resolvedCfg := config.ApplyServerOverrides(&cfg.Global, &serverCfg)
-
-	// Create result object
-	result := results.NewServerResult(name, "", serverCfg.ImageName, serverCfg.Port)
-
-	// Set resource usage info
-	if serverCfg.Container.CPULimit != "" || serverCfg.Container.MemoryLimit != "" {
-		result.ResourceUsage = &results.ResourceUsage{
-			CPULimit:    serverCfg.Container.CPULimit,
-			MemoryLimit: serverCfg.Container.MemoryLimit,
-		}
+func runServerBenchmark(ctx context.Context, cfg *config.ResolvedConfig, server *config.ResolvedServer) *results.ServerResult {
+	result := &results.ServerResult{
+		Name:        server.Name,
+		ContainerID: "",
+		ImageName:   server.ImageName,
+		Port:        server.Port,
+		StartTime:   time.Now(),
+		Endpoints:   make([]client.EndpointResult, 0),
 	}
 
-	// Start container with options
-	opts := container.StartOptions{
-		Image:       serverCfg.ImageName,
-		Port:        serverCfg.Port,
-		HostPort:    8080, // Use fixed host port for now
-		CPULimit:    serverCfg.Container.CPULimit,
-		MemoryLimit: serverCfg.Container.MemoryLimit,
+	options := container.StartOptions{
+		Image:       server.ImageName,
+		Port:        server.Port,
+		HostPort:    8080,
+		CPULimit:    cfg.CPULimit,
+		MemoryLimit: cfg.MemoryLimit,
 	}
 
-	containerId, err := container.StartWithOptions(ctx, time.Minute, opts)
+	containerId, err := container.StartWithOptions(ctx, time.Minute, options)
 	if err != nil {
 		result.SetError(fmt.Errorf("failed to start container: %w", err))
 		return result
 	}
 	result.ContainerID = string(containerId)
 
-	// Ensure container is stopped on return (use fresh context so it works even if main ctx is cancelled)
 	defer func() {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer stopCancel()
@@ -118,8 +97,7 @@ func runServerBenchmark(ctx context.Context, cfg *config.Config, name string, se
 		}
 	}()
 
-	// Wait for server to be ready
-	serverURL := fmt.Sprintf("http://localhost:%d", opts.HostPort)
+	serverURL := fmt.Sprintf("http://localhost:%d", options.HostPort)
 	if err := container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
 		result.SetError(fmt.Errorf("server did not become ready: %w", err))
 		return result
@@ -127,16 +105,14 @@ func runServerBenchmark(ctx context.Context, cfg *config.Config, name string, se
 
 	fmt.Printf("  Server ready at %s (container: %s)\n", serverURL, containerId)
 
-	// Create and run test suite
-	suite := client.NewSuite(ctx, cfg, serverURL)
-	endpoints, err := suite.RunAll(resolvedCfg.Workers, resolvedCfg.Iterations)
+	suite := client.NewSuite(ctx, cfg, server, serverURL)
+	endpoints, err := suite.RunAll()
 	if err != nil {
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
 		return result
 	}
 
-	// Complete the result
-	result.Complete(endpoints, resolvedCfg.Iterations)
+	result.Complete(endpoints, server.Iterations)
 
 	return result
 }
@@ -160,7 +136,6 @@ func printServerSummary(name string, result *results.ServerResult) {
 			stats.P50Latency, stats.P95Latency, stats.P99Latency)
 	}
 
-	// Print per-endpoint summary with stats
 	fmt.Println("  Endpoints:")
 	for _, ep := range result.Endpoints {
 		status := "OK"
@@ -185,7 +160,6 @@ func printFinalSummary(results *results.BenchmarkResults) {
 	fmt.Printf("Failed: %d\n", results.Summary.FailedServers)
 	fmt.Printf("Total duration: %s\n", results.Summary.TotalDuration)
 
-	// Collect successful servers for ranking
 	type rankedServer struct {
 		Name       string
 		AvgLatency int64
@@ -208,7 +182,6 @@ func printFinalSummary(results *results.BenchmarkResults) {
 	}
 
 	if len(ranked) > 0 {
-		// Sort by average latency (fastest first)
 		slices.SortFunc(ranked, func(a, b rankedServer) int {
 			if a.AvgLatency < b.AvgLatency {
 				return -1

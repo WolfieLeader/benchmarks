@@ -12,25 +12,24 @@ import (
 	"time"
 )
 
-// Suite manages benchmark execution across multiple endpoints
 type Suite struct {
 	client    *Client
-	config    *config.Config
+	config    *config.ResolvedConfig
+	server    *config.ResolvedServer
 	serverURL string
 	timeout   time.Duration
 }
 
-// NewSuite creates a new benchmark suite
-func NewSuite(ctx context.Context, cfg *config.Config, serverURL string) *Suite {
+func NewSuite(ctx context.Context, cfg *config.ResolvedConfig, server *config.ResolvedServer, serverURL string) *Suite {
 	return &Suite{
-		client:    New(ctx, serverURL),
+		client:    newClient(ctx, serverURL),
 		config:    cfg,
+		server:    server,
 		serverURL: serverURL,
-		timeout:   cfg.Global.GetTimeout(),
+		timeout:   cfg.Timeout,
 	}
 }
 
-// EndpointResult contains results for all test cases of an endpoint
 type EndpointResult struct {
 	Name      string           `json:"name"`
 	Path      string           `json:"path"`
@@ -40,7 +39,6 @@ type EndpointResult struct {
 	Error     string           `json:"error,omitempty"`
 }
 
-// TestCaseResult contains results for a single test case
 type TestCaseResult struct {
 	Name    string        `json:"name"`
 	Success bool          `json:"success"`
@@ -48,18 +46,27 @@ type TestCaseResult struct {
 	Latency time.Duration `json:"latency"`
 }
 
-// RunAll executes all endpoints with the specified concurrency settings
-func (s *Suite) RunAll(workers, iterations int) ([]EndpointResult, error) {
-	results := make([]EndpointResult, 0, len(s.config.Endpoints))
+func (s *Suite) RunAll() ([]EndpointResult, error) {
+	endpointCases := make(map[string][]*config.ResolvedTestCase)
+	for _, tc := range s.server.TestCases {
+		endpointCases[tc.EndpointName] = append(endpointCases[tc.EndpointName], tc)
+	}
 
-	for name, endpoint := range s.config.Endpoints {
-		endpointCopy := endpoint // Create copy for closure
-		result, err := s.RunEndpoint(name, &endpointCopy, workers, iterations)
+	results := make([]EndpointResult, 0, len(endpointCases))
+
+	for endpointName, testCases := range endpointCases {
+		if len(testCases) == 0 {
+			continue
+		}
+
+		firstTC := testCases[0]
+
+		result, err := s.RunEndpoint(endpointName, firstTC.Path, firstTC.Method, testCases)
 		if err != nil {
 			results = append(results, EndpointResult{
-				Name:   name,
-				Path:   endpoint.Path,
-				Method: endpoint.Method,
+				Name:   endpointName,
+				Path:   firstTC.Path,
+				Method: firstTC.Method,
 				Error:  err.Error(),
 			})
 			continue
@@ -70,13 +77,8 @@ func (s *Suite) RunAll(workers, iterations int) ([]EndpointResult, error) {
 	return results, nil
 }
 
-// RunEndpoint executes all test cases for a single endpoint
-func (s *Suite) RunEndpoint(name string, endpoint *config.EndpointConfig, workers, iterations int) (*EndpointResult, error) {
-	// Resolve test cases from endpoint config
-	resolvedCases := config.ResolveEndpointTestCases(endpoint)
-
-	// Convert to executable testcases
-	executableCases, err := s.convertToExecutable(resolvedCases)
+func (s *Suite) RunEndpoint(name, path, method string, testCases []*config.ResolvedTestCase) (*EndpointResult, error) {
+	executableCases, err := s.convertToExecutable(testCases)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare test cases: %w", err)
 	}
@@ -85,16 +87,15 @@ func (s *Suite) RunEndpoint(name string, endpoint *config.EndpointConfig, worker
 		return nil, fmt.Errorf("no valid test cases for endpoint %s", name)
 	}
 
-	// Run benchmark
-	stats, testResults, err := s.runTestCases(executableCases, workers, iterations)
+	stats, testResults, err := s.runTestCases(executableCases, s.server.Workers, s.server.Iterations)
 	if err != nil {
 		return nil, err
 	}
 
 	return &EndpointResult{
 		Name:      name,
-		Path:      endpoint.Path,
-		Method:    endpoint.Method,
+		Path:      path,
+		Method:    method,
 		TestCases: testResults,
 		Stats:     stats,
 	}, nil
@@ -115,7 +116,6 @@ func (s *Suite) convertToExecutable(resolved []*config.ResolvedTestCase) ([]*Exe
 }
 
 func (s *Suite) buildExecutable(tc *config.ResolvedTestCase) (*ExecutableTestcase, error) {
-	// Build URL with query parameters
 	fullURL, err := BuildURLWithQuery(s.serverURL, tc.Path, tc.Query)
 	if err != nil {
 		return nil, err
@@ -132,9 +132,7 @@ func (s *Suite) buildExecutable(tc *config.ResolvedTestCase) (*ExecutableTestcas
 		ExpectedText:    tc.ExpectedText,
 	}
 
-	// Determine request type and prepare body
 	if tc.File != nil {
-		// File upload (multipart)
 		exec.RequestType = RequestTypeMultipart
 		exec.MultipartFields = tc.FormData
 		exec.FileUpload = &FileUpload{
@@ -144,12 +142,9 @@ func (s *Suite) buildExecutable(tc *config.ResolvedTestCase) (*ExecutableTestcas
 			ContentType: tc.File.ContentType,
 		}
 	} else if len(tc.FormData) > 0 {
-		// Form data - check if we need multipart or urlencoded
-		// Default to urlencoded for simple form data
 		exec.RequestType = RequestTypeForm
 		exec.FormData = tc.FormData
 	} else if tc.Body != nil {
-		// JSON body
 		exec.RequestType = RequestTypeJSON
 		body, err := PrepareJSONBody(tc.Body)
 		if err != nil {
@@ -182,7 +177,6 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		workers = iterations
 	}
 
-	// Channel for distributing work
 	workCh := make(chan *ExecutableTestcase)
 	go func() {
 		defer close(workCh)
@@ -192,7 +186,6 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		}
 	}()
 
-	// Results collection
 	type result struct {
 		tcName  string
 		latency time.Duration
@@ -200,7 +193,6 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 	}
 	resultsCh := make(chan result)
 
-	// Fan-out workers
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	for range workers {
@@ -217,13 +209,11 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		}()
 	}
 
-	// Close results channel when all workers done
 	go func() {
 		wg.Wait()
 		close(resultsCh)
 	}()
 
-	// Collect results
 	testCaseResults := make(map[string]*TestCaseResult)
 	for _, tc := range testcases {
 		testCaseResults[tc.Name] = &TestCaseResult{
@@ -259,7 +249,6 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		}
 	}
 
-	// Build stats
 	var avg, p50, p95, p99 time.Duration
 	if count > 0 {
 		avg = totalLatency / time.Duration(count)
@@ -282,7 +271,6 @@ func (s *Suite) runTestCases(testcases []*ExecutableTestcase, workers, iteration
 		SuccessRate: float64(count) / float64(iterations),
 	}
 
-	// Convert map to slice
 	results := make([]TestCaseResult, 0, len(testCaseResults))
 	for _, tcr := range testCaseResults {
 		results = append(results, *tcr)
@@ -321,7 +309,6 @@ func (s *Suite) executeTestcase(tc *ExecutableTestcase) (time.Duration, error) {
 	return latency, nil
 }
 
-// percentile returns the value at the given percentile from a sorted slice
 func percentile(sorted []time.Duration, p int) time.Duration {
 	if len(sorted) == 0 {
 		return 0

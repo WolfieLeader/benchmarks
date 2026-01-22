@@ -13,7 +13,7 @@ type Client struct {
 	ctx        context.Context
 }
 
-func New(ctx context.Context, serverUrl string) *Client {
+func newClient(ctx context.Context, serverUrl string) *Client {
 	base, err := url.Parse(serverUrl)
 	if err != nil {
 		panic(fmt.Sprintf("invalid server URL: %v", err))
