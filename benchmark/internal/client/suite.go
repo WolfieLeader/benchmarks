@@ -80,6 +80,12 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 			continue
 		}
 		first := testcases[0]
+
+		// Run warmup if enabled
+		if s.server.Warmup.Enabled {
+			s.runWarmup(testcases)
+		}
+
 		results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
 		used[endpointName] = struct{}{}
 	}
@@ -99,6 +105,12 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 				continue
 			}
 			first := testcases[0]
+
+			// Run warmup if enabled
+			if s.server.Warmup.Enabled {
+				s.runWarmup(testcases)
+			}
+
 			results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
 		}
 	}
@@ -261,4 +273,34 @@ func percentile(sorted []time.Duration, p int) time.Duration {
 		idx = len(sorted) - 1
 	}
 	return sorted[idx]
+}
+
+// runWarmup executes warmup requests without recording latencies
+func (s *Suite) runWarmup(testcases []*config.Testcase) {
+	warmupRequests := s.server.Warmup.RequestsPerTestcase * len(testcases)
+	workers := min(s.server.Workers, warmupRequests)
+
+	workCh := make(chan *config.Testcase)
+	go func() {
+		defer close(workCh)
+		for i := range warmupRequests {
+			select {
+			case <-s.ctx.Done():
+				return
+			case workCh <- testcases[i%len(testcases)]:
+			}
+		}
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			for tc := range workCh {
+				_, _ = s.executeTestcase(tc) // Discard result
+			}
+		}()
+	}
+	wg.Wait()
 }

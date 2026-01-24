@@ -54,6 +54,8 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 			RequestsPerEndpoint: cfg.Global.RequestsPerEndpoint,
 			Testcases:           allTestcases,
 			EndpointOrder:       order,
+			Warmup:              cfg.Global.Warmup,
+			Resources:           cfg.Global.Resources,
 		})
 	}
 

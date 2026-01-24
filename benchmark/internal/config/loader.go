@@ -14,16 +14,18 @@ import (
 )
 
 const (
-	DefaultConfigFile = "config.jsonc"
-	DefaultPort       = 8080
-	DefaultBaseURL    = "http://localhost:8080"
-	DefaultWorkers    = 50
-	DefaultIterations = 1000
-	DefaultTimeout    = "10s"
-	DefaultMethod     = "GET"
-	DefaultStatus     = 200
-	DefaultCPU        = "1"
-	DefaultMemory     = "512M"
+	DefaultConfigFile             = "config.jsonc"
+	DefaultPort                   = 8080
+	DefaultBaseURL                = "http://localhost:8080"
+	DefaultWorkers                = 50
+	DefaultIterations             = 1000
+	DefaultTimeout                = "10s"
+	DefaultMethod                 = "GET"
+	DefaultStatus                 = 200
+	DefaultCPU                    = "1"
+	DefaultMemory                 = "512mb"
+	DefaultWarmupRequests         = 50
+	DefaultResourceSampleInterval = 500
 )
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -216,8 +218,36 @@ func applyGlobalDefaults(g *GlobalConfig) error {
 	if strings.TrimSpace(g.MemoryLimit) == "" {
 		g.MemoryLimit = DefaultMemory
 	}
-	if err := validateMemory(g.MemoryLimit); err != nil {
+	normalizedMemory, err := normalizeMemoryLimit(g.MemoryLimit)
+	if err != nil {
 		return fmt.Errorf("memory_limit: %w", err)
+	}
+	g.MemoryLimit = normalizedMemory
+
+	// Warmup defaults
+	if g.Warmup.Enabled && g.Warmup.RequestsPerTestcase <= 0 {
+		g.Warmup.RequestsPerTestcase = DefaultWarmupRequests
+	}
+
+	// Resources defaults
+	if g.Resources.Enabled && g.Resources.SampleIntervalMs <= 0 {
+		g.Resources.SampleIntervalMs = DefaultResourceSampleInterval
+	}
+
+	if strings.TrimSpace(g.Cooldown) != "" {
+		cooldown := strings.TrimSpace(g.Cooldown)
+		parsed, err := time.ParseDuration(cooldown)
+		if err != nil {
+			return fmt.Errorf("cooldown: %w", err)
+		}
+		if parsed < 0 {
+			return fmt.Errorf("cooldown must be >= 0")
+		}
+		if parsed == 0 {
+			g.Cooldown = ""
+		} else {
+			g.Cooldown = parsed.String()
+		}
 	}
 
 	return nil
@@ -314,32 +344,44 @@ func validateCpu(limit string) error {
 	return nil
 }
 
-func validateMemory(limit string) error {
+func normalizeMemoryLimit(limit string) (string, error) {
 	limit = strings.TrimSpace(limit)
 	if limit == "" {
-		return fmt.Errorf("memory_limit is empty")
+		return "", fmt.Errorf("memory_limit is empty")
 	}
 
-	value := limit
-	last := limit[len(limit)-1]
-	if last < '0' || last > '9' {
-		unit := strings.ToLower(string(last))
-		switch unit {
-		case "b", "k", "m", "g":
-			value = limit[:len(limit)-1]
-		default:
-			return fmt.Errorf("memory_limit must be a number with optional unit (b/k/m/g)")
+	lower := strings.ToLower(limit)
+	idx := len(lower)
+	for idx > 0 {
+		ch := lower[idx-1]
+		if ch >= 'a' && ch <= 'z' {
+			idx--
+			continue
 		}
+		break
 	}
 
+	value := strings.TrimSpace(lower[:idx])
+	unit := strings.TrimSpace(lower[idx:])
 	if value == "" {
-		return fmt.Errorf("memory_limit must be a number with optional unit (b/k/m/g)")
+		return "", fmt.Errorf("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
 	}
 
 	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil || parsed <= 0 {
-		return fmt.Errorf("memory_limit must be a number with optional unit (b/k/m/g)")
+		return "", fmt.Errorf("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
 	}
 
-	return nil
+	switch unit {
+	case "":
+		return value, nil
+	case "k", "kb":
+		return value + "kb", nil
+	case "m", "mb":
+		return value + "mb", nil
+	case "g", "gb":
+		return value + "gb", nil
+	default:
+		return "", fmt.Errorf("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
+	}
 }

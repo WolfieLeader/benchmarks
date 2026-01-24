@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -13,17 +14,42 @@ type Config struct {
 }
 
 type GlobalConfig struct {
-	BaseURL             string `json:"base_url"`
-	Workers             int    `json:"workers"`
-	RequestsPerEndpoint int    `json:"requests_per_endpoint"`
-	Timeout             string `json:"timeout"`
-	CPULimit            string `json:"cpu_limit,omitempty"`
-	MemoryLimit         string `json:"memory_limit,omitempty"`
+	BaseURL             string          `json:"base_url"`
+	Workers             int             `json:"workers"`
+	RequestsPerEndpoint int             `json:"requests_per_endpoint"`
+	Timeout             string          `json:"timeout"`
+	CPULimit            string          `json:"cpu_limit,omitempty"`
+	MemoryLimit         string          `json:"memory_limit,omitempty"`
+	Warmup              WarmupConfig    `json:"warmup,omitempty"`
+	Resources           ResourcesConfig `json:"resources,omitempty"`
+	Cooldown            string          `json:"cooldown,omitempty"`
+}
+
+type WarmupConfig struct {
+	Enabled             bool `json:"enabled"`
+	RequestsPerTestcase int  `json:"requests_per_testcase"`
+}
+
+type ResourcesConfig struct {
+	Enabled          bool `json:"enabled"`
+	SampleIntervalMs int  `json:"sample_interval_ms"`
 }
 
 func (s *Config) String() string {
+	warmupStr := "disabled"
+	if s.Global.Warmup.Enabled {
+		warmupStr = fmt.Sprintf("%d req/testcase", s.Global.Warmup.RequestsPerTestcase)
+	}
+	resourcesStr := "disabled"
+	if s.Global.Resources.Enabled {
+		resourcesStr = "enabled"
+	}
+	cooldownStr := "disabled"
+	if strings.TrimSpace(s.Global.Cooldown) != "" {
+		cooldownStr = s.Global.Cooldown
+	}
 	return fmt.Sprintf(
-		"=== Configuration ===\nBase URL: %s\nServers: %d | Endpoints: %d\nWorkers: %d | Requests/Endpoint: %d | Timeout: %s\nCPU Limit: %s | Memory Limit: %s\n=======================",
+		"=== Configuration ===\nBase URL: %s\nServers: %d | Endpoints: %d\nWorkers: %d | Requests/Endpoint: %d | Timeout: %s\nCPU Limit: %s | Memory Limit: %s\nWarmup: %s | Resources: %s | Cooldown: %s\n=======================",
 		s.Global.BaseURL,
 		len(s.Servers),
 		len(s.Endpoints),
@@ -32,6 +58,9 @@ func (s *Config) String() string {
 		s.Global.Timeout,
 		s.Global.CPULimit,
 		s.Global.MemoryLimit,
+		warmupStr,
+		resourcesStr,
+		cooldownStr,
 	)
 }
 
@@ -113,4 +142,6 @@ type ResolvedServer struct {
 	RequestsPerEndpoint int
 	Testcases           []*Testcase
 	EndpointOrder       []string
+	Warmup              WarmupConfig
+	Resources           ResourcesConfig
 }

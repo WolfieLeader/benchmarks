@@ -24,10 +24,19 @@ func main() {
 	}
 	fmt.Println(cfg)
 
+	var cooldown time.Duration
+	if cfg.Global.Cooldown != "" {
+		cooldown, err = time.ParseDuration(cfg.Global.Cooldown)
+		if err != nil {
+			fmt.Printf("Invalid cooldown: %v\n", err)
+			return
+		}
+	}
+
 	resultsDir := filepath.Join("results", time.Now().UTC().Format("20060102-150405"))
 	writer := summary.NewWriter(&cfg.Global, resultsDir)
 
-	for _, server := range resolvedServers {
+	for i, server := range resolvedServers {
 		if ctx.Err() != nil {
 			fmt.Println("\nInterrupted, stopping...")
 			break
@@ -49,6 +58,15 @@ func main() {
 		if ctx.Err() != nil {
 			fmt.Println("\nInterrupted, stopping...")
 			break
+		}
+
+		if cooldown > 0 && i < len(resolvedServers)-1 {
+			select {
+			case <-ctx.Done():
+				fmt.Println("\nInterrupted, stopping...")
+				return
+			case <-time.After(cooldown):
+			}
 		}
 	}
 
@@ -87,6 +105,14 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	}
 	result.ContainerID = string(containerId)
 
+	// Start resource sampling immediately after container creation (before health check)
+	// This captures samples during startup, health check, warmup, and benchmark
+	var sampler *container.ResourceSampler
+	if server.Resources.Enabled {
+		sampler = container.NewResourceSampler(string(containerId), server.Resources.SampleIntervalMs)
+		sampler.Start(ctx)
+	}
+
 	defer func() {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer stopCancel()
@@ -97,19 +123,37 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 
 	serverURL := fmt.Sprintf("http://localhost:%d", options.HostPort)
 	if err := container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
+		// Stop sampler on early exit
+		if sampler != nil {
+			sampler.Stop()
+		}
 		result.SetError(fmt.Errorf("server did not become ready: %w", err))
 		return result
 	}
 
 	fmt.Printf("  Server ready at %s (container: %s)\n", serverURL, containerId)
 
+	// Benchmark duration should reflect warmup + measured requests, not container startup
+	result.StartTime = time.Now()
+
 	suite := client.NewSuite(ctx, server)
 	defer suite.Close()
 
 	endpoints, err := suite.RunAll()
 	if err != nil {
+		// Stop sampler even on error
+		if sampler != nil {
+			stats := sampler.Stop()
+			result.Resources = &stats
+		}
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
 		return result
+	}
+
+	// Stop resource sampling and collect stats
+	if sampler != nil {
+		stats := sampler.Stop()
+		result.Resources = &stats
 	}
 
 	result.Complete(endpoints)

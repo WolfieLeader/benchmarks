@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Benchmark Configuration",
+  "type": "object",
+  "required": ["global", "servers", "endpoints"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "global": {
+      "type": "object",
+      "required": ["base_url", "workers", "requests_per_endpoint", "timeout"],
+      "additionalProperties": false,
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL for all benchmark requests"
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of concurrent workers"
+        },
+        "requests_per_endpoint": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of requests per endpoint"
+        },
+        "timeout": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m)$",
+          "description": "Request timeout (e.g. 10s, 100ms)"
+        },
+        "cooldown": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m)$",
+          "description": "Cooldown between servers"
+        },
+        "cpu_limit": {
+          "type": "string",
+          "description": "Docker CPU limit (e.g. 2.0)"
+        },
+        "memory_limit": {
+          "type": "string",
+          "description": "Docker memory limit (e.g. 1gb)"
+        },
+        "warmup": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requests_per_testcase": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "sample_interval_ms": {
+              "type": "integer",
+              "minimum": 10
+            }
+          }
+        }
+      }
+    },
+    "servers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "description": "Map of server name to port"
+    },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/endpoint"
+      }
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "required": ["method", "path"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {},
+        "form_data": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "file": {
+          "type": "string"
+        },
+        "expected_status": {
+          "type": "integer"
+        },
+        "expected_headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "expected_body": {},
+        "expected_text": {
+          "type": "string"
+        },
+        "test_cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/test_case"
+          }
+        }
+      }
+    },
+    "test_case": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {},
+        "form_data": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "file": {
+          "type": "string"
+        },
+        "expected_status": {
+          "type": "integer"
+        },
+        "expected_headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "expected_body": {},
+        "expected_text": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

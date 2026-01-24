@@ -4,100 +4,182 @@ import (
 	"benchmark-client/internal/client"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
 func PrintServerSummary(result *ServerResult) {
 	if result.Error != "" {
-		fmt.Printf("  FAILED: %s\n\n", result.Error)
+		fmt.Printf("  Status: FAILED\n")
+		fmt.Printf("  Error: %s\n\n", result.Error)
 		return
 	}
 
-	fmt.Printf("  Duration: %s\n", result.Duration)
-	fmt.Printf("  Endpoints tested: %d\n", len(result.Endpoints))
-	fmt.Println("  Endpoints:")
+	fmt.Printf("  Duration: %s | Endpoints: %d\n", formatDuration(result.Duration), len(result.Endpoints))
+
+	if result.Resources != nil && result.Resources.Samples > 0 {
+		memStr := formatMemory(result.Resources.Memory.AvgBytes)
+		cpuStr := formatCPU(result.Resources.CPU.AvgPercent, result.Resources.Samples)
+		warning := ""
+		if len(result.Resources.Warnings) > 0 {
+			warning = fmt.Sprintf(" (%s)", result.Resources.Warnings[0])
+		}
+		fmt.Printf("  Resources: %s mem, %s cpu%s\n", memStr, cpuStr, warning)
+	}
+
+	fmt.Println()
+	fmt.Println("  Method  Path                              Status      Avg")
+	fmt.Println("  ------  --------------------------------  ------  -------")
+
 	for _, ep := range result.Endpoints {
 		status := formatStatus(ep.Error, ep.Stats)
-		avg := "-"
-		note := ""
-		lastErr := ""
+		avg := "      -"
 		if ep.Stats != nil {
-			avg = formatDurationMs(ep.Stats.Avg)
-			if ep.FailureCount > 0 {
-				note = fmt.Sprintf("fail %d", ep.FailureCount)
-				lastErr = ep.LastError
-			}
-		} else if ep.Error != "" {
-			note = "failed"
-			lastErr = ep.Error
-		} else {
-			note = "no stats"
+			avg = formatLatencyFixed(ep.Stats.Avg)
 		}
 
-		fmt.Printf("    %-6s %-30s %6s  %8s", ep.Method, ep.Path, status, avg)
-		if note != "" {
-			fmt.Printf("  %s", note)
+		path := truncatePath(ep.Path, 32)
+		fmt.Printf("  %-6s  %-32s  %-6s  %s", ep.Method, path, status, avg)
+
+		if ep.FailureCount > 0 {
+			fmt.Printf("  (%d failed)", ep.FailureCount)
 		}
 		fmt.Println()
-		if lastErr != "" {
-			fmt.Printf("      last error: %s\n", truncate(lastErr, 160))
+
+		if ep.Error != "" {
+			fmt.Printf("          error: %s\n", truncate(ep.Error, 70))
+		} else if ep.LastError != "" {
+			fmt.Printf("          last error: %s\n", truncate(ep.LastError, 70))
 		}
 	}
 	fmt.Println()
 }
 
 func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
-	fmt.Println("\n=== Benchmark Summary ===")
-	fmt.Printf("Total servers: %d\n", meta.Summary.TotalServers)
-	fmt.Printf("Successful: %d\n", meta.Summary.SuccessfulServers)
-	fmt.Printf("Failed: %d\n", meta.Summary.FailedServers)
-	fmt.Printf("Total duration: %s\n", time.Duration(meta.Summary.TotalDurationMs)*time.Millisecond)
+	fmt.Println()
+	fmt.Println("╔════════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                      BENCHMARK SUMMARY                         ║")
+	fmt.Println("╚════════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	duration := time.Duration(meta.Summary.TotalDurationMs) * time.Millisecond
+	fmt.Printf("  Servers: %d total, %d passed, %d failed\n",
+		meta.Summary.TotalServers,
+		meta.Summary.SuccessfulServers,
+		meta.Summary.FailedServers)
+	fmt.Printf("  Duration: %s\n", formatDuration(duration))
+	fmt.Println()
 
 	type rankedServer struct {
-		name string
-		avg  int64
-		p50  int64
-		p95  int64
-		p99  int64
+		name   string
+		avg    int64
+		p50    int64
+		p95    int64
+		mem    float64
+		hasMem bool
 	}
 
 	ranked := make([]rankedServer, 0)
 	for _, s := range servers {
 		if s.Error == "" && s.Stats != nil {
-			ranked = append(ranked, rankedServer{name: s.Name, avg: s.Stats.AvgNs, p50: s.Stats.P50Ns, p95: s.Stats.P95Ns, p99: s.Stats.P99Ns})
+			rs := rankedServer{
+				name: s.Name,
+				avg:  s.Stats.AvgNs,
+				p50:  s.Stats.P50Ns,
+				p95:  s.Stats.P95Ns,
+			}
+			if s.Resources != nil && s.Resources.Samples >= 1 {
+				rs.mem = s.Resources.Memory.AvgBytes
+				rs.hasMem = true
+			}
+			ranked = append(ranked, rs)
 		}
 	}
 
-	if len(ranked) > 0 {
-		slices.SortFunc(ranked, func(a, b rankedServer) int {
-			if a.avg < b.avg {
-				return -1
-			}
-			if a.avg > b.avg {
-				return 1
-			}
-			return 0
-		})
-
-		fmt.Println("\n========= Server Rankings (by avg latency) =========")
-		fmt.Println("  #  Server          Avg      P50      P95      P99")
-		fmt.Println("  -- -------------- ------- ------- ------- -------")
-		for i, s := range ranked {
-			fmt.Printf("  %-2d %-14s %7s %7s %7s %7s\n",
-				i+1,
-				s.name,
-				formatDurationMs(s.avg),
-				formatDurationMs(s.p50),
-				formatDurationMs(s.p95),
-				formatDurationMs(s.p99))
-		}
-		fmt.Println("====================================================")
+	if len(ranked) == 0 {
+		fmt.Println("  No successful benchmarks to rank.")
+		return
 	}
+
+	slices.SortFunc(ranked, func(a, b rankedServer) int {
+		if a.avg < b.avg {
+			return -1
+		}
+		if a.avg > b.avg {
+			return 1
+		}
+		return 0
+	})
+
+	fmt.Println("  Rankings (by avg latency)")
+	fmt.Println()
+	fmt.Println("   #  Server              Avg      P50      P95      Mem")
+	fmt.Println("  ──  ────────────────  ───────  ───────  ───────  ───────")
+
+	for i, s := range ranked {
+		memStr := "      -"
+		if s.hasMem {
+			memStr = formatMemoryFixed(s.mem)
+		}
+
+		fmt.Printf("  %2d  %-16s  %s  %s  %s  %s\n",
+			i+1,
+			s.name,
+			formatLatencyFixed(s.avg),
+			formatLatencyFixed(s.p50),
+			formatLatencyFixed(s.p95),
+			memStr)
+	}
+	fmt.Println()
 }
 
-func formatDurationMs[T int64 | time.Duration](t T) string {
-	ms := float64(t) / float64(time.Millisecond)
-	return fmt.Sprintf("%.2fms", ms)
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
+}
+
+func formatLatencyFixed[T int64 | time.Duration](t T) string {
+	ns := int64(t)
+	if ns < 1000 {
+		return fmt.Sprintf("%5dns", ns)
+	}
+	if ns < 1_000_000 {
+		us := float64(ns) / 1000
+		return fmt.Sprintf("%5.1fµs", us)
+	}
+	ms := float64(ns) / 1_000_000
+	return fmt.Sprintf("%5.2fms", ms)
+}
+
+func formatMemory(bytes float64) string {
+	mb := bytes / 1024 / 1024
+	if mb < 1 {
+		return fmt.Sprintf("%.0fKB", bytes/1024)
+	}
+	if mb < 100 {
+		return fmt.Sprintf("%.1fMB", mb)
+	}
+	return fmt.Sprintf("%.0fMB", mb)
+}
+
+func formatMemoryFixed(bytes float64) string {
+	mb := bytes / 1024 / 1024
+	if mb < 1 {
+		return fmt.Sprintf("%4.0fKB", bytes/1024)
+	}
+	return fmt.Sprintf("%5.1fMB", mb)
+}
+
+func formatCPU(percent float64, samples int) string {
+	if samples < 2 || percent < 0.1 {
+		return "n/a"
+	}
+	return fmt.Sprintf("%.1f%%", percent)
 }
 
 func formatStatus(errMsg string, stats *client.Stats) string {
@@ -115,4 +197,15 @@ func truncate(text string, maxLen int) string {
 		return text
 	}
 	return text[:maxLen] + "..."
+}
+
+func truncatePath(path string, maxLen int) string {
+	if len(path) <= maxLen {
+		return path
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) <= 2 {
+		return path[:maxLen-3] + "..."
+	}
+	return ".../" + parts[len(parts)-1]
 }

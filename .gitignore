@@ -222,6 +222,9 @@ temp/
 benchmark/results/
 *.benchmark
 
+# Compiled Go binary
+benchmark/main
+
 # Database files
 *.db
 *.sqlite

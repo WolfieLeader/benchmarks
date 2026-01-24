@@ -3,6 +3,7 @@ package summary
 import (
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/config"
+	"benchmark-client/internal/container"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,25 +14,22 @@ import (
 )
 
 type ServerResult struct {
-	Name        string                  `json:"name"`
-	ContainerID string                  `json:"-"`
-	ImageName   string                  `json:"-"`
-	Port        int                     `json:"-"`
-	StartTime   time.Time               `json:"-"`
-	EndTime     time.Time               `json:"-"`
-	Duration    time.Duration           `json:"-"`
-	Endpoints   []client.EndpointResult `json:"-"`
-	Error       string                  `json:"-"`
-}
-
-type SingleServerResults struct {
-	Meta   ResultMeta    `json:"meta"`
-	Server ServerSummary `json:"server"`
+	Name        string                   `json:"name"`
+	ContainerID string                   `json:"-"`
+	ImageName   string                   `json:"-"`
+	Port        int                      `json:"-"`
+	StartTime   time.Time                `json:"-"`
+	EndTime     time.Time                `json:"-"`
+	Duration    time.Duration            `json:"-"`
+	Endpoints   []client.EndpointResult  `json:"-"`
+	Error       string                   `json:"-"`
+	Resources   *container.ResourceStats `json:"-"`
 }
 
 type MetaResults struct {
 	Meta    ResultMeta       `json:"meta"`
 	Summary BenchmarkSummary `json:"summary"`
+	Servers []ServerSummary  `json:"servers"`
 }
 
 type ResultMeta struct {
@@ -53,11 +51,12 @@ type BenchmarkSummary struct {
 }
 
 type ServerSummary struct {
-	Name       string            `json:"name"`
-	DurationMs int64             `json:"duration_ms"`
-	Error      string            `json:"error,omitempty"`
-	Stats      *StatsSummary     `json:"stats,omitempty"`
-	Endpoints  []EndpointSummary `json:"endpoints,omitempty"`
+	Name       string                   `json:"name"`
+	DurationMs int64                    `json:"duration_ms"`
+	Error      string                   `json:"error,omitempty"`
+	Stats      *StatsSummary            `json:"stats,omitempty"`
+	Endpoints  []EndpointSummary        `json:"endpoints,omitempty"`
+	Resources  *container.ResourceStats `json:"resources,omitempty"`
 }
 
 type EndpointSummary struct {
@@ -96,15 +95,9 @@ func NewWriter(config *config.GlobalConfig, resultsDir string) *Writer {
 }
 
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
-	meta := w.meta()
-
 	summary := serverSummaryFromResult(*result, w.config.RequestsPerEndpoint)
-	payload := SingleServerResults{
-		Meta:   meta,
-		Server: summary,
-	}
 
-	data, err := json.MarshalIndent(payload, "", "  ")
+	data, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal server results: %w", err)
 	}
@@ -132,6 +125,18 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 		return nil, nil, "", err
 	}
 
+	// Create server summaries for the main results file (without endpoint details)
+	serverSummaries := make([]ServerSummary, 0, len(servers))
+	for _, s := range servers {
+		serverSummaries = append(serverSummaries, ServerSummary{
+			Name:       s.Name,
+			DurationMs: s.DurationMs,
+			Error:      s.Error,
+			Stats:      s.Stats,
+			Resources:  s.Resources,
+		})
+	}
+
 	meta := w.meta()
 	summary := BenchmarkSummary{
 		TotalServers:      len(servers),
@@ -143,6 +148,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 	metaResults := &MetaResults{
 		Meta:    meta,
 		Summary: summary,
+		Servers: serverSummaries,
 	}
 
 	data, err := json.MarshalIndent(metaResults, "", "  ")
@@ -206,12 +212,12 @@ func readServerSummaries(dir string) ([]ServerSummary, int, int, error) {
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to read %s: %w", path, err)
 		}
-		var payload SingleServerResults
-		if err := json.Unmarshal(data, &payload); err != nil {
+		var server ServerSummary
+		if err := json.Unmarshal(data, &server); err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to parse %s: %w", path, err)
 		}
-		servers = append(servers, payload.Server)
-		if payload.Server.Error == "" {
+		servers = append(servers, server)
+		if server.Error == "" {
 			successCount++
 		} else {
 			failCount++
@@ -241,6 +247,7 @@ func serverSummaryFromResult(result ServerResult, iterations int) ServerSummary 
 		Error:      result.Error,
 		Stats:      aggregateEndpointStats(result.Endpoints, iterations),
 		Endpoints:  endpoints,
+		Resources:  result.Resources,
 	}
 }
 

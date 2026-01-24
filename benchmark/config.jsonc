@@ -1,11 +1,21 @@
 {
+  "$schema": "./config.schema.json",
   "global": {
     "base_url": "http://localhost:8080",
     "workers": 50,
-    "requests_per_endpoint": 1000,
+    "requests_per_endpoint": 5000,
     "timeout": "10s",
-    "cpu_limit": "2",
-    "memory_limit": "1g"
+    "cooldown": "1s",
+    "cpu_limit": "2.0",
+    "memory_limit": "1gb",
+    "warmup": {
+      "enabled": true,
+      "requests_per_testcase": 50
+    },
+    "resources": {
+      "enabled": true,
+      "sample_interval_ms": 100
+    }
   },
   "servers": {
     "node-express": 3001,
