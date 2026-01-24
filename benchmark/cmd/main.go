@@ -4,10 +4,11 @@ import (
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
-	"benchmark-client/internal/results"
+	"benchmark-client/internal/summary"
 	"context"
 	"fmt"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -23,7 +24,8 @@ func main() {
 	}
 	fmt.Println(cfg)
 
-	collector := results.NewCollector(&cfg.Global)
+	resultsDir := filepath.Join("results", time.Now().UTC().Format("20060102-150405"))
+	writer := summary.NewWriter(&cfg.Global, resultsDir)
 
 	for _, server := range resolvedServers {
 		if ctx.Err() != nil {
@@ -34,8 +36,15 @@ func main() {
 		fmt.Printf("\n== Server: %s ==\n", server.Name)
 
 		result := runServerBenchmark(ctx, server)
-		collector.AddServerResult(result)
-		results.PrintServerSummary(result)
+
+		summary.PrintServerSummary(result)
+		path, err := writer.ExportServerResult(result)
+		if err == nil {
+			fmt.Printf("Server results exported to %s\n", path)
+		} else {
+			fmt.Printf("Failed to export %s results: %v\n", server.Name, err)
+		}
+		result.Endpoints = nil
 
 		if ctx.Err() != nil {
 			fmt.Println("\nInterrupted, stopping...")
@@ -43,17 +52,18 @@ func main() {
 		}
 	}
 
-	if err := collector.Export("results.json"); err != nil {
-		fmt.Printf("Failed to export results: %v\n", err)
-	} else {
-		fmt.Println("\nResults exported to results.json")
+	metaResults, servers, path, err := writer.ExportMetaResults()
+	if err != nil {
+		fmt.Printf("Failed to export meta results: %v\n", err)
+		return
 	}
+	fmt.Printf("\nMeta results exported to %s\n", path)
 
-	results.PrintFinalSummary(collector.GetResults())
+	summary.PrintFinalSummary(metaResults, servers)
 }
 
-func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *results.ServerResult {
-	result := &results.ServerResult{
+func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *summary.ServerResult {
+	result := &summary.ServerResult{
 		Name:        server.Name,
 		ContainerID: "",
 		ImageName:   server.ImageName,

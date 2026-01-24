@@ -1,4 +1,4 @@
-package results
+package summary
 
 import (
 	"benchmark-client/internal/client"
@@ -46,12 +46,12 @@ func PrintServerSummary(result *ServerResult) {
 	fmt.Println()
 }
 
-func PrintFinalSummary(results *BenchmarkResults) {
+func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	fmt.Println("\n=== Benchmark Summary ===")
-	fmt.Printf("Total servers: %d\n", results.Summary.TotalServers)
-	fmt.Printf("Successful: %d\n", results.Summary.SuccessfulServers)
-	fmt.Printf("Failed: %d\n", results.Summary.FailedServers)
-	fmt.Printf("Total duration: %s\n", time.Duration(results.Summary.TotalDurationMs)*time.Millisecond)
+	fmt.Printf("Total servers: %d\n", meta.Summary.TotalServers)
+	fmt.Printf("Successful: %d\n", meta.Summary.SuccessfulServers)
+	fmt.Printf("Failed: %d\n", meta.Summary.FailedServers)
+	fmt.Printf("Total duration: %s\n", time.Duration(meta.Summary.TotalDurationMs)*time.Millisecond)
 
 	type rankedServer struct {
 		name string
@@ -62,7 +62,7 @@ func PrintFinalSummary(results *BenchmarkResults) {
 	}
 
 	ranked := make([]rankedServer, 0)
-	for _, s := range results.Servers {
+	for _, s := range servers {
 		if s.Error == "" && s.Stats != nil {
 			ranked = append(ranked, rankedServer{name: s.Name, avg: s.Stats.AvgNs, p50: s.Stats.P50Ns, p95: s.Stats.P95Ns, p99: s.Stats.P99Ns})
 		}

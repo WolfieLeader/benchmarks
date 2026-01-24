@@ -219,7 +219,7 @@ temp/
 # Project Specific
 # ============================================
 # Benchmark results
-benchmarks/results/
+benchmark/results/
 *.benchmark
 
 # Database files

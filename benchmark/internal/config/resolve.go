@@ -240,7 +240,7 @@ func loadFile(filename string) (*FileUpload, error) {
 		return nil, nil
 	}
 
-	path := filepath.Join("testdata", filename)
+	path := filepath.Join("assets", filename)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)

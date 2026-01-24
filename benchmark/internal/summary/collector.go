@@ -1,4 +1,4 @@
-package results
+package summary
 
 import (
 	"benchmark-client/internal/client"
@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,10 +24,14 @@ type ServerResult struct {
 	Error       string                  `json:"-"`
 }
 
-type BenchmarkResults struct {
+type SingleServerResults struct {
+	Meta   ResultMeta    `json:"meta"`
+	Server ServerSummary `json:"server"`
+}
+
+type MetaResults struct {
 	Meta    ResultMeta       `json:"meta"`
 	Summary BenchmarkSummary `json:"summary"`
-	Servers []ServerSummary  `json:"servers"`
 }
 
 type ResultMeta struct {
@@ -74,97 +80,82 @@ type StatsSummary struct {
 	SuccessRate float64 `json:"success_rate"`
 }
 
-type Collector struct {
-	mu        sync.Mutex
-	startTime time.Time
-	config    *config.GlobalConfig
-	servers   []ServerResult
+type Writer struct {
+	mu         sync.Mutex
+	startTime  time.Time
+	config     *config.GlobalConfig
+	resultsDir string
 }
 
-func NewCollector(config *config.GlobalConfig) *Collector {
-	return &Collector{
-		startTime: time.Now(),
-		config:    config,
-		servers:   make([]ServerResult, 0),
+func NewWriter(config *config.GlobalConfig, resultsDir string) *Writer {
+	return &Writer{
+		startTime:  time.Now(),
+		config:     config,
+		resultsDir: resultsDir,
 	}
 }
 
-func (c *Collector) AddServerResult(result *ServerResult) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.servers = append(c.servers, *result)
-}
+func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
+	meta := w.meta()
 
-func (c *Collector) GetResults() *BenchmarkResults {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	var successCount, failCount int
-	servers := make([]ServerSummary, 0, len(c.servers))
-
-	for _, s := range c.servers {
-		if s.Error == "" {
-			successCount++
-		} else {
-			failCount++
-		}
-
-		endpoints := make([]EndpointSummary, 0, len(s.Endpoints))
-		for _, ep := range s.Endpoints {
-			endpoints = append(endpoints, EndpointSummary{
-				Name:         ep.Name,
-				Path:         ep.Path,
-				Method:       ep.Method,
-				Error:        ep.Error,
-				Stats:        statsFromClient(ep.Stats),
-				FailureCount: ep.FailureCount,
-				LastError:    ep.LastError,
-			})
-		}
-
-		servers = append(servers, ServerSummary{
-			Name:       s.Name,
-			DurationMs: s.Duration.Milliseconds(),
-			Error:      s.Error,
-			Stats:      aggregateEndpointStats(s.Endpoints, c.config.RequestsPerEndpoint),
-			Endpoints:  endpoints,
-		})
+	summary := serverSummaryFromResult(*result, w.config.RequestsPerEndpoint)
+	payload := SingleServerResults{
+		Meta:   meta,
+		Server: summary,
 	}
 
-	totalDuration := time.Since(c.startTime)
-
-	return &BenchmarkResults{
-		Meta: ResultMeta{
-			Timestamp: c.startTime,
-			Config: ResultConfig{
-				BaseURL:             c.config.BaseURL,
-				Workers:             c.config.Workers,
-				RequestsPerEndpoint: c.config.RequestsPerEndpoint,
-			},
-		},
-		Summary: BenchmarkSummary{
-			TotalServers:      len(c.servers),
-			SuccessfulServers: successCount,
-			FailedServers:     failCount,
-			TotalDurationMs:   totalDuration.Milliseconds(),
-		},
-		Servers: servers,
-	}
-}
-
-func (c *Collector) Export(filename string) error {
-	results := c.GetResults()
-
-	data, err := json.MarshalIndent(results, "", "  ")
+	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal results: %w", err)
+		return "", fmt.Errorf("failed to marshal server results: %w", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
-		return fmt.Errorf("failed to write results file: %w", err)
+	if err := os.MkdirAll(w.resultsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create results dir: %w", err)
 	}
 
-	return nil
+	filename := fmt.Sprintf("%s.json", result.Name)
+	path := filepath.Join(w.resultsDir, filename)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write server results: %w", err)
+	}
+
+	return path, nil
+}
+
+func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, error) {
+	if err := os.MkdirAll(w.resultsDir, 0755); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create results dir: %w", err)
+	}
+
+	servers, successCount, failCount, err := readServerSummaries(w.resultsDir)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	meta := w.meta()
+	summary := BenchmarkSummary{
+		TotalServers:      len(servers),
+		SuccessfulServers: successCount,
+		FailedServers:     failCount,
+		TotalDurationMs:   time.Since(w.startTime).Milliseconds(),
+	}
+
+	metaResults := &MetaResults{
+		Meta:    meta,
+		Summary: summary,
+	}
+
+	data, err := json.MarshalIndent(metaResults, "", "  ")
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to marshal meta results: %w", err)
+	}
+
+	path := filepath.Join(w.resultsDir, "results.json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to write meta results: %w", err)
+	}
+
+	return metaResults, servers, path, nil
 }
 
 func (r *ServerResult) Complete(endpoints []client.EndpointResult) {
@@ -177,6 +168,80 @@ func (r *ServerResult) SetError(err error) {
 	r.EndTime = time.Now()
 	r.Duration = r.EndTime.Sub(r.StartTime)
 	r.Error = err.Error()
+}
+
+func (w *Writer) meta() ResultMeta {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return ResultMeta{
+		Timestamp: w.startTime,
+		Config: ResultConfig{
+			BaseURL:             w.config.BaseURL,
+			Workers:             w.config.Workers,
+			RequestsPerEndpoint: w.config.RequestsPerEndpoint,
+		},
+	}
+}
+
+func readServerSummaries(dir string) ([]ServerSummary, int, int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to read results dir: %w", err)
+	}
+
+	servers := make([]ServerSummary, 0)
+	successCount := 0
+	failCount := 0
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == "results.json" || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("failed to read %s: %w", path, err)
+		}
+		var payload SingleServerResults
+		if err := json.Unmarshal(data, &payload); err != nil {
+			return nil, 0, 0, fmt.Errorf("failed to parse %s: %w", path, err)
+		}
+		servers = append(servers, payload.Server)
+		if payload.Server.Error == "" {
+			successCount++
+		} else {
+			failCount++
+		}
+	}
+
+	return servers, successCount, failCount, nil
+}
+
+func serverSummaryFromResult(result ServerResult, iterations int) ServerSummary {
+	endpoints := make([]EndpointSummary, 0, len(result.Endpoints))
+	for _, ep := range result.Endpoints {
+		endpoints = append(endpoints, EndpointSummary{
+			Name:         ep.Name,
+			Path:         ep.Path,
+			Method:       ep.Method,
+			Error:        ep.Error,
+			Stats:        statsFromClient(ep.Stats),
+			FailureCount: ep.FailureCount,
+			LastError:    ep.LastError,
+		})
+	}
+
+	return ServerSummary{
+		Name:       result.Name,
+		DurationMs: result.Duration.Milliseconds(),
+		Error:      result.Error,
+		Stats:      aggregateEndpointStats(result.Endpoints, iterations),
+		Endpoints:  endpoints,
+	}
 }
 
 func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *StatsSummary {
