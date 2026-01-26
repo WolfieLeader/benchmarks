@@ -18,8 +18,8 @@ export function createApp() {
       });
   }
 
-  app.get("/", () => ({ message: "Hello, World!" }));
-  app.get("/health", () => "OK");
+  app.get("/", () => "OK");
+  app.get("/health", () => ({ message: "Hello World" }));
 
   app.group("/params", (app) => app.use(paramsRouter));
 

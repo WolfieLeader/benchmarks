@@ -28,11 +28,12 @@ export function createApp() {
   }
 
   router.get("/", (ctx) => {
-    ctx.response.body = { message: "Hello, World!" };
+    ctx.response.type = "text/plain";
+    ctx.response.body = "OK";
   });
 
   router.get("/health", (ctx) => {
-    ctx.response.body = "OK";
+    ctx.response.body = { message: "Hello World" };
   });
 
   router.use("/params", paramsRoutes.routes(), paramsRoutes.allowedMethods());

@@ -40,14 +40,14 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 
-@app.get("/")
+@app.get("/", response_class=PlainTextResponse)
 def hello_world():
-    return {"message": "Hello, World!"}
-
-
-@app.get("/health", response_class=PlainTextResponse)
-def health():
     return "OK"
+
+
+@app.get("/health")
+def health():
+    return {"message": "Hello World"}
 
 
 app.include_router(params_router, prefix="/params")

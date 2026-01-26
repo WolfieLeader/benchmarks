@@ -29,10 +29,10 @@ func New() *App {
 	r.Use(recover.New())
 
 	r.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"message": "Hello, World!"})
+		return c.SendString("OK")
 	})
 	r.Get("/health", func(c *fiber.Ctx) error {
-		return c.SendString("OK")
+		return c.JSON(fiber.Map{"message": "Hello World"})
 	})
 
 	routes.RegisterParams(r.Group("/params"))

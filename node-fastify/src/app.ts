@@ -29,8 +29,11 @@ export async function createApp(): Promise<FastifyInstance> {
     });
   }
 
-  app.get("/", async () => ({ message: "Hello, World!" }));
-  app.get("/health", async () => "OK");
+  app.get("/", async (_request, reply) => {
+    reply.type("text/plain");
+    return "OK";
+  });
+  app.get("/health", async () => ({ message: "Hello World" }));
 
   await app.register(paramsRoutes, { prefix: "/params" });
 

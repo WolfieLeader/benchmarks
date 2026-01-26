@@ -34,13 +34,13 @@
       "path": "/",
       "method": "GET",
       "expected_status": 200,
-      "expected_body": { "message": "Hello, World!" }
+      "expected_text": "OK"
     },
     "health": {
       "path": "/health",
       "method": "GET",
       "expected_status": 200,
-      "expected_text": "OK"
+      "expected_body": { "message": "Hello World" }
     },
     "params_search": {
       "path": "/params/search",

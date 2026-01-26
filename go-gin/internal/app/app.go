@@ -24,10 +24,10 @@ func New() *App {
 	r.Use(gin.Recovery())
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Hello, World!"})
+		c.String(200, "OK")
 	})
 	r.GET("/health", func(c *gin.Context) {
-		c.String(200, "OK")
+		c.JSON(200, gin.H{"message": "Hello World"})
 	})
 	routes.RegisterParams(r.Group("/params"))
 

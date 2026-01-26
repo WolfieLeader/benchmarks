@@ -3,13 +3,13 @@ import { Controller, Get, Header } from "@nestjs/common";
 @Controller()
 export class AppController {
   @Get()
+  @Header("Content-Type", "text/plain")
   hello() {
-    return { message: "Hello, World!" };
+    return "OK";
   }
 
   @Get("health")
-  @Header("Content-Type", "text/plain")
   health() {
-    return "OK";
+    return { message: "Hello World" };
   }
 }
