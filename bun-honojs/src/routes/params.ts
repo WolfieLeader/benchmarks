@@ -8,7 +8,7 @@ import {
   FILE_NOT_FOUND,
   FILE_SIZE_EXCEEDS,
   ONLY_TEXT_PLAIN,
-  FILE_NOT_TEXT,
+  FILE_NOT_TEXT
 } from "../consts/errors";
 
 export const paramsRoutes = new Hono();
@@ -34,7 +34,7 @@ paramsRoutes.get("/header", (c) => {
 });
 
 paramsRoutes.post("/body", async (c) => {
-  let body: Record<string, any>;
+  let body: Record<string, unknown>;
   try {
     body = await c.req.json();
   } catch {
@@ -129,6 +129,6 @@ paramsRoutes.post("/file", async (c) => {
   return c.json({
     filename: file.name,
     size: data.length,
-    content,
+    content
   });
 });

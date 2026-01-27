@@ -1,10 +1,10 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
-import multipart, { type MultipartFile } from "@fastify/multipart";
+import multipart from "@fastify/multipart";
 import { paramsRoutes } from "./routes/params";
 import { env } from "./config/env";
-import { NOT_FOUND, INTERNAL_ERROR } from "./consts/errors";
+import { FILE_SIZE_EXCEEDS, INTERNAL_ERROR, INVALID_JSON_BODY, INVALID_MULTIPART, NOT_FOUND } from "./consts/errors";
 import { MAX_FILE_BYTES } from "./consts/defaults";
 
 export type FormFields = Record<string, string>;
@@ -18,12 +18,12 @@ export async function createApp(): Promise<FastifyInstance> {
 
   if (env.ENV !== "prod") {
     app.addHook("onRequest", async (request) => {
-      (request as any).startTime = Date.now();
+      request.startTime = Date.now();
       console.log(`<-- ${request.method} ${request.url}`);
     });
 
     app.addHook("onResponse", async (request, reply) => {
-      const start = (request as any).startTime ?? Date.now();
+      const start = request.startTime ?? Date.now();
       const ms = Date.now() - start;
       console.log(`--> ${request.method} ${request.url} ${reply.statusCode} ${ms}ms`);
     });
@@ -43,8 +43,28 @@ export async function createApp(): Promise<FastifyInstance> {
   });
 
   app.setErrorHandler(async (error, _req, reply) => {
-    reply.code(500);
-    return { error: (error as Error).message || INTERNAL_ERROR };
+    const err = error as { code?: string; statusCode?: number; message?: string };
+    let statusCode = typeof err.statusCode === "number" ? err.statusCode : 500;
+    let message = INTERNAL_ERROR;
+
+    if (err.code === "FST_ERR_CTP_INVALID_JSON_BODY" || err.code === "FST_ERR_CTP_EMPTY_JSON_BODY") {
+      statusCode = 400;
+      message = INVALID_JSON_BODY;
+    } else if (err.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      statusCode = 413;
+      message = FILE_SIZE_EXCEEDS;
+    } else if (err.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" || err.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE") {
+      statusCode = 413;
+      message = FILE_SIZE_EXCEEDS;
+    } else if (err.code?.startsWith("FST_ERR_MULTIPART")) {
+      statusCode = 400;
+      message = INVALID_MULTIPART;
+    } else if (statusCode === 413) {
+      message = FILE_SIZE_EXCEEDS;
+    }
+
+    reply.code(statusCode);
+    return { error: message };
   });
 
   return app;
@@ -72,16 +92,4 @@ export async function collectFormFields(request: FastifyRequest): Promise<FormFi
     }
   }
   return fields;
-}
-
-export async function toBuffer(file: MultipartFile): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of file.file) {
-    if (Buffer.isBuffer(chunk)) {
-      chunks.push(chunk);
-    } else if (typeof chunk === "string") {
-      chunks.push(Buffer.from(chunk));
-    }
-  }
-  return Buffer.concat(chunks);
 }

@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
-import { paramsRouter } from "./routes/params";
 import { env } from "./config/env";
-import { NOT_FOUND, INTERNAL_ERROR } from "./consts/errors";
+import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors";
+import { paramsRouter } from "./routes/params";
 
 export function createApp() {
   const app = new Elysia();

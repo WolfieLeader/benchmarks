@@ -28,9 +28,7 @@ async def logging_middleware(request: Request, call_next):
     response = await call_next(request)
     process_time = (time.perf_counter() - start_time) * 1000
 
-    logging.info(
-        f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms"
-    )
+    logging.info(f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms")
     return response
 
 

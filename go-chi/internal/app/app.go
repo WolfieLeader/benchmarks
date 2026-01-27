@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 type App struct {
@@ -21,21 +20,16 @@ func New() *App {
 
 	env := config.LoadEnv()
 
-	if env.ENV != "prod" {
-		r.Use(middleware.Logger)
-	}
-	r.Use(middleware.Recoverer)
-
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Hello World"}`))
+		_, _ = w.Write([]byte(`{"message": "Hello World"}`))
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })

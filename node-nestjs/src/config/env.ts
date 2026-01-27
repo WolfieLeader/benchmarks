@@ -1,9 +1,10 @@
+/** biome-ignore-all lint/style/noProcessEnv: env.ts file */
 import { z } from "zod";
 
 const zEnv = z.object({
   ENV: z.enum(["dev", "prod"]).default("dev"),
   HOST: z
-    .union([z.url().trim(), z.ipv4().trim(), z.literal("localhost")])
+    .union([z.ipv4().trim(), z.literal("localhost")])
     .transform((val) => (val === "localhost" ? "0.0.0.0" : val))
     .default("0.0.0.0"),
   PORT: z
@@ -16,7 +17,7 @@ const zEnv = z.object({
       }
       return num;
     })
-    .default(3002),
+    .default(3002)
 });
 
 export const env = zEnv.parse(process.env);

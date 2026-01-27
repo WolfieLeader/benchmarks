@@ -9,13 +9,13 @@ import {
   Req,
   Res,
   UploadedFile,
-  UseInterceptors,
+  UseInterceptors
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import multer from "multer";
 import { MAX_FILE_BYTES } from "../consts/defaults";
-import { ParamsService } from "./params.service";
+import type { ParamsService } from "./params.service";
 
 @Controller("params")
 export class ParamsController {
@@ -61,8 +61,8 @@ export class ParamsController {
   @UseInterceptors(
     FileInterceptor("file", {
       storage: multer.memoryStorage(),
-      limits: { fileSize: MAX_FILE_BYTES },
-    }),
+      limits: { fileSize: MAX_FILE_BYTES }
+    })
   )
   fileParams(@Req() req: Request, @UploadedFile() file?: Express.Multer.File) {
     this.paramsService.validateMultipartContentType(req.get("content-type"));

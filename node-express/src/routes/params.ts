@@ -8,16 +8,16 @@ import {
   FILE_NOT_FOUND,
   FILE_SIZE_EXCEEDS,
   ONLY_TEXT_PLAIN,
-  FILE_NOT_TEXT,
+  FILE_NOT_TEXT
 } from "../consts/errors";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_BYTES },
+  limits: { fileSize: MAX_FILE_BYTES }
 });
 
 const formParser = multer({
-  limits: { fieldSize: MAX_REQUEST_BYTES },
+  limits: { fieldSize: MAX_REQUEST_BYTES }
 }).none();
 
 export const paramsRouter: Router = express.Router();
@@ -29,7 +29,8 @@ paramsRouter.get("/search", (req: Request, res: Response) => {
   const limitValue = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
   const limitStr = typeof limitValue === "string" ? limitValue : undefined;
   const limitNum = Number(limitStr);
-  const limit = limitStr !== undefined && !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit =
+    limitStr !== undefined && !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
   res.json({ search: q, limit });
 });
@@ -149,7 +150,7 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
     res.json({
       filename: file.originalname,
       size: file.buffer.length,
-      content,
+      content
     });
   });
 });

@@ -17,8 +17,8 @@ type App struct {
 
 func New() *App {
 	r := fiber.New(fiber.Config{
-		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
-		JSONDecoder: func(data []byte, v any) error { return json.Unmarshal(data, v) },
+		JSONEncoder: json.Marshal,
+		JSONDecoder: json.Unmarshal,
 	})
 
 	env := config.LoadEnv()

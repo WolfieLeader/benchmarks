@@ -3,6 +3,7 @@ package routes
 import (
 	"bufio"
 	"cmp"
+	"errors"
 	"fiber-server/internal/consts"
 	"fiber-server/internal/utils"
 	"io"
@@ -100,12 +101,12 @@ func handleFileParams(c *fiber.Ctx) error {
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	br := bufio.NewReader(file)
 
 	head, err := br.Peek(consts.SniffLen)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
 	}
 

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"log"
+
 	application "fiber-server/internal/app"
 )
 
 func main() {
 	app := application.New()
-	app.Start()
+	if err := app.Start(); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
 }

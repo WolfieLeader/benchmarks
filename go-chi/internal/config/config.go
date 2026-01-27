@@ -3,7 +3,6 @@ package config
 import (
 	"log"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 
@@ -41,9 +40,7 @@ func LoadEnv() *Env {
 	}
 
 	if host, ok := os.LookupEnv("HOST"); ok {
-		if url, err := url.Parse(host); err == nil && url.Host != "" {
-			env.HOST = url.String()
-		} else if ip := net.ParseIP(host); ip != nil {
+		if ip := net.ParseIP(host); ip != nil {
 			env.HOST = ip.String()
 		} else if host == "localhost" {
 			env.HOST = "0.0.0.0"

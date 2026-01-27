@@ -4,6 +4,6 @@ import { ParamsService } from "./params.service";
 
 @Module({
   controllers: [ParamsController],
-  providers: [ParamsService],
+  providers: [ParamsService]
 })
 export class ParamsModule {}

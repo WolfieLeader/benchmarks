@@ -2,17 +2,17 @@ package routes
 
 import (
 	"bufio"
+	"chi-server/internal/consts"
+	"chi-server/internal/utils"
 	"cmp"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"chi-server/internal/consts"
-	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -54,7 +54,7 @@ func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -80,7 +80,7 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFormParams(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
@@ -107,7 +107,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFileParams(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
@@ -125,12 +125,12 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrFileNotFound)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	br := bufio.NewReader(file)
 
 	head, err := br.Peek(consts.SniffLen)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}

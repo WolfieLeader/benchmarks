@@ -3,20 +3,11 @@ from __future__ import annotations
 import ipaddress
 import os
 from typing import Literal
-from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, field_validator
 
 load_dotenv()
-
-
-def _is_url(value: str) -> bool:
-    try:
-        parsed = urlparse(value)
-    except ValueError:
-        return False
-    return bool(parsed.scheme and parsed.netloc)
 
 
 class Env(BaseModel):
@@ -42,9 +33,7 @@ class Env(BaseModel):
             return value
         except ValueError:
             pass
-        if _is_url(value):
-            return value
-        raise ValueError("HOST must be a valid URL, IP, or 'localhost'")
+        raise ValueError("HOST must be a valid IP or 'localhost'")
 
     @field_validator("PORT", mode="before")
     @classmethod

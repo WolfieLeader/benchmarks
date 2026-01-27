@@ -3,6 +3,7 @@ package routes
 import (
 	"bufio"
 	"cmp"
+	"errors"
 	"gin-server/internal/consts"
 	"gin-server/internal/utils"
 	"io"
@@ -112,12 +113,12 @@ func handleFileParams(c *gin.Context) {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	br := bufio.NewReader(file)
 
 	head, err := br.Peek(consts.SniffLen)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
 		return
 	}

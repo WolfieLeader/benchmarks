@@ -21,7 +21,6 @@ func (app *App) Start() {
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
 
 	go func() {
 		fmt.Printf("Chi Server development: http://%s\n\n", server.Addr)
@@ -33,16 +32,17 @@ func (app *App) Start() {
 	}()
 
 	<-ctx.Done()
+	cancel()
 	fmt.Println("\nShutting down gracefully...")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer shutdownCancel()
 
-	err := server.Shutdown(shutdownCtx)
-	if err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		shutdownCancel()
+		_ = server.Close()
 		log.Fatalf("Server shutdown error: %v", err)
-		server.Close()
 	}
+	shutdownCancel()
 
 	fmt.Println("Server stopped.")
 }

@@ -5,6 +5,6 @@ import { ParamsModule } from "./params/params.module";
 
 @Module({
   imports: [ParamsModule],
-  controllers: [AppController],
+  controllers: [AppController]
 })
 export class AppModule {}

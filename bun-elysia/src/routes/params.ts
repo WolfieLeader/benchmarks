@@ -1,13 +1,13 @@
-import { Elysia, t } from "elysia";
-import { MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN, DEFAULT_LIMIT } from "../consts/defaults";
+import { Elysia } from "elysia";
+import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
-  INVALID_JSON_BODY,
-  INVALID_FORM_DATA,
-  INVALID_MULTIPART,
   FILE_NOT_FOUND,
-  FILE_SIZE_EXCEEDS,
-  ONLY_TEXT_PLAIN,
   FILE_NOT_TEXT,
+  FILE_SIZE_EXCEEDS,
+  INVALID_FORM_DATA,
+  INVALID_JSON_BODY,
+  INVALID_MULTIPART,
+  ONLY_TEXT_PLAIN
 } from "../consts/errors";
 
 export const paramsRouter = new Elysia();
@@ -37,8 +37,8 @@ paramsRouter.post("/body", ({ body, set }) => {
   return { body };
 });
 
-paramsRouter.get("/cookie", ({ cookie, set }) => {
-  const cookieVal = cookie.foo?.value || "none";
+paramsRouter.get("/cookie", ({ cookie }) => {
+  const cookieVal = cookie.foo?.value?.trim() || "none";
 
   cookie.bar.value = "12345";
   cookie.bar.maxAge = 10;
@@ -60,7 +60,7 @@ paramsRouter.post("/form", ({ body, set, headers }) => {
     return { error: INVALID_FORM_DATA };
   }
 
-  const form = body as Record<string, any>;
+  const form = body as Record<string, unknown>;
 
   const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
 
@@ -78,7 +78,7 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
     return { error: INVALID_MULTIPART };
   }
 
-  const form = body as Record<string, any>;
+  const form = body as Record<string, unknown>;
   const file = form.file;
 
   if (!(file instanceof File)) {
@@ -123,6 +123,6 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
   return {
     filename: file.name,
     size: data.length,
-    content,
+    content
   };
 });
