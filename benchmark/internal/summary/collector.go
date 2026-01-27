@@ -24,6 +24,7 @@ type ServerResult struct {
 	Endpoints   []client.EndpointResult  `json:"-"`
 	Error       string                   `json:"-"`
 	Resources   *container.ResourceStats `json:"-"`
+	Capacity    *client.CapacityResult   `json:"-"`
 }
 
 type MetaResults struct {
@@ -57,6 +58,7 @@ type ServerSummary struct {
 	Stats      *StatsSummary            `json:"stats,omitempty"`
 	Endpoints  []EndpointSummary        `json:"endpoints,omitempty"`
 	Resources  *container.ResourceStats `json:"resources,omitempty"`
+	Capacity   *client.CapacityResult   `json:"capacity,omitempty"`
 }
 
 type EndpointSummary struct {
@@ -86,29 +88,28 @@ type Writer struct {
 	resultsDir string
 }
 
-func NewWriter(config *config.GlobalConfig, resultsDir string) *Writer {
+func NewWriter(cfg *config.GlobalConfig, resultsDir string) *Writer {
 	return &Writer{
 		startTime:  time.Now(),
-		config:     config,
+		config:     cfg,
 		resultsDir: resultsDir,
 	}
 }
 
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
-	summary := serverSummaryFromResult(*result, w.config.RequestsPerEndpoint)
+	summary := serverSummaryFromResult(result, w.config.RequestsPerEndpoint)
 
 	data, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal server results: %w", err)
 	}
 
-	if err := os.MkdirAll(w.resultsDir, 0755); err != nil {
+	if err = os.MkdirAll(w.resultsDir, 0o750); err != nil {
 		return "", fmt.Errorf("failed to create results dir: %w", err)
 	}
 
-	filename := fmt.Sprintf("%s.json", result.Name)
-	path := filepath.Join(w.resultsDir, filename)
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	path := filepath.Join(w.resultsDir, result.Name+".json")
+	if err = os.WriteFile(path, data, 0o600); err != nil {
 		return "", fmt.Errorf("failed to write server results: %w", err)
 	}
 
@@ -116,7 +117,7 @@ func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
 }
 
 func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, error) {
-	if err := os.MkdirAll(w.resultsDir, 0755); err != nil {
+	if err := os.MkdirAll(w.resultsDir, 0o750); err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create results dir: %w", err)
 	}
 
@@ -134,6 +135,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 			Error:      s.Error,
 			Stats:      s.Stats,
 			Resources:  s.Resources,
+			Capacity:   s.Capacity,
 		})
 	}
 
@@ -157,7 +159,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 	}
 
 	path := filepath.Join(w.resultsDir, "results.json")
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err = os.WriteFile(path, data, 0o600); err != nil {
 		return nil, nil, "", fmt.Errorf("failed to write meta results: %w", err)
 	}
 
@@ -189,15 +191,11 @@ func (w *Writer) meta() ResultMeta {
 	}
 }
 
-func readServerSummaries(dir string) ([]ServerSummary, int, int, error) {
+func readServerSummaries(dir string) (servers []ServerSummary, successCount, failCount int, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("failed to read results dir: %w", err)
 	}
-
-	servers := make([]ServerSummary, 0)
-	successCount := 0
-	failCount := 0
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -208,12 +206,13 @@ func readServerSummaries(dir string) ([]ServerSummary, int, int, error) {
 			continue
 		}
 		path := filepath.Join(dir, name)
-		data, err := os.ReadFile(path)
+		var data []byte
+		data, err = os.ReadFile(path) //nolint:gosec // path is constructed from controlled results directory
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to read %s: %w", path, err)
 		}
 		var server ServerSummary
-		if err := json.Unmarshal(data, &server); err != nil {
+		if err = json.Unmarshal(data, &server); err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to parse %s: %w", path, err)
 		}
 		servers = append(servers, server)
@@ -227,7 +226,7 @@ func readServerSummaries(dir string) ([]ServerSummary, int, int, error) {
 	return servers, successCount, failCount, nil
 }
 
-func serverSummaryFromResult(result ServerResult, iterations int) ServerSummary {
+func serverSummaryFromResult(result *ServerResult, iterations int) ServerSummary {
 	endpoints := make([]EndpointSummary, 0, len(result.Endpoints))
 	for _, ep := range result.Endpoints {
 		endpoints = append(endpoints, EndpointSummary{
@@ -248,6 +247,7 @@ func serverSummaryFromResult(result ServerResult, iterations int) ServerSummary 
 		Stats:      aggregateEndpointStats(result.Endpoints, iterations),
 		Endpoints:  endpoints,
 		Resources:  result.Resources,
+		Capacity:   result.Capacity,
 	}
 }
 
@@ -256,11 +256,13 @@ func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 		return nil
 	}
 
-	var totalAvg, totalP50, totalP95, totalP99 time.Duration
-	var minLatency time.Duration = time.Hour
-	var maxLatency time.Duration
-	var successCount int
-	var endpointCount int
+	var (
+		totalAvg, totalP50, totalP95, totalP99 time.Duration
+		minLatency                             = time.Hour
+		maxLatency                             time.Duration
+		successCount                           int
+		endpointCount                          int
+	)
 
 	for _, ep := range endpoints {
 		if ep.Stats == nil {

@@ -13,8 +13,17 @@
       "requests_per_testcase": 50
     },
     "resources": {
+      "enabled": true
+    },
+    "capacity": {
       "enabled": true,
-      "sample_interval_ms": 100
+      "min_workers": 1,
+      "max_workers": 4096,
+      "precision": "5%",
+      "success_rate": "95%",
+      "p99_threshold": "50ms",
+      "warmup": "2s",
+      "measure": "10s"
     }
   },
   "servers": {

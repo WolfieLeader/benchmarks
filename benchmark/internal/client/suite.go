@@ -140,7 +140,7 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 	}
 }
 
-func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, int, string) {
+func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, failureCount int, lastError string) {
 	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
 	iterations := s.server.RequestsPerEndpoint
 
@@ -180,8 +180,6 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, int, string)
 	}()
 
 	var count int
-	failureCount := 0
-	lastErr := ""
 	var totalLatency, high, low time.Duration
 	low = time.Hour
 	latencies := make([]time.Duration, 0, iterations)
@@ -189,7 +187,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, int, string)
 	for r := range resultsCh {
 		if r.err != nil {
 			failureCount++
-			lastErr = r.err.Error()
+			lastError = r.err.Error()
 			continue
 		}
 
@@ -225,7 +223,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (*Stats, int, string)
 		P95:         p95,
 		P99:         p99,
 		SuccessRate: successRate,
-	}, failureCount, lastErr
+	}, failureCount, lastError
 }
 
 func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
@@ -242,11 +240,14 @@ func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
 	if err != nil {
 		return 0, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	closeErr := resp.Body.Close()
 	if err != nil {
 		return 0, fmt.Errorf("failed to read response: %w", err)
+	}
+	if closeErr != nil {
+		return 0, closeErr
 	}
 
 	latency := time.Since(start)

@@ -11,6 +11,7 @@ type Config struct {
 	Endpoints     map[string]EndpointConfig `json:"endpoints"`
 	Servers       map[string]int            `json:"servers"`
 	EndpointOrder []string                  `json:"-"`
+	ServerOrder   []string                  `json:"-"`
 }
 
 type GlobalConfig struct {
@@ -20,9 +21,10 @@ type GlobalConfig struct {
 	Timeout             string          `json:"timeout"`
 	CPULimit            string          `json:"cpu_limit,omitempty"`
 	MemoryLimit         string          `json:"memory_limit,omitempty"`
-	Warmup              WarmupConfig    `json:"warmup,omitempty"`
-	Resources           ResourcesConfig `json:"resources,omitempty"`
+	Warmup              WarmupConfig    `json:"warmup,omitzero"`
+	Resources           ResourcesConfig `json:"resources,omitzero"`
 	Cooldown            string          `json:"cooldown,omitempty"`
+	Capacity            CapacityConfig  `json:"capacity,omitzero"`
 }
 
 type WarmupConfig struct {
@@ -31,8 +33,24 @@ type WarmupConfig struct {
 }
 
 type ResourcesConfig struct {
-	Enabled          bool `json:"enabled"`
-	SampleIntervalMs int  `json:"sample_interval_ms"`
+	Enabled bool `json:"enabled"`
+}
+
+type CapacityConfig struct {
+	Enabled      bool   `json:"enabled"`
+	MinWorkers   int    `json:"min_workers"`
+	MaxWorkers   int    `json:"max_workers"`
+	Precision    string `json:"precision"`
+	SuccessRate  string `json:"success_rate"`
+	P99Threshold string `json:"p99_threshold"`
+	Warmup       string `json:"warmup"`
+	Measure      string `json:"measure"`
+
+	PrecisionPct    float64       `json:"-"`
+	SuccessRatePct  float64       `json:"-"`
+	P99ThresholdDur time.Duration `json:"-"`
+	WarmupDuration  time.Duration `json:"-"`
+	MeasureDuration time.Duration `json:"-"`
 }
 
 func (s *Config) String() string {
@@ -48,8 +66,12 @@ func (s *Config) String() string {
 	if strings.TrimSpace(s.Global.Cooldown) != "" {
 		cooldownStr = s.Global.Cooldown
 	}
+	capacityStr := "disabled"
+	if s.Global.Capacity.Enabled {
+		capacityStr = fmt.Sprintf("workers %d-%d, %s measure, precision %s", s.Global.Capacity.MinWorkers, s.Global.Capacity.MaxWorkers, s.Global.Capacity.Measure, s.Global.Capacity.Precision)
+	}
 	return fmt.Sprintf(
-		"=== Configuration ===\nBase URL: %s\nServers: %d | Endpoints: %d\nWorkers: %d | Requests/Endpoint: %d | Timeout: %s\nCPU Limit: %s | Memory Limit: %s\nWarmup: %s | Resources: %s | Cooldown: %s\n=======================",
+		"=== Configuration ===\nBase URL: %s\nServers: %d | Endpoints: %d\nWorkers: %d | Requests/Endpoint: %d | Timeout: %s\nCPU Limit: %s | Memory Limit: %s\nWarmup: %s | Resources: %s | Cooldown: %s\nCapacity: %s\n=======================",
 		s.Global.BaseURL,
 		len(s.Servers),
 		len(s.Endpoints),
@@ -61,6 +83,7 @@ func (s *Config) String() string {
 		warmupStr,
 		resourcesStr,
 		cooldownStr,
+		capacityStr,
 	)
 }
 
@@ -144,4 +167,5 @@ type ResolvedServer struct {
 	EndpointOrder       []string
 	Warmup              WarmupConfig
 	Resources           ResourcesConfig
+	Capacity            CapacityConfig
 }

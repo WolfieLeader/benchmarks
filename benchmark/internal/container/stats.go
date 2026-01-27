@@ -73,9 +73,9 @@ type dockerStatsAPI struct {
 	PreCPUStats cpuStatsBlock `json:"precpu_stats"`
 }
 
-// NewResourceSampler creates a new resource sampler for a container
-// Note: intervalMs is ignored - Docker stats API provides ~1 sample/second
-func NewResourceSampler(containerID string, _ int) *ResourceSampler {
+// NewResourceSampler creates a new resource sampler for a container.
+// Docker stats API provides ~1 sample/second; the rate is not configurable.
+func NewResourceSampler(containerID string) *ResourceSampler {
 	return &ResourceSampler{
 		containerID: containerID,
 		memory:      make([]uint64, 0, 64),
@@ -133,7 +133,7 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 	}()
 
 	url := fmt.Sprintf("http://localhost/containers/%s/stats?stream=true", r.containerID)
-	req, err := http.NewRequestWithContext(streamCtx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(streamCtx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return
 	}
@@ -142,14 +142,18 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	// Stream JSON objects as they arrive (~1/second from Docker)
 	decoder := json.NewDecoder(resp.Body)
 	for {
 		var stats dockerStatsAPI
 		if err := decoder.Decode(&stats); err != nil {
-			return // Connection closed or context cancelled
+			return // Connection closed or context canceled
 		}
 
 		r.processSample(&stats)

@@ -65,10 +65,51 @@
           "properties": {
             "enabled": {
               "type": "boolean"
+            }
+          }
+        },
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable capacity testing to find max sustainable worker count"
             },
-            "sample_interval_ms": {
+            "min_workers": {
               "type": "integer",
-              "minimum": 10
+              "minimum": 1,
+              "description": "Starting worker count for growth phase"
+            },
+            "max_workers": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum worker count to test"
+            },
+            "precision": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?%$",
+              "description": "Stop binary search when range is within this percentage (e.g. 5%)"
+            },
+            "success_rate": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?%$",
+              "description": "Minimum success rate to pass (e.g. 99%)"
+            },
+            "p99_threshold": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Maximum p99 latency to pass (e.g. 50ms)"
+            },
+            "warmup": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Warmup duration per iteration (e.g. 2s, 500ms)"
+            },
+            "measure": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Measurement duration per iteration (e.g. 10s, 5s)"
             }
           }
         }

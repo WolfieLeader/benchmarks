@@ -1,3 +1,23 @@
 {
-  "python.terminal.activateEnvironment": false
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+
+	"[javascript]": { "editor.defaultFormatter": "biomejs.biome" },
+	"[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
+	"[javascriptreact]": { "editor.defaultFormatter": "biomejs.biome" },
+	"[typescriptreact]": { "editor.defaultFormatter": "biomejs.biome" },
+	"[json]": {
+		"editor.quickSuggestions": { "strings": true },
+		"editor.suggest.insertMode": "replace",
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[jsonc]": { "editor.defaultFormatter": "biomejs.biome" },
+
+	"[go]": { "editor.defaultFormatter": "golang.go" },
+	"[go.mod]": { "editor.defaultFormatter": "golang.go" },
+	"[go.sum]": { "editor.defaultFormatter": "golang.go" },
+	"go.lintTool": "golangci-lint",
+	"gopls": { "formatting.gofumpt": true },
+
+	"[python]": { "editor.defaultFormatter": "charliermarsh.ruff" }
 }

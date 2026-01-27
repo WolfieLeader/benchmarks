@@ -40,8 +40,21 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		allTestcases = append(allTestcases, testcases...)
 	}
 
+	serverOrder := cfg.ServerOrder
+	if len(serverOrder) == 0 {
+		serverOrder = make([]string, 0, len(cfg.Servers))
+		for name := range cfg.Servers {
+			serverOrder = append(serverOrder, name)
+		}
+		slices.Sort(serverOrder)
+	}
+
 	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
-	for name, port := range cfg.Servers {
+	for _, name := range serverOrder {
+		port, ok := cfg.Servers[name]
+		if !ok {
+			continue
+		}
 		servers = append(servers, &ResolvedServer{
 			Name:                name,
 			ImageName:           name,
@@ -56,6 +69,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 			EndpointOrder:       order,
 			Warmup:              cfg.Global.Warmup,
 			Resources:           cfg.Global.Resources,
+			Capacity:            cfg.Global.Capacity,
 		})
 	}
 
@@ -69,7 +83,8 @@ func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]
 	}
 
 	if len(endpoint.TestCases) == 0 {
-		tc, err := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile)
+		var tc *Testcase
+		tc, err = buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +92,8 @@ func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]
 	}
 
 	testcases := make([]*Testcase, 0, len(endpoint.TestCases))
-	for i, tcConfig := range endpoint.TestCases {
+	for i := range endpoint.TestCases {
+		tcConfig := &endpoint.TestCases[i]
 		file := endpointFile
 		if tcConfig.File != "" {
 			file, err = loadFile(tcConfig.File)
@@ -86,7 +102,8 @@ func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]
 			}
 		}
 
-		tc, err := buildTestcase(baseURL, endpointName, tcConfig.Name, endpoint, &tcConfig, file)
+		var tc *Testcase
+		tc, err = buildTestcase(baseURL, endpointName, tcConfig.Name, endpoint, tcConfig, file)
 		if err != nil {
 			return nil, fmt.Errorf("endpoint %q test case %q: %w", endpointName, tcConfig.Name, err)
 		}
@@ -168,7 +185,8 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		ExpectedText:    expectedText,
 	}
 
-	if file != nil {
+	switch {
+	case file != nil:
 		tc.RequestType = RequestTypeMultipart
 		tc.MultipartFields = formData
 		tc.FileUpload = file
@@ -177,25 +195,24 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		if err != nil {
 			return nil, fmt.Errorf("failed to build multipart body: %w", err)
 		}
-
-	} else if len(formData) > 0 {
+	case len(formData) > 0:
 		tc.RequestType = RequestTypeForm
 		tc.FormData = formData
 		tc.CachedFormBody = encodeFormBody(formData)
-	} else if body != nil {
+	case body != nil:
 		tc.RequestType = RequestTypeJSON
 		tc.Body, err = serializeBody(body)
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	default:
 		tc.RequestType = RequestTypeNone
 	}
 
 	return tc, nil
 }
 
-func buildMultipartBody(fields map[string]string, file *FileUpload) (string, string, error) {
+func buildMultipartBody(fields map[string]string, file *FileUpload) (body, contentType string, err error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
@@ -212,8 +229,8 @@ func buildMultipartBody(fields map[string]string, file *FileUpload) (string, str
 		}
 
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
-			escapeQuotes(file.FieldName), escapeQuotes(file.Filename)))
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`,
+			file.FieldName, file.Filename))
 		h.Set("Content-Type", contentType)
 
 		part, err := writer.CreatePart(h)
@@ -232,10 +249,6 @@ func buildMultipartBody(fields map[string]string, file *FileUpload) (string, str
 	return buf.String(), writer.FormDataContentType(), nil
 }
 
-func escapeQuotes(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
-}
-
 func loadFile(filename string) (*FileUpload, error) {
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
@@ -243,7 +256,7 @@ func loadFile(filename string) (*FileUpload, error) {
 	}
 
 	path := filepath.Join("assets", filename)
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) //nolint:gosec // path is constructed from controlled assets directory
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}

@@ -52,7 +52,7 @@ func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOpti
 	cmd := exec.CommandContext(startCtx, "docker", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("- Docker run %s failed: %v,\noutput: %s", opts.Image, err, out)
+		return "", fmt.Errorf("- Docker run %s failed: %w,\noutput: %s", opts.Image, err, out)
 	}
 
 	id := strings.TrimSpace(string(out))
@@ -66,10 +66,10 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	stopCtx, stopCancel := context.WithTimeout(ctx, timeout)
 	defer stopCancel()
 
-	cmd := exec.CommandContext(stopCtx, "docker", "stop", string(containerId))
+	cmd := exec.CommandContext(stopCtx, "docker", "stop", string(containerId)) //nolint:gosec // containerId is controlled internal value
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Docker stop %s failed: %v,\noutput: %s", containerId, err, out)
+		return fmt.Errorf("docker stop %s failed: %w,\noutput: %s", containerId, err, out)
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string)
 		}
 
 		reqCtx, cancel := context.WithTimeout(ctx, HealthCheckRequestTimeout)
-		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, http.NoBody)
 		if err != nil {
 			cancel()
 			return fmt.Errorf("failed to create health check request: %w", err)
@@ -102,7 +102,12 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string)
 			continue
 		}
 
-		resp.Body.Close()
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			lastErr = closeErr
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
 		if resp.StatusCode != http.StatusOK {
 			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			time.Sleep(HealthCheckInterval)
@@ -112,7 +117,7 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string)
 	}
 
 	if lastErr != nil {
-		return fmt.Errorf("server did not become ready in %s: last error: %v", timeout, lastErr)
+		return fmt.Errorf("server did not become ready in %s: last error: %w", timeout, lastErr)
 	}
 	return fmt.Errorf("server did not become ready in %s", timeout)
 }

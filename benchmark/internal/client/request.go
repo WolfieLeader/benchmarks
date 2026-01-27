@@ -37,7 +37,7 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 		}
 
 	case config.RequestTypeMultipart:
-		if len(tc.CachedMultipartBody) > 0 {
+		if tc.CachedMultipartBody != "" {
 			bodyReader = strings.NewReader(tc.CachedMultipartBody)
 			contentType = tc.CachedContentType
 		}
@@ -57,7 +57,11 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 	}
 
 	if req.Header.Get("Accept") == "" {
-		req.Header.Set("Accept", "application/json")
+		if tc.ExpectedText != "" {
+			req.Header.Set("Accept", "text/plain")
+		} else if tc.ExpectedBody != nil {
+			req.Header.Set("Accept", "application/json")
+		}
 	}
 
 	return req, nil

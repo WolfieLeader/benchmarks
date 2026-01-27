@@ -17,7 +17,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, resolvedServers, err := config.Load("config.jsonc")
+	cfg, resolvedServers, err := config.Load("config.json")
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		return
@@ -47,7 +47,8 @@ func main() {
 		result := runServerBenchmark(ctx, server)
 
 		summary.PrintServerSummary(result)
-		path, err := writer.ExportServerResult(result)
+		var path string
+		path, err = writer.ExportServerResult(result)
 		if err == nil {
 			fmt.Printf("Server results exported to %s\n", path)
 		} else {
@@ -109,11 +110,11 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	// This captures samples during startup, health check, warmup, and benchmark
 	var sampler *container.ResourceSampler
 	if server.Resources.Enabled {
-		sampler = container.NewResourceSampler(string(containerId), server.Resources.SampleIntervalMs)
+		sampler = container.NewResourceSampler(string(containerId))
 		sampler.Start(ctx)
 	}
 
-	defer func() {
+	defer func() { //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer stopCancel()
 		if stopErr := container.Stop(stopCtx, time.Minute, containerId); stopErr != nil {
@@ -122,7 +123,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	}()
 
 	serverURL := fmt.Sprintf("http://localhost:%d", options.HostPort)
-	if err := container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
+	if err = container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
 		// Stop sampler on early exit
 		if sampler != nil {
 			sampler.Stop()
@@ -139,7 +140,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	suite := client.NewSuite(ctx, server)
 	defer suite.Close()
 
-	endpoints, err := suite.RunAll()
+	endpoints, err := suite.RunAll() //nolint:contextcheck // context is stored in Suite struct
 	if err != nil {
 		// Stop sampler even on error
 		if sampler != nil {
@@ -158,5 +159,31 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 
 	result.Complete(endpoints)
 
+	// Run capacity test if enabled and not skipped
+	if server.Capacity.Enabled && ctx.Err() == nil {
+		rootTC := findRootTestcase(server)
+		if rootTC != nil {
+			fmt.Println("  Running capacity test...")
+			tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.Timeout)
+			capResult, err := tester.Run() //nolint:contextcheck // context is stored in CapacityTester struct
+			if err != nil {
+				fmt.Printf("  Capacity test error: %v\n", err)
+			} else {
+				result.Capacity = capResult
+			}
+		} else {
+			fmt.Println("  Skipping capacity test: no root endpoint testcase found")
+		}
+	}
+
 	return result
+}
+
+func findRootTestcase(server *config.ResolvedServer) *config.Testcase {
+	for _, tc := range server.Testcases {
+		if tc.EndpointName == "root" {
+			return tc
+		}
+	}
+	return nil
 }
