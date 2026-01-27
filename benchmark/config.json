@@ -19,7 +19,7 @@
       "enabled": true,
       "min_workers": 1,
       "max_workers": 4096,
-      "precision": "2%",
+      "precision": "1%",
       "success_rate": "95%",
       "p99_threshold": "50ms",
       "warmup": "2s",
