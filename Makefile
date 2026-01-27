@@ -5,10 +5,10 @@
 .PHONY: benchmark \
 	honojs elysia oak express nestjs fastify chi gin fiber fastapi \
 	install-honojs install-elysia install-oak install-express install-nestjs install-fastify \
-	install-chi install-gin install-fiber install-fastapi install-all \
+	install-chi install-gin install-fiber install-fastapi install \
 	update-honojs update-elysia update-oak update-express update-nestjs update-fastify \
-	update-chi update-gin update-fiber update-fastapi update-all \
-	clean build-images clean-images fmt lint tools install-root-tools update-root-tools
+	update-chi update-gin update-fiber update-fastapi update \
+	clean images clean-images fmt lint tools install-root-tools update-root-tools
 
 # ==============================================================================
 # Benchmark Runner
@@ -99,7 +99,7 @@ install-fastapi:
 install-root-tools:
 	pnpm install
 
-install-all: install-root-tools \
+install: install-root-tools \
 	install-honojs \
 	install-elysia \
 	install-oak \
@@ -154,7 +154,7 @@ update-fastapi:
 update-root-tools:
 	pnpm update --latest
 
-update-all: update-root-tools \
+update: update-root-tools \
 	update-honojs \
 	update-elysia \
 	update-oak \
@@ -170,7 +170,7 @@ update-all: update-root-tools \
 # Docker
 # ==============================================================================
 
-build-images:
+images:
 	docker build -t bun-honojs ./bun-honojs
 	docker build -t bun-elysia ./bun-elysia
 	docker build -t deno-oak ./deno-oak
