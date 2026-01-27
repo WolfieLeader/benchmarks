@@ -8,7 +8,7 @@
 	install-chi install-gin install-fiber install-fastapi install-all \
 	update-honojs update-elysia update-oak update-express update-nestjs update-fastify \
 	update-chi update-gin update-fiber update-fastapi update-all \
-	clean build-images clean-images
+	clean build-images clean-images fmt lint tools install-root-tools update-root-tools
 
 # ==============================================================================
 # Benchmark Runner
@@ -96,7 +96,20 @@ install-fastapi:
 	cd python-fastapi && uv sync
 
 # --- All ---
-install-all: install-honojs install-elysia install-oak install-express install-nestjs install-fastify install-chi install-gin install-fiber install-fastapi
+install-root-tools:
+	pnpm install
+
+install-all: install-root-tools \
+	install-honojs \
+	install-elysia \
+	install-oak \
+	install-express \
+	install-nestjs \
+	install-fastify \
+	install-chi \
+	install-gin \
+	install-fiber \
+	install-fastapi
 
 # ==============================================================================
 # Update Dependencies
@@ -138,7 +151,20 @@ update-fastapi:
 	cd python-fastapi && uv sync --upgrade
 
 # --- All ---
-update-all: update-honojs update-elysia update-oak update-express update-nestjs update-fastify update-chi update-gin update-fiber update-fastapi
+update-root-tools:
+	pnpm update --latest
+
+update-all: update-root-tools \
+	update-honojs \
+	update-elysia \
+	update-oak \
+	update-express \
+	update-nestjs \
+	update-fastify \
+	update-chi \
+	update-gin \
+	update-fiber \
+	update-fastapi
 
 # ==============================================================================
 # Docker
@@ -178,3 +204,35 @@ clean:
 		node-fastify/node_modules \
 		deno-oak/node_modules
 	@echo "Clean complete!"
+
+# ==============================================================================
+# Format & Lint (All)
+# ==============================================================================
+
+fmt:
+	cd benchmark && golangci-lint fmt ./...
+	cd go-chi && golangci-lint fmt ./...
+	cd go-gin && golangci-lint fmt ./...
+	cd go-fiber && golangci-lint fmt ./...
+	cd node-express && pnpm run format
+	cd node-fastify && pnpm run format
+	cd node-nestjs && pnpm run format
+	cd bun-honojs && bun run format
+	cd bun-elysia && bun run format
+	cd deno-oak && deno task format
+	cd python-fastapi && uv run ruff format .
+	pnpm run format:md
+
+lint:
+	cd benchmark && golangci-lint run ./...
+	cd go-chi && golangci-lint run ./...
+	cd go-gin && golangci-lint run ./...
+	cd go-fiber && golangci-lint run ./...
+	cd node-express && pnpm run lint
+	cd node-fastify && pnpm run lint
+	cd node-nestjs && pnpm run lint
+	cd bun-honojs && bun run lint
+	cd bun-elysia && bun run lint
+	cd deno-oak && deno task lint
+	cd python-fastapi && uv run ruff check .
+	pnpm run lint:md

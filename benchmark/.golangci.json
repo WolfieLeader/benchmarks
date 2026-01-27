@@ -1,0 +1,66 @@
+{
+  "version": "2",
+  "run": {
+    "timeout": "5m",
+    "tests": false
+  },
+  "linters": {
+    "enable": [
+      "asciicheck",
+      "bidichk",
+      "bodyclose",
+      "canonicalheader",
+      "contextcheck",
+      "copyloopvar",
+      "dupword",
+      "durationcheck",
+      "errcheck",
+      "errname",
+      "errorlint",
+      "exptostd",
+      "fatcontext",
+      "forcetypeassert",
+      "gocheckcompilerdirectives",
+      "gocritic",
+      "goprintffuncname",
+      "gosec",
+      "govet",
+      "ineffassign",
+      "intrange",
+      "mirror",
+      "misspell",
+      "modernize",
+      "nakedret",
+      "nilerr",
+      "nilnesserr",
+      "noctx",
+      "nosprintfhostport",
+      "perfsprint",
+      "reassign",
+      "recvcheck",
+      "staticcheck",
+      "unconvert",
+      "unused",
+      "usestdlibvars",
+      "wastedassign",
+      "whitespace"
+    ],
+    "settings": {
+      "errcheck": {
+        "check-type-assertions": true
+      },
+      "gocritic": {
+        "enabled-tags": ["diagnostic", "style", "performance"]
+      },
+      "govet": {
+        "enable": ["shadow"]
+      },
+      "misspell": {
+        "locale": "US"
+      }
+    }
+  },
+  "formatters": {
+    "enable": ["gofumpt"]
+  }
+}

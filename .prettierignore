@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Builds
+**/dist/
+**/build/
+**/out/
+
+# Python
+.venv/
+**/__pycache__/
+
+# Go
+**/bin/
+**/vendor/
+
+# Benchmark results
+benchmark/results/
+
+# Generated lockfiles
+**/pnpm-lock.yaml
+**/bun.lock
+**/bun.lockb
+**/uv.lock
+**/deno.lock
