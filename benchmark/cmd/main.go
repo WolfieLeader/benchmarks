@@ -1,16 +1,18 @@
 package main
 
 import (
-	"benchmark-client/internal/client"
-	"benchmark-client/internal/config"
-	"benchmark-client/internal/container"
-	"benchmark-client/internal/summary"
 	"context"
 	"fmt"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"benchmark-client/internal/client"
+	"benchmark-client/internal/config"
+	"benchmark-client/internal/container"
+	"benchmark-client/internal/printer"
+	"benchmark-client/internal/summary"
 )
 
 func main() {
@@ -19,16 +21,16 @@ func main() {
 
 	cfg, resolvedServers, err := config.Load("config.json")
 	if err != nil {
-		fmt.Printf("Failed to load configuration: %v\n", err)
+		printer.Failf("Failed to load configuration: %v", err)
 		return
 	}
-	fmt.Println(cfg)
+	cfg.Print()
 
 	var cooldown time.Duration
 	if cfg.Global.Cooldown != "" {
 		cooldown, err = time.ParseDuration(cfg.Global.Cooldown)
 		if err != nil {
-			fmt.Printf("Invalid cooldown: %v\n", err)
+			printer.Failf("Invalid cooldown: %v", err)
 			return
 		}
 	}
@@ -38,11 +40,11 @@ func main() {
 
 	for i, server := range resolvedServers {
 		if ctx.Err() != nil {
-			fmt.Println("\nInterrupted, stopping...")
+			printer.Warnf("Interrupted, stopping...")
 			break
 		}
 
-		fmt.Printf("\n== Server: %s ==\n", server.Name)
+		printer.ServerHeader(server.Name)
 
 		result := runServerBenchmark(ctx, server)
 
@@ -50,21 +52,21 @@ func main() {
 		var path string
 		path, err = writer.ExportServerResult(result)
 		if err == nil {
-			fmt.Printf("Server results exported to %s\n", path)
+			printer.Infof("Exported: %s", path)
 		} else {
-			fmt.Printf("Failed to export %s results: %v\n", server.Name, err)
+			printer.Failf("Failed to export %s results: %v", server.Name, err)
 		}
 		result.Endpoints = nil
 
 		if ctx.Err() != nil {
-			fmt.Println("\nInterrupted, stopping...")
+			printer.Warnf("Interrupted, stopping...")
 			break
 		}
 
 		if cooldown > 0 && i < len(resolvedServers)-1 {
 			select {
 			case <-ctx.Done():
-				fmt.Println("\nInterrupted, stopping...")
+				printer.Warnf("Interrupted, stopping...")
 				return
 			case <-time.After(cooldown):
 			}
@@ -73,10 +75,10 @@ func main() {
 
 	metaResults, servers, path, err := writer.ExportMetaResults()
 	if err != nil {
-		fmt.Printf("Failed to export meta results: %v\n", err)
+		printer.Failf("Failed to export meta results: %v", err)
 		return
 	}
-	fmt.Printf("\nMeta results exported to %s\n", path)
+	printer.Infof("Meta results: %s", path)
 
 	summary.PrintFinalSummary(metaResults, servers)
 }
@@ -118,7 +120,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer stopCancel()
 		if stopErr := container.Stop(stopCtx, time.Minute, containerId); stopErr != nil {
-			fmt.Printf("Warning: failed to stop container %s: %v\n", containerId, stopErr)
+			printer.Warnf("Failed to stop container %s: %v", containerId, stopErr)
 		}
 	}()
 
@@ -132,7 +134,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 		return result
 	}
 
-	fmt.Printf("  Server ready at %s (container: %s)\n", serverURL, containerId)
+	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
 
 	// Benchmark duration should reflect warmup + measured requests, not container startup
 	result.StartTime = time.Now()
@@ -163,16 +165,15 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	if server.Capacity.Enabled && ctx.Err() == nil {
 		rootTC := findRootTestcase(server)
 		if rootTC != nil {
-			fmt.Println("  Running capacity test...")
 			tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.Timeout)
 			capResult, err := tester.Run() //nolint:contextcheck // context is stored in CapacityTester struct
 			if err != nil {
-				fmt.Printf("  Capacity test error: %v\n", err)
+				printer.Failf("Capacity test error: %v", err)
 			} else {
 				result.Capacity = capResult
 			}
 		} else {
-			fmt.Println("  Skipping capacity test: no root endpoint testcase found")
+			printer.Warnf("Skipping capacity test: no root endpoint testcase found")
 		}
 	}
 

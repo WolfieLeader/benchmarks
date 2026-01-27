@@ -1,7 +1,6 @@
 package client
 
 import (
-	"benchmark-client/internal/config"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"benchmark-client/internal/config"
 )
 
 type Suite struct {

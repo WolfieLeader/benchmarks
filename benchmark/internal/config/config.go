@@ -2,8 +2,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	"benchmark-client/internal/printer"
 )
 
 type Config struct {
@@ -53,7 +56,24 @@ type CapacityConfig struct {
 	MeasureDuration time.Duration `json:"-"`
 }
 
-func (s *Config) String() string {
+func (s *Config) Print() {
+	printer.Section("Configuration")
+
+	printer.KeyValue("Base URL", s.Global.BaseURL)
+	printer.KeyValuePairs(
+		"Servers", strconv.Itoa(len(s.Servers)),
+		"Endpoints", strconv.Itoa(len(s.Endpoints)),
+	)
+	printer.KeyValuePairs(
+		"Workers", strconv.Itoa(s.Global.Workers),
+		"Requests/Endpoint", strconv.Itoa(s.Global.RequestsPerEndpoint),
+		"Timeout", s.Global.Timeout,
+	)
+	printer.KeyValuePairs(
+		"CPU Limit", s.Global.CPULimit,
+		"Memory Limit", s.Global.MemoryLimit,
+	)
+
 	warmupStr := "disabled"
 	if s.Global.Warmup.Enabled {
 		warmupStr = fmt.Sprintf("%d req/testcase", s.Global.Warmup.RequestsPerTestcase)
@@ -66,25 +86,16 @@ func (s *Config) String() string {
 	if strings.TrimSpace(s.Global.Cooldown) != "" {
 		cooldownStr = s.Global.Cooldown
 	}
-	capacityStr := "disabled"
+	printer.KeyValuePairs("Warmup", warmupStr, "Resources", resourcesStr, "Cooldown", cooldownStr)
+
 	if s.Global.Capacity.Enabled {
-		capacityStr = fmt.Sprintf("workers %d-%d, %s measure, precision %s", s.Global.Capacity.MinWorkers, s.Global.Capacity.MaxWorkers, s.Global.Capacity.Measure, s.Global.Capacity.Precision)
+		capacityStr := fmt.Sprintf("workers %d-%d, %s measure, precision %s",
+			s.Global.Capacity.MinWorkers, s.Global.Capacity.MaxWorkers,
+			s.Global.Capacity.Measure, s.Global.Capacity.Precision)
+		printer.KeyValue("Capacity", capacityStr)
+	} else {
+		printer.KeyValue("Capacity", "disabled")
 	}
-	return fmt.Sprintf(
-		"=== Configuration ===\nBase URL: %s\nServers: %d | Endpoints: %d\nWorkers: %d | Requests/Endpoint: %d | Timeout: %s\nCPU Limit: %s | Memory Limit: %s\nWarmup: %s | Resources: %s | Cooldown: %s\nCapacity: %s\n=======================",
-		s.Global.BaseURL,
-		len(s.Servers),
-		len(s.Endpoints),
-		s.Global.Workers,
-		s.Global.RequestsPerEndpoint,
-		s.Global.Timeout,
-		s.Global.CPULimit,
-		s.Global.MemoryLimit,
-		warmupStr,
-		resourcesStr,
-		cooldownStr,
-		capacityStr,
-	)
 }
 
 type EndpointConfig struct {

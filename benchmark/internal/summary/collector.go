@@ -1,9 +1,6 @@
 package summary
 
 import (
-	"benchmark-client/internal/client"
-	"benchmark-client/internal/config"
-	"benchmark-client/internal/container"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +8,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"benchmark-client/internal/client"
+	"benchmark-client/internal/config"
+	"benchmark-client/internal/container"
 )
 
 type ServerResult struct {

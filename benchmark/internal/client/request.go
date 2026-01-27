@@ -1,13 +1,14 @@
 package client
 
 import (
-	"benchmark-client/internal/config"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"benchmark-client/internal/config"
 )
 
 func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, error) {

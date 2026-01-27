@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+
 	"fiber-server/internal/config"
 	"fiber-server/internal/routes"
 

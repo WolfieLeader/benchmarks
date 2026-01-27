@@ -1,11 +1,12 @@
 package app
 
 import (
+	"net/http"
+
 	"chi-server/internal/config"
 	"chi-server/internal/consts"
 	"chi-server/internal/routes"
 	"chi-server/internal/utils"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 )

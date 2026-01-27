@@ -1,11 +1,12 @@
 package client
 
 import (
-	"benchmark-client/internal/config"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"benchmark-client/internal/config"
 )
 
 func ValidateResponse(tc *config.Testcase, resp *http.Response, body []byte) error {

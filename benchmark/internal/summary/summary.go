@@ -1,53 +1,65 @@
 package summary
 
 import (
-	"benchmark-client/internal/client"
 	"fmt"
 	"slices"
-	"strings"
+	"strconv"
 	"time"
+
+	"benchmark-client/internal/client"
+	"benchmark-client/internal/printer"
 )
 
 func PrintServerSummary(result *ServerResult) {
 	if result.Error != "" {
-		fmt.Printf("  Status: FAILED\n")
-		fmt.Printf("  Error: %s\n\n", result.Error)
+		printer.Failf("Status: FAILED")
+		printer.Linef("Error: %s", result.Error)
+		printer.Blank()
 		return
 	}
 
-	fmt.Printf("  Duration: %s | Endpoints: %d\n", formatDuration(result.Duration), len(result.Endpoints))
+	printer.KeyValuePairs(
+		"Duration", printer.FormatDuration(result.Duration),
+		"Endpoints", strconv.Itoa(len(result.Endpoints)),
+	)
 
 	if result.Resources != nil && result.Resources.Samples > 0 {
-		memStr := formatMemory(result.Resources.Memory.AvgBytes)
-		cpuStr := formatCPU(result.Resources.CPU.AvgPercent, result.Resources.Samples)
+		memStr := printer.FormatMemory(result.Resources.Memory.AvgBytes)
+		cpuStr := printer.FormatCPU(result.Resources.CPU.AvgPercent, result.Resources.Samples)
 		warning := ""
 		if len(result.Resources.Warnings) > 0 {
 			warning = fmt.Sprintf(" (%s)", result.Resources.Warnings[0])
 		}
-		fmt.Printf("  Resources: %s mem, %s cpu%s\n", memStr, cpuStr, warning)
+		printer.KeyValuePairs("Memory", memStr, "CPU", cpuStr+warning)
 	}
 
-	fmt.Println()
-	fmt.Println("  Method  Path                              Status      Avg")
-	fmt.Println("  ------  --------------------------------  ------  -------")
+	printer.Blank()
 
 	if result.Capacity != nil {
-		fmt.Printf("  Capacity: %d max workers, %.0f rps, %.2fms p99, %.1f%% success\n",
+		printer.Linef("Capacity: %d max workers │ %.0f rps │ %.2fms p99 │ %.1f%% success",
 			result.Capacity.MaxWorkersPassed,
 			result.Capacity.AchievedRPS,
 			result.Capacity.P99Ms,
 			result.Capacity.SuccessRate*100)
+		printer.Blank()
 	}
+
+	fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "Method", "Path", "Status", "Avg")
+	fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "──────", "────────────────────────────────", "──────", "───────")
 
 	for _, ep := range result.Endpoints {
 		status := formatStatus(ep.Error, ep.Stats)
 		avg := "      -"
 		if ep.Stats != nil {
-			avg = formatLatencyFixed(ep.Stats.Avg)
+			avg = printer.FormatLatency(ep.Stats.Avg)
 		}
 
-		path := truncatePath(ep.Path, 32)
-		fmt.Printf("  %-6s  %-32s  %-6s  %s", ep.Method, path, status, avg)
+		path := printer.TruncatePath(ep.Path, 32)
+		statusSymbol := printer.SymbolPass
+		if ep.Error != "" || (ep.Stats != nil && ep.Stats.SuccessRate < 1.0) {
+			statusSymbol = printer.SymbolFail
+		}
+		fmt.Printf("  %-6s  %-32s  %s %-4s  %s", ep.Method, path, statusSymbol, status, avg)
 
 		if ep.FailureCount > 0 {
 			fmt.Printf("  (%d failed)", ep.FailureCount)
@@ -55,28 +67,31 @@ func PrintServerSummary(result *ServerResult) {
 		fmt.Println()
 
 		if ep.Error != "" {
-			fmt.Printf("          error: %s\n", truncate(ep.Error, 70))
+			printer.Linef("       └─ error: %s", printer.Truncate(ep.Error, 60))
 		} else if ep.LastError != "" {
-			fmt.Printf("          last error: %s\n", truncate(ep.LastError, 70))
+			printer.Linef("       └─ last error: %s", printer.Truncate(ep.LastError, 60))
 		}
 	}
-	fmt.Println()
+	printer.Blank()
 }
 
 func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
-	fmt.Println()
-	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                      BENCHMARK SUMMARY                      ║")
-	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
-	fmt.Println()
+	printer.Header("BENCHMARK SUMMARY")
 
 	duration := time.Duration(meta.Summary.TotalDurationMs) * time.Millisecond
-	fmt.Printf("  Servers: %d total, %d passed, %d failed\n",
-		meta.Summary.TotalServers,
-		meta.Summary.SuccessfulServers,
-		meta.Summary.FailedServers)
-	fmt.Printf("  Duration: %s\n", formatDuration(duration))
-	fmt.Println()
+
+	if meta.Summary.FailedServers > 0 {
+		printer.Linef("Servers: %d total │ %s %d passed │ %s %d failed",
+			meta.Summary.TotalServers,
+			printer.SymbolPass, meta.Summary.SuccessfulServers,
+			printer.SymbolFail, meta.Summary.FailedServers)
+	} else {
+		printer.Linef("Servers: %d total │ %s %d passed",
+			meta.Summary.TotalServers,
+			printer.SymbolPass, meta.Summary.SuccessfulServers)
+	}
+	printer.Linef("Duration: %s", printer.FormatDuration(duration))
+	printer.Blank()
 
 	type rankedServer struct {
 		name        string
@@ -113,7 +128,7 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	}
 
 	if len(ranked) == 0 {
-		fmt.Println("  No successful benchmarks to rank.")
+		printer.Linef("No successful benchmarks to rank.")
 		return
 	}
 
@@ -127,8 +142,8 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		return 0
 	})
 
-	fmt.Println("  Rankings (by avg latency)")
-	fmt.Println()
+	printer.Linef("Rankings (by avg latency)")
+	printer.Blank()
 
 	if hasAnyCapacity {
 		fmt.Println("   #  Server              Avg      P50      P95      Mem  Capacity")
@@ -141,7 +156,12 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	for i, s := range ranked {
 		memStr := "      -"
 		if s.hasMem {
-			memStr = formatMemoryFixed(s.mem)
+			memStr = printer.FormatMemoryFixed(s.mem)
+		}
+
+		rank := fmt.Sprintf("%2d", i+1)
+		if i == 0 {
+			rank = printer.SymbolPass + strconv.Itoa(i+1)
 		}
 
 		if hasAnyCapacity {
@@ -149,74 +169,25 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 			if s.hasCapacity {
 				capStr = fmt.Sprintf("%5d w", s.capWorkers)
 			}
-			fmt.Printf("  %2d  %-16s  %s  %s  %s  %s  %s\n",
-				i+1,
+			fmt.Printf("  %s  %-16s  %s  %s  %s  %s  %s\n",
+				rank,
 				s.name,
-				formatLatencyFixed(s.avg),
-				formatLatencyFixed(s.p50),
-				formatLatencyFixed(s.p95),
+				printer.FormatLatency(s.avg),
+				printer.FormatLatency(s.p50),
+				printer.FormatLatency(s.p95),
 				memStr,
 				capStr)
 		} else {
-			fmt.Printf("  %2d  %-16s  %s  %s  %s  %s\n",
-				i+1,
+			fmt.Printf("  %s  %-16s  %s  %s  %s  %s\n",
+				rank,
 				s.name,
-				formatLatencyFixed(s.avg),
-				formatLatencyFixed(s.p50),
-				formatLatencyFixed(s.p95),
+				printer.FormatLatency(s.avg),
+				printer.FormatLatency(s.p50),
+				printer.FormatLatency(s.p95),
 				memStr)
 		}
 	}
-	fmt.Println()
-}
-
-func formatDuration(d time.Duration) string {
-	if d < time.Second {
-		return fmt.Sprintf("%dms", d.Milliseconds())
-	}
-	if d < time.Minute {
-		return fmt.Sprintf("%.2fs", d.Seconds())
-	}
-	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
-}
-
-func formatLatencyFixed[T int64 | time.Duration](t T) string {
-	ns := int64(t)
-	if ns < 1000 {
-		return fmt.Sprintf("%5dns", ns)
-	}
-	if ns < 1_000_000 {
-		us := float64(ns) / 1000
-		return fmt.Sprintf("%5.1fµs", us)
-	}
-	ms := float64(ns) / 1_000_000
-	return fmt.Sprintf("%5.2fms", ms)
-}
-
-func formatMemory(bytes float64) string {
-	mb := bytes / 1024 / 1024
-	if mb < 1 {
-		return fmt.Sprintf("%.0fKB", bytes/1024)
-	}
-	if mb < 100 {
-		return fmt.Sprintf("%.1fMB", mb)
-	}
-	return fmt.Sprintf("%.0fMB", mb)
-}
-
-func formatMemoryFixed(bytes float64) string {
-	mb := bytes / 1024 / 1024
-	if mb < 1 {
-		return fmt.Sprintf("%4.0fKB", bytes/1024)
-	}
-	return fmt.Sprintf("%5.1fMB", mb)
-}
-
-func formatCPU(percent float64, samples int) string {
-	if samples < 2 || percent < 0.1 {
-		return "n/a"
-	}
-	return fmt.Sprintf("%.1f%%", percent)
+	printer.Blank()
 }
 
 func formatStatus(errMsg string, stats *client.Stats) string {
@@ -227,22 +198,4 @@ func formatStatus(errMsg string, stats *client.Stats) string {
 		return fmt.Sprintf("%.0f%%", stats.SuccessRate*100)
 	}
 	return "OK"
-}
-
-func truncate(text string, maxLen int) string {
-	if len(text) <= maxLen {
-		return text
-	}
-	return text[:maxLen] + "..."
-}
-
-func truncatePath(path string, maxLen int) string {
-	if len(path) <= maxLen {
-		return path
-	}
-	parts := strings.Split(path, "/")
-	if len(parts) <= 2 {
-		return path[:maxLen-3] + "..."
-	}
-	return ".../" + parts[len(parts)-1]
 }

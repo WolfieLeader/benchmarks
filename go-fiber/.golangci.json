@@ -50,7 +50,8 @@
         "check-type-assertions": true
       },
       "gocritic": {
-        "enabled-tags": ["diagnostic", "style", "performance"]
+        "enabled-tags": ["diagnostic", "style", "performance"],
+        "disabled-checks": ["paramTypeCombine"]
       },
       "govet": {
         "enable": ["shadow"]
@@ -61,6 +62,11 @@
     }
   },
   "formatters": {
-    "enable": ["gofumpt"]
+    "enable": ["gofumpt"],
+    "settings": {
+      "gofumpt": {
+        "module-path": "fiber-server"
+      }
+    }
   }
 }

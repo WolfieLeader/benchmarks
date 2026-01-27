@@ -19,11 +19,11 @@
       "enabled": true,
       "min_workers": 1,
       "max_workers": 4096,
-      "precision": "5%",
+      "precision": "2%",
       "success_rate": "95%",
       "p99_threshold": "50ms",
       "warmup": "2s",
-      "measure": "10s"
+      "measure": "5s"
     }
   },
   "servers": {

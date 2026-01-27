@@ -2,8 +2,6 @@ package routes
 
 import (
 	"bufio"
-	"chi-server/internal/consts"
-	"chi-server/internal/utils"
 	"cmp"
 	"encoding/json"
 	"errors"
@@ -13,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"chi-server/internal/consts"
+	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 )

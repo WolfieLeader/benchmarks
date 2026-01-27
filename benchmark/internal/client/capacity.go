@@ -1,7 +1,6 @@
 package client
 
 import (
-	"benchmark-client/internal/config"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +9,9 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"benchmark-client/internal/config"
+	"benchmark-client/internal/printer"
 )
 
 type CapacityTester struct {
@@ -45,7 +47,9 @@ func NewCapacityTester(ctx context.Context, cfg *config.CapacityConfig, rootTC *
 }
 
 func (ct *CapacityTester) Run() (*CapacityResult, error) {
-	fmt.Printf("  Capacity test: finding max workers (range %d-%d, precision %s)\n", ct.config.MinWorkers, ct.config.MaxWorkers, ct.config.Precision)
+	printer.Linef("Capacity: finding max workers (range %d-%d, precision %s)", ct.config.MinWorkers, ct.config.MaxWorkers, ct.config.Precision)
+	printer.Blank()
+	printer.CapacityTableHeader()
 
 	low := ct.config.MinWorkers
 	high := ct.config.MaxWorkers
@@ -115,17 +119,12 @@ func (ct *CapacityTester) testWorkers(workers int, iterations *int) (iterationSt
 	if ct.ctx.Err() != nil {
 		return iterationStats{}, ct.ctx.Err()
 	}
-	fmt.Printf("    [capacity] %d workers: ", workers)
 	stats, err := ct.runIteration(workers)
 	*iterations++
 	if err != nil {
 		return stats, err
 	}
-	if stats.passed {
-		fmt.Printf("PASS (rps=%.0f, p99=%.2fms, success=%.2f%%)\n", stats.rps, float64(stats.p99.Milliseconds()), stats.successRate*100)
-	} else {
-		fmt.Printf("FAIL (rps=%.0f, p99=%.2fms, success=%.2f%%)\n", stats.rps, float64(stats.p99.Milliseconds()), stats.successRate*100)
-	}
+	printer.CapacityTableRow(workers, stats.passed, stats.rps, float64(stats.p99.Milliseconds()), stats.successRate)
 	return stats, nil
 }
 

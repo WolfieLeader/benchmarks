@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"cmp"
 	"errors"
-	"fiber-server/internal/consts"
-	"fiber-server/internal/utils"
 	"io"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"fiber-server/internal/consts"
+	"fiber-server/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
