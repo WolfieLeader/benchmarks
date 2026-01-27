@@ -30,23 +30,15 @@ Thumbs.db
 # ============================================
 agents.md
 plan.md
-
-# Claude
-.claude/
-.claudeignore
-CLAUDE.md
 claude.md
-
-# Gemini
+skill.md
+.claudeignore
+.claude/
 gemini.md
 gemini.*
-
-# Cursor
 .cursor/
 .cursorignore
 cursor-tmp-*
-
-# GitHub Copilot
 .copilot/
 .copilot-instructions.md
 .github/copilot-instructions.md
@@ -194,17 +186,12 @@ vendor/
 [568vq].out
 
 # ============================================
-# Docker
-# ============================================
-*.log
-.dockerignore
-
-# ============================================
 # Kubernetes
 # ============================================
 *.kubeconfig
 secrets.yaml
 *-secret.yaml
+*.log
 
 # ============================================
 # Build / Temporary Files
