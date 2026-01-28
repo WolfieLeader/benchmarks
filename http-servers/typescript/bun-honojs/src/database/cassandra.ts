@@ -1,6 +1,7 @@
 import { randomUUIDv7 } from "bun";
 import { Client } from "cassandra-driver";
-import type { CreateUser, UpdateUser, User, UserRepository } from "./repo";
+import type { UserRepository } from "./repository";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types";
 
 export type CassandraConfig = {
   contactPoints: string[];
@@ -10,7 +11,7 @@ export type CassandraConfig = {
 
 export class CassandraUserRepository implements UserRepository {
   private client: Client;
-  private ready: Promise<void> | null = null;
+  private connected = false;
 
   constructor(config: CassandraConfig) {
     this.client = new Client({
@@ -21,56 +22,72 @@ export class CassandraUserRepository implements UserRepository {
   }
 
   private async connect(): Promise<void> {
-    if (!this.ready) {
-      this.ready = this.client.connect().then(() => this.ensureSchema());
-    }
-    await this.ready;
-  }
-
-  private async ensureSchema(): Promise<void> {
-    await this.client.execute("CREATE TABLE IF NOT EXISTS users (id uuid PRIMARY KEY, name text, email text)");
+    if (this.connected) return;
+    await this.client.connect();
+    this.connected = true;
   }
 
   async create(data: CreateUser): Promise<User> {
     await this.connect();
     const id = randomUUIDv7();
-    await this.client.execute("INSERT INTO users (id, name, email) VALUES (?, ?, ?)", [id, data.name, data.email], {
-      prepare: true
-    });
-    return { id, name: data.name, email: data.email };
+    const hasFavorite = data.favoriteNumber !== undefined;
+    const query = hasFavorite
+      ? "INSERT INTO users (id, name, email, favorite_number) VALUES (?, ?, ?, ?)"
+      : "INSERT INTO users (id, name, email) VALUES (?, ?, ?)";
+    const params = hasFavorite ? [id, data.name, data.email, data.favoriteNumber] : [id, data.name, data.email];
+    await this.client.execute(query, params, { prepare: true });
+    return buildUser(id, data);
   }
 
   async findById(id: string): Promise<User | null> {
     await this.connect();
-    const result = await this.client.execute("SELECT id, name, email FROM users WHERE id = ?", [id], { prepare: true });
-    if (result.rowLength === 0) {
-      return null;
-    }
+    const result = await this.client.execute("SELECT id, name, email, favorite_number FROM users WHERE id = ?", [id], {
+      prepare: true
+    });
+    if (result.rowLength === 0) return null;
 
     const row = result.rows[0];
-    return { id: row.id.toString(), name: row.name as string, email: row.email as string };
+    const user: User = { id: row.id.toString(), name: row.name, email: row.email };
+    if (row.favorite_number != null) user.favoriteNumber = row.favorite_number;
+    return user;
   }
 
   async update(id: string, data: UpdateUser): Promise<User | null> {
     await this.connect();
+
     const existing = await this.findById(id);
-    if (!existing) {
-      return null;
+    if (!existing) return null;
+
+    const setClauses: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (data.name !== undefined) {
+      setClauses.push("name = ?");
+      params.push(data.name);
+      existing.name = data.name;
+    }
+    if (data.email !== undefined) {
+      setClauses.push("email = ?");
+      params.push(data.email);
+      existing.email = data.email;
+    }
+    if (data.favoriteNumber !== undefined) {
+      setClauses.push("favorite_number = ?");
+      params.push(data.favoriteNumber);
+      existing.favoriteNumber = data.favoriteNumber;
     }
 
-    await this.client.execute("UPDATE users SET name = ?, email = ? WHERE id = ?", [data.name, data.email, id], {
-      prepare: true
-    });
+    if (setClauses.length === 0) return existing;
 
-    return { id, name: data.name, email: data.email };
+    params.push(id);
+    await this.client.execute(`UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`, params, { prepare: true });
+    return existing;
   }
 
   async delete(id: string): Promise<boolean> {
     await this.connect();
     const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
+    if (!existing) return false;
 
     await this.client.execute("DELETE FROM users WHERE id = ?", [id], { prepare: true });
     return true;
@@ -82,8 +99,8 @@ export class CassandraUserRepository implements UserRepository {
   }
 
   async healthCheck(): Promise<boolean> {
+    await this.connect();
     try {
-      await this.connect();
       await this.client.execute("SELECT now() FROM system.local");
       return true;
     } catch {
@@ -93,5 +110,6 @@ export class CassandraUserRepository implements UserRepository {
 
   async disconnect(): Promise<void> {
     await this.client.shutdown();
+    this.connected = false;
   }
 }

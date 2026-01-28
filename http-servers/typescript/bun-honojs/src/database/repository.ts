@@ -1,9 +1,9 @@
-import { z } from "zod";
 import { env } from "~/consts/env";
 import { CassandraUserRepository } from "./cassandra";
 import { MongoUserRepository } from "./mongodb";
 import { PostgresUserRepository } from "./postgres";
 import { RedisUserRepository } from "./redis";
+import type { CreateUser, UpdateUser, User } from "./types";
 
 export interface UserRepository {
   create(data: CreateUser): Promise<User>;
@@ -14,8 +14,6 @@ export interface UserRepository {
   healthCheck(): Promise<boolean>;
   disconnect(): Promise<void>;
 }
-
-// Repository resolver
 
 export const databaseTypes = ["postgres", "mongodb", "redis", "cassandra"] as const;
 export type DatabaseType = (typeof databaseTypes)[number];
@@ -39,44 +37,15 @@ export function isDatabaseType(value: string): value is DatabaseType {
 }
 
 export function getRepository(database: DatabaseType): UserRepository {
-  const existing = repositories.get(database);
-  if (existing) {
-    return existing;
+  let repo = repositories.get(database);
+  if (!repo) {
+    repo = repositoryFactories[database]();
+    repositories.set(database, repo);
   }
-
-  const repository = repositoryFactories[database]();
-  repositories.set(database, repository);
-  return repository;
+  return repo;
 }
 
 export function resolveRepository(database: string): UserRepository | null {
-  if (!isDatabaseType(database)) {
-    return null;
-  }
-
+  if (!isDatabaseType(database)) return null;
   return getRepository(database);
 }
-
-// CRUD
-
-export const zUser = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.email()
-});
-
-export type User = z.infer<typeof zUser>;
-
-export const zCreateUser = z.object({
-  name: z.string().min(1),
-  email: z.email()
-});
-
-export type CreateUser = z.infer<typeof zCreateUser>;
-
-export const zUpdateUser = z.object({
-  name: z.string().min(1),
-  email: z.email()
-});
-
-export type UpdateUser = z.infer<typeof zUpdateUser>;

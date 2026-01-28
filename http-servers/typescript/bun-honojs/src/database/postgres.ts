@@ -2,7 +2,8 @@ import { randomUUIDv7 } from "bun";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { users } from "./drizzle-schema";
-import type { CreateUser, UpdateUser, User, UserRepository } from "./repo";
+import type { UserRepository } from "./repository";
+import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./types";
 
 export class PostgresUserRepository implements UserRepository {
   private db: ReturnType<typeof drizzle>;
@@ -13,22 +14,30 @@ export class PostgresUserRepository implements UserRepository {
 
   async create(data: CreateUser): Promise<User> {
     const id = randomUUIDv7();
-    const [user] = await this.db.insert(users).values({ id, name: data.name, email: data.email }).returning();
-    return user;
+    const values: typeof users.$inferInsert = { id, name: data.name, email: data.email };
+    if (data.favoriteNumber !== undefined) values.favoriteNumber = data.favoriteNumber;
+    const [user] = await this.db.insert(users).values(values).returning();
+    return normalizeUser(user);
   }
 
   async findById(id: string): Promise<User | null> {
     const [user] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
-    return user ?? null;
+    return user ? normalizeUser(user) : null;
   }
 
   async update(id: string, data: UpdateUser): Promise<User | null> {
-    const [user] = await this.db
-      .update(users)
-      .set({ name: data.name, email: data.email })
-      .where(eq(users.id, id))
-      .returning();
-    return user ?? null;
+    const updates: Partial<typeof users.$inferInsert> = {};
+
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.email !== undefined) updates.email = data.email;
+    if (data.favoriteNumber !== undefined) updates.favoriteNumber = data.favoriteNumber;
+
+    if (Object.keys(updates).length === 0) {
+      return this.findById(id);
+    }
+
+    const [user] = await this.db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user ? normalizeUser(user) : null;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -50,6 +59,6 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async disconnect(): Promise<void> {
-    return;
+    await this.db.$client.end();
   }
 }

@@ -9,6 +9,7 @@
 	update-honojs update-elysia update-oak update-express update-nestjs update-fastify \
 	update-chi update-gin update-fiber update-fastapi update \
 	clean images clean-images fmt lint tools install-root-tools update-root-tools
+	db-up db-down
 
 # ==============================================================================
 # Benchmark Runner
@@ -169,6 +170,12 @@ update: update-root-tools \
 # ==============================================================================
 # Docker
 # ==============================================================================
+
+db-up:
+	docker compose -f infra/compose/databases.yml up -d
+
+db-down:
+	docker compose -f infra/compose/databases.yml down
 
 images:
 	docker build -t bun-honojs ./http-servers/typescript/bun-honojs

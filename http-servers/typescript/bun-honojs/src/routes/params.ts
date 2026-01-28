@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN, DEFAULT_LIMIT } from "../consts/defaults";
+import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE } from "../consts/defaults";
 import {
-  INVALID_JSON_BODY,
-  INVALID_FORM_DATA,
-  INVALID_MULTIPART,
   FILE_NOT_FOUND,
+  FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
-  ONLY_TEXT_PLAIN,
-  FILE_NOT_TEXT
+  INVALID_FORM_DATA,
+  INVALID_JSON_BODY,
+  INVALID_MULTIPART,
+  ONLY_TEXT_PLAIN
 } from "../consts/errors";
 
 export const paramsRoutes = new Hono();
@@ -108,11 +108,6 @@ paramsRoutes.post("/file", async (c) => {
   const data = new Uint8Array(buffer);
   if (data.length > MAX_FILE_BYTES) {
     return c.json({ error: FILE_SIZE_EXCEEDS }, 413);
-  }
-
-  const head = data.slice(0, SNIFF_LEN);
-  if (head.includes(NULL_BYTE)) {
-    return c.json({ error: FILE_NOT_TEXT }, 415);
   }
 
   if (data.includes(NULL_BYTE)) {

@@ -5,9 +5,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: bench
-      POSTGRES_PASSWORD: bench
-      POSTGRES_DB: bench
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: benchmarks
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../databases/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -23,7 +23,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: bench
+      MONGO_INITDB_DATABASE: benchmarks
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -60,6 +60,16 @@ services:
       interval: 5s
       timeout: 10s
       retries: 20
+
+  cassandra-init:
+    image: cassandra:5.0.6
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ../databases/cassandra/init.cql:/init.cql:ro
+    entrypoint: ["cqlsh", "cassandra", "-f", "/init.cql"]
+    restart: "no"
 
 volumes:
   postgres-data:

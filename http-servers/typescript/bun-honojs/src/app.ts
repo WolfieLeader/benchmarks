@@ -19,7 +19,7 @@ export function createApp() {
   app.route("/params", paramsRoutes);
 
   app.notFound((c) => c.json({ error: NOT_FOUND }, 404));
-  app.onError((err, c) => c.json({ error: err.message || INTERNAL_ERROR }, 500));
+  app.onError((_, c) => c.json({ error: INTERNAL_ERROR }, 500));
 
   return app;
 }
