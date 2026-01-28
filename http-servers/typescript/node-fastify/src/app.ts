@@ -2,6 +2,7 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
+import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 import { env } from "./config/env";
 import { FILE_SIZE_EXCEEDS, INTERNAL_ERROR, INVALID_JSON_BODY, INVALID_MULTIPART, NOT_FOUND } from "./consts/errors";
@@ -36,6 +37,7 @@ export async function createApp(): Promise<FastifyInstance> {
   app.get("/health", async () => ({ message: "Hello World" }));
 
   await app.register(paramsRoutes, { prefix: "/params" });
+  await app.register(dbRoutes, { prefix: "/db" });
 
   app.setNotFoundHandler(async (_req, reply) => {
     reply.code(404);

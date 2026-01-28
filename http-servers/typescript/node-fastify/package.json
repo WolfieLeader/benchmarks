@@ -16,12 +16,19 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/formbody": "^8.0.2",
     "@fastify/multipart": "^9.4.0",
+    "cassandra-driver": "^4.8.0",
+    "drizzle-orm": "^0.45.1",
     "fastify": "^5.7.2",
+    "ioredis": "^5.9.2",
+    "mongodb": "^7.0.0",
+    "pg": "^8.17.2",
+    "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
-    "@types/node": "^25.0.10",
+    "@types/node": "^25.1.0",
+    "@types/pg": "^8.16.0",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

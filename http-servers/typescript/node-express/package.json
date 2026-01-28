@@ -13,10 +13,16 @@
     "lint": "biome lint ./src"
   },
   "dependencies": {
+    "cassandra-driver": "^4.8.0",
     "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
+    "ioredis": "^5.9.2",
+    "mongodb": "^7.0.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "pg": "^8.17.2",
+    "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -25,7 +31,8 @@
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^25.0.10",
+    "@types/node": "^25.1.0",
+    "@types/pg": "^8.16.0",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

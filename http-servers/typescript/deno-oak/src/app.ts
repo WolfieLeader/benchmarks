@@ -1,4 +1,5 @@
 import { Application, Router } from "@oak/oak";
+import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
 import { env } from "./config/env.ts";
 import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors.ts";
@@ -39,6 +40,7 @@ export function createApp() {
   });
 
   router.use("/params", paramsRoutes.routes(), paramsRoutes.allowedMethods());
+  router.use("/db", dbRoutes.routes(), dbRoutes.allowedMethods());
 
   app.use(router.routes());
   app.use(router.allowedMethods());

@@ -17,7 +17,23 @@ const zEnv = z.object({
       }
       return num;
     })
-    .default(3006)
+    .default(3006),
+  POSTGRES_URL: z.string().trim().default("postgres://postgres:postgres@localhost:5432/benchmarks"),
+  MONGODB_URL: z.string().trim().default("mongodb://localhost:27017"),
+  MONGODB_DB: z.string().trim().default("benchmarks"),
+  REDIS_URL: z.string().trim().default("redis://localhost:6379"),
+  CASSANDRA_CONTACT_POINTS: z
+    .string()
+    .trim()
+    .default("localhost")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    ),
+  CASSANDRA_KEYSPACE: z.string().trim().default("benchmarks"),
+  CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1")
 });
 
 export const env = zEnv.parse(process.env);

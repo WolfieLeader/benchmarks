@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors";
+import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
 export function createApp() {
@@ -22,6 +23,7 @@ export function createApp() {
   app.get("/health", () => ({ message: "Hello World" }));
 
   app.group("/params", (app) => app.use(paramsRouter));
+  app.group("/db", (app) => app.use(dbRouter));
 
   app.onError(({ code, error }) => {
     if (code === "NOT_FOUND") return new Response(JSON.stringify({ error: NOT_FOUND }), { status: 404 });

@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import { MulterError } from "multer";
+import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 import { env } from "./config/env";
 import { NOT_FOUND, FILE_SIZE_EXCEEDS, INVALID_MULTIPART, INVALID_JSON_BODY, INTERNAL_ERROR } from "./consts/errors";
@@ -28,6 +29,7 @@ export function createApp(): express.Express {
   });
 
   app.use("/params", paramsRouter);
+  app.use("/db", dbRouter);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: NOT_FOUND });
