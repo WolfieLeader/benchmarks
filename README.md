@@ -4,19 +4,19 @@ Benchmark harness and a set of minimal HTTP servers across Node.js, Bun, Deno, P
 
 ## Stack Map
 
-| Folder                                         | Runtime       | Framework       | Port |
-| ---------------------------------------------- | ------------- | --------------- | ---- |
-| `benchmarks`                                   | Go 1.25.5     | -               | -    |
-| `http-servers/typescript/bun-elysia`           | Bun 1.3.4     | Elysia 1.4.22   | 3006 |
-| `http-servers/typescript/bun-honojs`           | Bun 1.3.4     | Hono 4.11.3     | 3005 |
-| `http-servers/typescript/deno-oak`             | Deno 2.6.5    | Oak 17.2.0      | 3004 |
-| `http-servers/go/chi`                          | Go 1.25.5     | Chi 5.2.3       | 5001 |
-| `http-servers/go/gin`                          | Go 1.25.5     | Gin 1.11.0      | 5002 |
-| `http-servers/go/fiber`                        | Go 1.25.5     | Fiber 2.52.10   | 5003 |
-| `http-servers/typescript/node-express`         | Node >=24     | Express 5.2.1   | 3001 |
-| `http-servers/typescript/node-nestjs`          | Node >=24     | NestJS 11.1.12  | 3002 |
-| `http-servers/typescript/node-fastify`         | Node >=24     | Fastify 5.7.1   | 3003 |
-| `http-servers/python/fastapi`                  | Python >=3.14 | FastAPI >=0.128 | 4001 |
+| Folder                                 | Runtime       | Framework       | Port |
+| -------------------------------------- | ------------- | --------------- | ---- |
+| `benchmarks`                           | Go 1.25.5     | -               | -    |
+| `http-servers/typescript/bun-elysia`   | Bun 1.3.4     | Elysia 1.4.22   | 3006 |
+| `http-servers/typescript/bun-honojs`   | Bun 1.3.4     | Hono 4.11.3     | 3005 |
+| `http-servers/typescript/deno-oak`     | Deno 2.6.5    | Oak 17.2.0      | 3004 |
+| `http-servers/go/chi`                  | Go 1.25.5     | Chi 5.2.3       | 5001 |
+| `http-servers/go/gin`                  | Go 1.25.5     | Gin 1.11.0      | 5002 |
+| `http-servers/go/fiber`                | Go 1.25.5     | Fiber 2.52.10   | 5003 |
+| `http-servers/typescript/node-express` | Node >=24     | Express 5.2.1   | 3001 |
+| `http-servers/typescript/node-nestjs`  | Node >=24     | NestJS 11.1.12  | 3002 |
+| `http-servers/typescript/node-fastify` | Node >=24     | Fastify 5.7.1   | 3003 |
+| `http-servers/python/fastapi`          | Python >=3.14 | FastAPI >=0.128 | 4001 |
 
 ## Configuration
 
