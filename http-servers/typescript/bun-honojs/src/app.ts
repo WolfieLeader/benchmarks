@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { env } from "./consts/env";
+import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors";
+import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
-import { env } from "./config/env";
-import { NOT_FOUND, INTERNAL_ERROR } from "./consts/errors";
 
 export function createApp() {
   const app = new Hono();
@@ -14,6 +15,7 @@ export function createApp() {
   app.get("/", (c) => c.text("OK"));
   app.get("/health", (c) => c.json({ message: "Hello World" }));
 
+  app.route("/db", dbRoutes);
   app.route("/params", paramsRoutes);
 
   app.notFound((c) => c.json({ error: NOT_FOUND }, 404));

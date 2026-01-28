@@ -15,7 +15,7 @@
 # ==============================================================================
 
 benchmark:
-	cd benchmark && go run ./cmd/main.go
+	cd benchmarks && go run ./cmd/main.go
 
 # ==============================================================================
 # Development Servers
@@ -23,38 +23,38 @@ benchmark:
 
 # --- Bun ---
 honojs:
-	cd bun-honojs && bun run dev
+	cd http-servers/typescript/bun-honojs && bun run dev
 
 elysia:
-	cd bun-elysia && bun run dev
+	cd http-servers/typescript/bun-elysia && bun run dev
 
 # --- Deno ---
 oak:
-	cd deno-oak && deno task dev
+	cd http-servers/typescript/deno-oak && deno task dev
 
 # --- Node.js ---
 express:
-	cd node-express && pnpm run dev
+	cd http-servers/typescript/node-express && pnpm run dev
 
 nestjs:
-	cd node-nestjs && pnpm run dev
+	cd http-servers/typescript/node-nestjs && pnpm run dev
 
 fastify:
-	cd node-fastify && pnpm run dev
+	cd http-servers/typescript/node-fastify && pnpm run dev
 
 # --- Go ---
 chi:
-	cd go-chi && air
+	cd http-servers/go/chi && air
 
 gin:
-	cd go-gin && air
+	cd http-servers/go/gin && air
 
 fiber:
-	cd go-fiber && air
+	cd http-servers/go/fiber && air
 
 # --- Python ---
 fastapi:
-	cd python-fastapi && uv run python -m src.main
+	cd http-servers/python/fastapi && uv run python -m src.main
 
 # ==============================================================================
 # Install Dependencies
@@ -62,38 +62,38 @@ fastapi:
 
 # --- Bun ---
 install-honojs:
-	cd bun-honojs && bun install
+	cd http-servers/typescript/bun-honojs && bun install
 
 install-elysia:
-	cd bun-elysia && bun install
+	cd http-servers/typescript/bun-elysia && bun install
 
 # --- Deno ---
 install-oak:
-	cd deno-oak && deno install
+	cd http-servers/typescript/deno-oak && deno install
 
 # --- Node.js ---
 install-express:
-	cd node-express && pnpm install
+	cd http-servers/typescript/node-express && pnpm install
 
 install-nestjs:
-	cd node-nestjs && pnpm install
+	cd http-servers/typescript/node-nestjs && pnpm install
 
 install-fastify:
-	cd node-fastify && pnpm install
+	cd http-servers/typescript/node-fastify && pnpm install
 
 # --- Go ---
 install-chi:
-	cd go-chi && go mod tidy
+	cd http-servers/go/chi && go mod tidy
 
 install-gin:
-	cd go-gin && go mod tidy
+	cd http-servers/go/gin && go mod tidy
 
 install-fiber:
-	cd go-fiber && go mod tidy
+	cd http-servers/go/fiber && go mod tidy
 
 # --- Python ---
 install-fastapi:
-	cd python-fastapi && uv sync
+	cd http-servers/python/fastapi && uv sync
 
 # --- All ---
 install-root-tools:
@@ -117,38 +117,38 @@ install: install-root-tools \
 
 # --- Bun ---
 update-honojs:
-	cd bun-honojs && bun update --latest
+	cd http-servers/typescript/bun-honojs && bun update --latest
 
 update-elysia:
-	cd bun-elysia && bun update --latest
+	cd http-servers/typescript/bun-elysia && bun update --latest
 
 # --- Deno ---
 update-oak:
-	cd deno-oak && deno outdated --update
+	cd http-servers/typescript/deno-oak && deno outdated --update
 
 # --- Node.js ---
 update-express:
-	cd node-express && pnpm update --latest
+	cd http-servers/typescript/node-express && pnpm update --latest
 
 update-nestjs:
-	cd node-nestjs && pnpm update --latest
+	cd http-servers/typescript/node-nestjs && pnpm update --latest
 
 update-fastify:
-	cd node-fastify && pnpm update --latest
+	cd http-servers/typescript/node-fastify && pnpm update --latest
 
 # --- Go ---
 update-chi:
-	cd go-chi && go get -u ./... && go mod tidy
+	cd http-servers/go/chi && go get -u ./... && go mod tidy
 
 update-gin:
-	cd go-gin && go get -u ./... && go mod tidy
+	cd http-servers/go/gin && go get -u ./... && go mod tidy
 
 update-fiber:
-	cd go-fiber && go get -u ./... && go mod tidy
+	cd http-servers/go/fiber && go get -u ./... && go mod tidy
 
 # --- Python ---
 update-fastapi:
-	cd python-fastapi && uv sync --upgrade
+	cd http-servers/python/fastapi && uv sync --upgrade
 
 # --- All ---
 update-root-tools:
@@ -171,16 +171,16 @@ update: update-root-tools \
 # ==============================================================================
 
 images:
-	docker build -t bun-honojs ./bun-honojs
-	docker build -t bun-elysia ./bun-elysia
-	docker build -t deno-oak ./deno-oak
-	docker build -t node-express ./node-express
-	docker build -t node-nestjs ./node-nestjs
-	docker build -t node-fastify ./node-fastify
-	docker build -t python-fastapi ./python-fastapi
-	docker build -t go-chi ./go-chi
-	docker build -t go-gin ./go-gin
-	docker build -t go-fiber ./go-fiber
+	docker build -t bun-honojs ./http-servers/typescript/bun-honojs
+	docker build -t bun-elysia ./http-servers/typescript/bun-elysia
+	docker build -t deno-oak ./http-servers/typescript/deno-oak
+	docker build -t node-express ./http-servers/typescript/node-express
+	docker build -t node-nestjs ./http-servers/typescript/node-nestjs
+	docker build -t node-fastify ./http-servers/typescript/node-fastify
+	docker build -t python-fastapi ./http-servers/python/fastapi
+	docker build -t go-chi ./http-servers/go/chi
+	docker build -t go-gin ./http-servers/go/gin
+	docker build -t go-fiber ./http-servers/go/fiber
 
 clean-images:
 	docker rmi bun-honojs bun-elysia deno-oak \
@@ -194,15 +194,15 @@ clean-images:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf \
-		python-fastapi/.venv \
-		python-fastapi/__pycache__ \
-		python-fastapi/src/__pycache__ \
-		bun-honojs/node_modules \
-		bun-elysia/node_modules \
-		node-express/node_modules \
-		node-nestjs/node_modules \
-		node-fastify/node_modules \
-		deno-oak/node_modules
+		http-servers/python/fastapi/.venv \
+		http-servers/python/fastapi/__pycache__ \
+		http-servers/python/fastapi/src/__pycache__ \
+		http-servers/typescript/bun-honojs/node_modules \
+		http-servers/typescript/bun-elysia/node_modules \
+		http-servers/typescript/node-express/node_modules \
+		http-servers/typescript/node-nestjs/node_modules \
+		http-servers/typescript/node-fastify/node_modules \
+		http-servers/typescript/deno-oak/node_modules
 	@echo "Clean complete!"
 
 # ==============================================================================
@@ -210,29 +210,29 @@ clean:
 # ==============================================================================
 
 fmt:
-	cd benchmark && golangci-lint fmt ./...
-	cd go-chi && golangci-lint fmt ./...
-	cd go-gin && golangci-lint fmt ./...
-	cd go-fiber && golangci-lint fmt ./...
-	cd node-express && pnpm run format
-	cd node-fastify && pnpm run format
-	cd node-nestjs && pnpm run format
-	cd bun-honojs && bun run format
-	cd bun-elysia && bun run format
-	cd deno-oak && deno task format
-	cd python-fastapi && uv run ruff format .
+	cd benchmarks && golangci-lint fmt ./...
+	cd http-servers/go/chi && golangci-lint fmt ./...
+	cd http-servers/go/gin && golangci-lint fmt ./...
+	cd http-servers/go/fiber && golangci-lint fmt ./...
+	cd http-servers/typescript/node-express && pnpm run format
+	cd http-servers/typescript/node-fastify && pnpm run format
+	cd http-servers/typescript/node-nestjs && pnpm run format
+	cd http-servers/typescript/bun-honojs && bun run format
+	cd http-servers/typescript/bun-elysia && bun run format
+	cd http-servers/typescript/deno-oak && deno task format
+	cd http-servers/python/fastapi && uv run ruff format .
 	pnpm run format:md
 
 lint:
-	cd benchmark && golangci-lint run ./...
-	cd go-chi && golangci-lint run ./...
-	cd go-gin && golangci-lint run ./...
-	cd go-fiber && golangci-lint run ./...
-	cd node-express && pnpm run lint
-	cd node-fastify && pnpm run lint
-	cd node-nestjs && pnpm run lint
-	cd bun-honojs && bun run lint
-	cd bun-elysia && bun run lint
-	cd deno-oak && deno task lint
-	cd python-fastapi && uv run ruff check .
+	cd benchmarks && golangci-lint run ./...
+	cd http-servers/go/chi && golangci-lint run ./...
+	cd http-servers/go/gin && golangci-lint run ./...
+	cd http-servers/go/fiber && golangci-lint run ./...
+	cd http-servers/typescript/node-express && pnpm run lint
+	cd http-servers/typescript/node-fastify && pnpm run lint
+	cd http-servers/typescript/node-nestjs && pnpm run lint
+	cd http-servers/typescript/bun-honojs && bun run lint
+	cd http-servers/typescript/bun-elysia && bun run lint
+	cd http-servers/typescript/deno-oak && deno task lint
+	cd http-servers/python/fastapi && uv run ruff check .
 	pnpm run lint:md

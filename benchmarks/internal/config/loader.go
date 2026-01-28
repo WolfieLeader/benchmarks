@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultConfigFile     = "config.json"
+	DefaultConfigFile     = "../config/config.json"
 	DefaultPort           = 8080
 	DefaultBaseURL        = "http://localhost:8080"
 	DefaultWorkers        = 50

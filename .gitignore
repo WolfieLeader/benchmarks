@@ -28,14 +28,19 @@ Thumbs.db
 # ============================================
 # AI / Code Agents
 # ============================================
-agents.md
 plan.md
-claude.md
 skill.md
+agents.md
+.agents/
 .claudeignore
+claude.md
 .claude/
 gemini.md
+.gemini/
 gemini.*
+codex.md
+.codex/
+.opencode/
 .cursor/
 .cursorignore
 cursor-tmp-*
@@ -206,11 +211,11 @@ temp/
 # Project Specific
 # ============================================
 # Benchmark results
-benchmark/results/
+results/
 *.benchmark
 
 # Compiled Go binary
-benchmark/main
+benchmarks/main
 
 # Database files
 *.db

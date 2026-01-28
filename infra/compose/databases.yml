@@ -1,0 +1,68 @@
+# infra/compose/databases.yml
+services:
+  postgres:
+    image: postgres:18.1-alpine3.23
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: bench
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../databases/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d bench"]
+      start_period: 10s
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:8.2.3
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: bench
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      start_period: 10s
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.4.0-alpine3.22
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      start_period: 5s
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  cassandra:
+    image: cassandra:5.0.6
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: bench
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+      start_period: 30s
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  cassandra-data:

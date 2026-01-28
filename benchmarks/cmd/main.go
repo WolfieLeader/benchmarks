@@ -19,7 +19,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, resolvedServers, err := config.Load("config.json")
+	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
 	if err != nil {
 		printer.Failf("Failed to load configuration: %v", err)
 		return
@@ -35,7 +35,7 @@ func main() {
 		}
 	}
 
-	resultsDir := filepath.Join("results", time.Now().UTC().Format("20060102-150405"))
+	resultsDir := filepath.Join("..", "results", time.Now().UTC().Format("20060102-150405"))
 	writer := summary.NewWriter(&cfg.Global, resultsDir)
 
 	for i, server := range resolvedServers {

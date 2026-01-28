@@ -15,7 +15,7 @@ node_modules/
 **/vendor/
 
 # Benchmark results
-benchmark/results/
+results/
 
 # Generated lockfiles
 **/pnpm-lock.yaml

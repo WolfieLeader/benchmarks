@@ -1,6 +1,7 @@
 {
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
   "[javascript]": { "editor.defaultFormatter": "biomejs.biome" },
   "[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
   "[javascriptreact]": { "editor.defaultFormatter": "biomejs.biome" },
@@ -9,5 +10,10 @@
   "go.lintTool": "golangci-lint",
   "gopls": { "formatting.gofumpt": true },
   "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
-  "cSpell.words": ["cooldown"]
+  "cSpell.words": ["cooldown"],
+  "material-icon-theme.folders.associations": {
+    "infra": "container",
+    "http-servers": "server",
+    "results": "export"
+  }
 }
