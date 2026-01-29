@@ -15,7 +15,14 @@ WORKDIR /app
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=4001
+    PORT=4001 \
+    POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
+    MONGODB_URL=mongodb://mongodb:27017 \
+    MONGODB_DB=benchmarks \
+    REDIS_URL=redis://redis:6379 \
+    CASSANDRA_CONTACT_POINTS=cassandra \
+    CASSANDRA_KEYSPACE=benchmarks \
+    CASSANDRA_LOCAL_DATACENTER=datacenter1
 
 COPY --from=builder /app/.venv ./.venv
 COPY --from=builder /app/src ./src
