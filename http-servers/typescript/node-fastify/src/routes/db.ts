@@ -96,6 +96,16 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  fastify.delete<{ Params: { database: string } }>("/:database/reset", async (request, reply) => {
+    try {
+      await request.repository.deleteAll();
+      return { status: "ok" };
+    } catch {
+      reply.code(500);
+      return { error: INTERNAL_ERROR };
+    }
+  });
+
   fastify.get<{ Params: { database: string } }>("/:database/health", async (request, reply) => {
     try {
       const healthy = await request.repository.healthCheck();

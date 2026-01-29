@@ -104,6 +104,15 @@ dbRouter.delete("/:database/users", async (req, res) => {
   }
 });
 
+dbRouter.delete("/:database/reset", async (req, res) => {
+  try {
+    await req.repository.deleteAll();
+    res.json({ status: "ok" });
+  } catch {
+    res.status(500).json({ error: INTERNAL_ERROR });
+  }
+});
+
 dbRouter.get("/:database/health", async (req, res) => {
   try {
     const healthy = await req.repository.healthCheck();

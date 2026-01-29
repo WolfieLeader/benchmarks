@@ -45,6 +45,7 @@ func RegisterDb(r *gin.RouterGroup, env *config.Env) {
 	db.PATCH("/users/:id", updateUser)
 	db.DELETE("/users/:id", deleteUser)
 	db.DELETE("/users", deleteAllUsers)
+	db.DELETE("/reset", resetDatabase)
 	db.GET("/health", healthCheck)
 }
 
@@ -142,6 +143,17 @@ func deleteAllUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func resetDatabase(c *gin.Context) {
+	repo := getRepository(c)
+
+	if err := repo.DeleteAll(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func healthCheck(c *gin.Context) {

@@ -1,4 +1,4 @@
-import { randomUUIDv7 } from "bun";
+import { randomUUIDv7, SQL } from "bun";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { users } from "./drizzle-schema";
@@ -9,7 +9,8 @@ export class PostgresUserRepository implements UserRepository {
   private db: ReturnType<typeof drizzle>;
 
   constructor(connectionString: string) {
-    this.db = drizzle({ connection: { url: connectionString } });
+    const client = new SQL({ url: connectionString, max: 50, idleTimeout: 30 });
+    this.db = drizzle({ client });
   }
 
   async create(data: CreateUser): Promise<User> {

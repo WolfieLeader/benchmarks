@@ -105,6 +105,22 @@ export class DbController {
     }
   }
 
+  @Delete(":database/reset")
+  async reset(@Param("database") database: string) {
+    const repository = resolveRepository(database);
+    if (!repository) {
+      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      await repository.deleteAll();
+      return { status: "ok" };
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get(":database/health")
   async health(@Param("database") database: string) {
     const repository = resolveRepository(database);

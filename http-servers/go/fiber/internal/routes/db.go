@@ -40,6 +40,7 @@ func RegisterDb(r fiber.Router, env *config.Env) {
 	db.Patch("/users/:id", updateUser)
 	db.Delete("/users/:id", deleteUser)
 	db.Delete("/users", deleteAllUsers)
+	db.Delete("/reset", resetDatabase)
 	db.Get("/health", healthCheck)
 }
 
@@ -125,6 +126,16 @@ func deleteAllUsers(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"success": true})
+}
+
+func resetDatabase(c *fiber.Ctx) error {
+	repo := getRepository(c)
+
+	if err := repo.DeleteAll(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	return c.JSON(fiber.Map{"status": "ok"})
 }
 
 func healthCheck(c *fiber.Ctx) error {

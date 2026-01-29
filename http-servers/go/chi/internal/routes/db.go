@@ -49,6 +49,7 @@ func RegisterDb(r chi.Router, env *config.Env) {
 		r.Patch("/users/{id}", updateUser)
 		r.Delete("/users/{id}", deleteUser)
 		r.Delete("/users", deleteAllUsers)
+		r.Delete("/reset", resetDatabase)
 		r.Get("/health", healthCheck)
 	})
 }
@@ -147,6 +148,17 @@ func deleteAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteResponse(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func resetDatabase(w http.ResponseWriter, r *http.Request) {
+	repo := getRepository(r)
+
+	if err := repo.DeleteAll(); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		return
+	}
+
+	utils.WriteResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func healthCheck(w http.ResponseWriter, r *http.Request) {

@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "~/consts/errors";
-import type { UserRepository } from "~/database/repository";
-import { resolveRepository } from "~/database/repository";
-import { zCreateUser, zUpdateUser } from "~/database/types";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import type { UserRepository } from "../database/repository";
+import { resolveRepository } from "../database/repository";
+import { zCreateUser, zUpdateUser } from "../database/types";
 
 type DbVariables = {
   repository: UserRepository;
@@ -111,6 +111,17 @@ dbRoutes.delete("/:database/users", async (c) => {
   try {
     await repository.deleteAll();
     return c.json({ success: true });
+  } catch {
+    return c.json({ error: INTERNAL_ERROR }, 500);
+  }
+});
+
+// Reset database - truncate all users
+dbRoutes.delete("/:database/reset", async (c) => {
+  const repository = c.get("repository");
+  try {
+    await repository.deleteAll();
+    return c.json({ status: "ok" });
   } catch {
     return c.json({ error: INTERNAL_ERROR }, 500);
   }

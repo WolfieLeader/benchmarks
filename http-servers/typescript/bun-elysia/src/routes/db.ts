@@ -92,6 +92,15 @@ export const dbRouter = new Elysia()
       return { error: INTERNAL_ERROR };
     }
   })
+  .delete("/:database/reset", async ({ repository, set }) => {
+    try {
+      await repository.deleteAll();
+      return { status: "ok" };
+    } catch {
+      set.status = 500;
+      return { error: INTERNAL_ERROR };
+    }
+  })
   .get("/:database/health", async ({ repository, set }) => {
     try {
       const healthy = await repository.healthCheck();

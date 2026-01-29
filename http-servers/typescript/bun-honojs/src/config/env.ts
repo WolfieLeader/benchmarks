@@ -4,10 +4,8 @@ import { z } from "zod";
 const zEnv = z.object({
   ENV: z.enum(["dev", "prod"]).default("dev"),
   HOST: z
-    .string()
-    .trim()
+    .union([z.ipv4().trim(), z.literal("localhost")])
     .transform((val) => (val === "localhost" ? "0.0.0.0" : val))
-    .pipe(z.ipv4())
     .default("0.0.0.0"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3005),
   POSTGRES_URL: z.string().trim().default("postgres://postgres:postgres@localhost:5432/benchmarks"),
@@ -22,10 +20,10 @@ const zEnv = z.object({
       value
         .split(",")
         .map((item) => item.trim())
-        .filter(Boolean),
+        .filter(Boolean)
     ),
   CASSANDRA_KEYSPACE: z.string().trim().default("benchmarks"),
-  CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1"),
+  CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1")
 });
 
 export const env = zEnv.parse(process.env);

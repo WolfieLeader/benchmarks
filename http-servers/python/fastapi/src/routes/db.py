@@ -87,6 +87,19 @@ async def delete_all_users(database: str):
         raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
 
+@db_router.delete("/{database}/reset")
+async def reset_database(database: str):
+    repo = resolve_repository(database)
+    if repo is None:
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
+
+    try:
+        await repo.delete_all()
+        return {"status": "ok"}
+    except Exception:
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+
+
 @db_router.get("/{database}/health")
 async def health_check(database: str):
     repo = resolve_repository(database)

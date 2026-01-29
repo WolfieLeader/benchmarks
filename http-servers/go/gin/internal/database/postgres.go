@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"sync"
 
 	"gin-server/internal/database/sqlc"
 
@@ -15,6 +16,8 @@ type PostgresRepository struct {
 	pool    *pgxpool.Pool
 	queries *sqlc.Queries
 	url     string
+	once    sync.Once
+	initErr error
 }
 
 func NewPostgresRepository(connectionString string) *PostgresRepository {
@@ -22,16 +25,23 @@ func NewPostgresRepository(connectionString string) *PostgresRepository {
 }
 
 func (r *PostgresRepository) connect(ctx context.Context) error {
-	if r.pool != nil {
-		return nil
-	}
-	pool, err := pgxpool.New(ctx, r.url)
-	if err != nil {
-		return err
-	}
-	r.pool = pool
-	r.queries = sqlc.New(pool)
-	return nil
+	r.once.Do(func() {
+		config, err := pgxpool.ParseConfig(r.url)
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		config.MaxConns = 50
+		config.MinConns = 10
+		pool, err := pgxpool.NewWithConfig(ctx, config)
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		r.pool = pool
+		r.queries = sqlc.New(pool)
+	})
+	return r.initErr
 }
 
 func toUser(u sqlc.User) *User {

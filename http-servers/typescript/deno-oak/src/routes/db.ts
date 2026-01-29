@@ -140,6 +140,18 @@ dbRoutes.delete("/:database/users", async (ctx) => {
   }
 });
 
+dbRoutes.delete("/:database/reset", async (ctx) => {
+  const { repository } = ctx.state;
+
+  try {
+    await repository.deleteAll();
+    ctx.response.body = { status: "ok" };
+  } catch {
+    ctx.response.status = 500;
+    ctx.response.body = { error: INTERNAL_ERROR };
+  }
+});
+
 dbRoutes.get("/:database/health", async (ctx) => {
   const { repository } = ctx.state;
 
