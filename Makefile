@@ -5,11 +5,11 @@
 .PHONY: benchmark \
 	honojs elysia oak express nestjs fastify chi gin fiber fastapi \
 	install-honojs install-elysia install-oak install-express install-nestjs install-fastify \
-	install-chi install-gin install-fiber install-fastapi install \
+	install-chi install-gin install-fiber install-fastapi install-benchmark install \
 	update-honojs update-elysia update-oak update-express update-nestjs update-fastify \
-	update-chi update-gin update-fiber update-fastapi update \
-	clean images clean-images fmt lint tools install-root-tools update-root-tools
-	db-up db-down
+	update-chi update-gin update-fiber update-fastapi update-benchmark update \
+	clean images clean-images fmt lint tools install-root-tools update-root-tools \
+	db-up db-down sqlc sqlc-chi sqlc-gin sqlc-fiber
 
 # ==============================================================================
 # Benchmark Runner
@@ -61,6 +61,10 @@ fastapi:
 # Install Dependencies
 # ==============================================================================
 
+# --- Benchmark ---
+install-benchmark:
+	cd benchmarks && go mod tidy
+
 # --- Bun ---
 install-honojs:
 	cd http-servers/typescript/bun-honojs && bun install
@@ -110,11 +114,16 @@ install: install-root-tools \
 	install-chi \
 	install-gin \
 	install-fiber \
-	install-fastapi
+	install-fastapi \
+	install-benchmark
 
 # ==============================================================================
 # Update Dependencies
 # ==============================================================================
+
+# --- Benchmark ---
+update-benchmark:
+	cd benchmarks && go get -u ./... && go mod tidy
 
 # --- Bun ---
 update-honojs:
@@ -165,7 +174,8 @@ update: update-root-tools \
 	update-chi \
 	update-gin \
 	update-fiber \
-	update-fastapi
+	update-fastapi \
+	update-benchmark
 
 # ==============================================================================
 # Docker
@@ -209,7 +219,7 @@ clean:
 		http-servers/typescript/node-express/node_modules \
 		http-servers/typescript/node-nestjs/node_modules \
 		http-servers/typescript/node-fastify/node_modules \
-		http-servers/typescript/deno-oak/node_modules
+		http-servers/typescript/deno-oak/node_modules \
 	@echo "Clean complete!"
 
 # ==============================================================================
@@ -243,3 +253,18 @@ lint:
 	cd http-servers/typescript/deno-oak && deno task lint
 	cd http-servers/python/fastapi && uv run ruff check .
 	pnpm run lint:md
+
+# ==============================================================================
+# SQLC Code Generation
+# ==============================================================================
+
+sqlc-chi:
+	cd http-servers/go/chi/internal/database/sqlc && sqlc generate
+
+sqlc-gin:
+	cd http-servers/go/gin/internal/database/sqlc && sqlc generate
+
+sqlc-fiber:
+	cd http-servers/go/fiber/internal/database/sqlc && sqlc generate
+
+sqlc: sqlc-chi sqlc-gin sqlc-fiber
