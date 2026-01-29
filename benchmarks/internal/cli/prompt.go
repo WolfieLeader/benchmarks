@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -112,43 +111,11 @@ func PrintBanner() {
 	fmt.Println()
 }
 
-// customKeyMap creates a keymap with custom bindings:
-// - Space: toggle selection (default)
-// - Enter: confirm and proceed (default)
-// - a: select all
-// - Esc: go back (default)
-func customKeyMap() *huh.KeyMap {
-	km := huh.NewDefaultKeyMap()
-
-	// Add 'a' for select all
-	km.MultiSelect.SelectAll = key.NewBinding(
-		key.WithKeys("a"),
-		key.WithHelp("a", "select all"),
-	)
-
-	return km
-}
-
-// PromptOptions shows an interactive form for selecting benchmark options
 func PromptOptions(availableServers []string) (*Options, error) {
 	opts := DefaultOptions()
 
-	// Phase selection
 	var phases []string
-	phaseOptions := []huh.Option[string]{
-		huh.NewOption("Warmup (recommended)", "warmup").Selected(true),
-		huh.NewOption("Resource monitoring (recommended)", "resources").Selected(true),
-		huh.NewOption("Capacity test (slow)", "capacity"),
-	}
-
-	// Server selection mode
 	var serverMode string
-	serverModeOptions := []huh.Option[string]{
-		huh.NewOption("All servers (recommended)", "all"),
-		huh.NewOption("Select specific servers", "select"),
-	}
-
-	// Selected servers (if mode is "select")
 	var selectedServers []string
 	serverOptions := make([]huh.Option[string], len(availableServers))
 	for i, s := range availableServers {
@@ -160,37 +127,38 @@ func PromptOptions(availableServers []string) (*Options, error) {
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Select servers to benchmark").
-				Options(serverModeOptions...).
-				Value(&serverMode),
+				Options(
+					huh.NewOption("All servers (recommended)", "all"),
+					huh.NewOption("Select specific servers", "select"),
+				).Value(&serverMode),
 		),
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select servers").
-				Description("space: toggle • a: select all • enter: confirm").
+				Description("space: toggle • ctrl + a: select all • enter: confirm").
 				Options(serverOptions...).
 				Value(&selectedServers),
-		).WithHideFunc(func() bool {
-			return serverMode != "select"
-		}),
+		).WithHideFunc(func() bool { return serverMode != "select" }),
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select benchmark phases").
-				Description("space: toggle • a: select all • enter: confirm").
-				Options(phaseOptions...).
-				Value(&phases),
+				Description("space: toggle • ctrl + a: select all • enter: confirm").
+				Options(
+					huh.NewOption("Warmup (recommended)", "warmup").Selected(true),
+					huh.NewOption("Resource monitoring (recommended)", "resources"),
+					huh.NewOption("Capacity test (slow)", "capacity"),
+				).Value(&phases),
 		),
-	).WithTheme(huh.ThemeCatppuccin()).WithKeyMap(customKeyMap())
+	).WithTheme(huh.ThemeCatppuccin()).WithKeyMap(huh.NewDefaultKeyMap())
 
 	if err := form.Run(); err != nil {
 		return nil, err
 	}
 
-	// Process phase selections
 	opts.Warmup = slices.Contains(phases, "warmup")
 	opts.Resources = slices.Contains(phases, "resources")
 	opts.Capacity = slices.Contains(phases, "capacity")
 
-	// Process server selections
 	if serverMode == "select" {
 		if len(selectedServers) == 0 {
 			return nil, errors.New("no servers selected - please select at least one server")
@@ -201,20 +169,13 @@ func PromptOptions(availableServers []string) (*Options, error) {
 	return &opts, nil
 }
 
-// ErrHelp is returned when --help is requested
 var ErrHelp = errors.New("help requested")
 
-// ParseFlags parses command-line flags for non-interactive mode.
-// Returns (nil, nil) if interactive mode should be used.
-// Returns (nil, ErrHelp) if --help was requested.
-// Returns (nil, error) if unknown flags were provided.
-// Returns (opts, nil) on successful parse.
 func ParseFlags(args []string) (*Options, error) {
 	if len(args) == 0 {
-		return nil, nil // use interactive mode
+		return nil, nil
 	}
 
-	// Start with defaults so --servers=x alone still has warmup/resources enabled
 	opts := DefaultOptions()
 	hasExplicitFlags := false
 	var unknownFlags []string
@@ -272,7 +233,7 @@ func ParseFlags(args []string) (*Options, error) {
 	}
 
 	if !hasExplicitFlags {
-		return nil, nil // no flags, use interactive mode
+		return nil, nil
 	}
 
 	return &opts, nil
