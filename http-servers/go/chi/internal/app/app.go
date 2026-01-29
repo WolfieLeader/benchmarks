@@ -22,15 +22,15 @@ func New() *App {
 	env := config.LoadEnv()
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		_, _ = w.Write([]byte(`{"message": "Hello World"}`))
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message": "Hello World"}`))
+		_, _ = w.Write([]byte(`{"status": "healthy"}`))
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })

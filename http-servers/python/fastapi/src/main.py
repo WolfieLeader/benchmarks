@@ -3,7 +3,6 @@ import time
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
@@ -39,14 +38,14 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 
-@app.get("/", response_class=PlainTextResponse)
+@app.get("/")
 def hello_world():
-    return "OK"
+    return {"message": "Hello World"}
 
 
 @app.get("/health")
 def health():
-    return {"message": "Hello World"}
+    return {"status": "healthy"}
 
 
 app.include_router(params_router, prefix="/params")

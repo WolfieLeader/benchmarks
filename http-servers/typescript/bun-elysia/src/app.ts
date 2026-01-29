@@ -19,8 +19,8 @@ export function createApp() {
       });
   }
 
-  app.get("/", () => "OK");
-  app.get("/health", () => ({ message: "Hello World" }));
+  app.get("/", () => ({ message: "Hello World" }));
+  app.get("/health", () => ({ status: "healthy" }));
 
   app.group("/params", (app) => app.use(paramsRouter));
   app.group("/db", (app) => app.use(dbRouter));

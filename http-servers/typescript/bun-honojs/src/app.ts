@@ -12,8 +12,8 @@ export function createApp() {
     app.use(logger());
   }
 
-  app.get("/", (c) => c.text("OK"));
-  app.get("/health", (c) => c.json({ message: "Hello World" }));
+  app.get("/", (c) => c.json({ message: "Hello World" }));
+  app.get("/health", (c) => c.json({ status: "healthy" }));
 
   app.route("/db", dbRoutes);
   app.route("/params", paramsRoutes);

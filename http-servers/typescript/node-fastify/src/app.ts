@@ -30,11 +30,8 @@ export async function createApp(): Promise<FastifyInstance> {
     });
   }
 
-  app.get("/", async (_request, reply) => {
-    reply.type("text/plain");
-    return "OK";
-  });
-  app.get("/health", async () => ({ message: "Hello World" }));
+  app.get("/", async () => ({ message: "Hello World" }));
+  app.get("/health", async () => ({ status: "healthy" }));
 
   await app.register(paramsRoutes, { prefix: "/params" });
   await app.register(dbRoutes, { prefix: "/db" });

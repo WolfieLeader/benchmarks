@@ -22,10 +22,10 @@ export function createApp(): express.Express {
   app.use(cookieParser());
 
   app.get("/", (_req, res) => {
-    res.type("text/plain").send("OK");
+    res.json({ message: "Hello World" });
   });
   app.get("/health", (_req, res) => {
-    res.json({ message: "Hello World" });
+    res.json({ status: "healthy" });
   });
 
   app.use("/params", paramsRouter);
