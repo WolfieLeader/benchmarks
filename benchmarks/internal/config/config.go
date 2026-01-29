@@ -12,35 +12,29 @@ import (
 type Config struct {
 	Global        GlobalConfig              `json:"global"`
 	Endpoints     map[string]EndpointConfig `json:"endpoints"`
-	Servers       map[string]int            `json:"servers"`
+	ServerImages  map[string]int            `json:"server_images"`
 	EndpointOrder []string                  `json:"-"`
 	ServerOrder   []string                  `json:"-"`
 }
 
 type GlobalConfig struct {
-	BaseURL             string          `json:"base_url"`
-	Workers             int             `json:"workers"`
-	RequestsPerEndpoint int             `json:"requests_per_endpoint"`
-	Timeout             string          `json:"timeout"`
-	CPULimit            string          `json:"cpu_limit,omitempty"`
-	MemoryLimit         string          `json:"memory_limit,omitempty"`
-	Warmup              WarmupConfig    `json:"warmup,omitzero"`
-	Resources           ResourcesConfig `json:"resources,omitzero"`
-	Cooldown            string          `json:"cooldown,omitempty"`
-	Capacity            CapacityConfig  `json:"capacity,omitzero"`
-}
+	BaseURL                   string         `json:"base_url"`
+	Workers                   int            `json:"workers"`
+	RequestsPerEndpoint       int            `json:"requests_per_endpoint"`
+	Timeout                   string         `json:"timeout"`
+	CPULimit                  string         `json:"cpu_limit,omitempty"`
+	MemoryLimit               string         `json:"memory_limit,omitempty"`
+	WarmupRequestsPerTestcase int            `json:"warmup_requests_per_testcase,omitempty"`
+	Cooldown                  string         `json:"cooldown,omitempty"`
+	Capacity                  CapacityConfig `json:"capacity,omitzero"`
 
-type WarmupConfig struct {
-	Enabled             bool `json:"enabled"`
-	RequestsPerTestcase int  `json:"requests_per_testcase"`
-}
-
-type ResourcesConfig struct {
-	Enabled bool `json:"enabled"`
+	// Runtime flags (set via CLI, not in config file)
+	WarmupEnabled    bool `json:"-"`
+	ResourcesEnabled bool `json:"-"`
 }
 
 type CapacityConfig struct {
-	Enabled      bool   `json:"enabled"`
+	Enabled      bool   `json:"-"` // Set at runtime via CLI
 	MinWorkers   int    `json:"min_workers"`
 	MaxWorkers   int    `json:"max_workers"`
 	Precision    string `json:"precision"`
@@ -61,7 +55,7 @@ func (s *Config) Print() {
 
 	printer.KeyValue("Base URL", s.Global.BaseURL)
 	printer.KeyValuePairs(
-		"Servers", strconv.Itoa(len(s.Servers)),
+		"Servers", strconv.Itoa(len(s.ServerImages)),
 		"Endpoints", strconv.Itoa(len(s.Endpoints)),
 	)
 	printer.KeyValuePairs(
@@ -75,11 +69,11 @@ func (s *Config) Print() {
 	)
 
 	warmupStr := "disabled"
-	if s.Global.Warmup.Enabled {
-		warmupStr = fmt.Sprintf("%d req/testcase", s.Global.Warmup.RequestsPerTestcase)
+	if s.Global.WarmupEnabled {
+		warmupStr = fmt.Sprintf("%d req/testcase", s.Global.WarmupRequestsPerTestcase)
 	}
 	resourcesStr := "disabled"
-	if s.Global.Resources.Enabled {
+	if s.Global.ResourcesEnabled {
 		resourcesStr = "enabled"
 	}
 	cooldownStr := "disabled"
@@ -165,18 +159,74 @@ type Testcase struct {
 }
 
 type ResolvedServer struct {
-	Name                string
-	ImageName           string
-	Port                int
-	BaseURL             string
-	Timeout             time.Duration
-	CPULimit            string
-	MemoryLimit         string
-	Workers             int
-	RequestsPerEndpoint int
-	Testcases           []*Testcase
-	EndpointOrder       []string
-	Warmup              WarmupConfig
-	Resources           ResourcesConfig
-	Capacity            CapacityConfig
+	Name                      string
+	ImageName                 string
+	Port                      int
+	BaseURL                   string
+	Timeout                   time.Duration
+	CPULimit                  string
+	MemoryLimit               string
+	Workers                   int
+	RequestsPerEndpoint       int
+	Testcases                 []*Testcase
+	EndpointOrder             []string
+	WarmupRequestsPerTestcase int
+	WarmupEnabled             bool
+	ResourcesEnabled          bool
+	Capacity                  CapacityConfig
+}
+
+// RuntimeOptions holds the user's selections for benchmark phases (set via CLI)
+type RuntimeOptions struct {
+	Warmup    bool
+	Resources bool
+	Capacity  bool
+	Servers   []string // empty means all servers
+}
+
+// ApplyRuntimeOptions applies CLI options to the config and filters servers.
+// Returns the filtered servers and any invalid server names that were requested.
+func ApplyRuntimeOptions(cfg *Config, servers []*ResolvedServer, opts *RuntimeOptions) (filtered []*ResolvedServer, invalidNames []string) {
+	// Apply phase flags to global config
+	cfg.Global.WarmupEnabled = opts.Warmup
+	cfg.Global.ResourcesEnabled = opts.Resources
+	cfg.Global.Capacity.Enabled = opts.Capacity
+
+	// Apply to all resolved servers
+	for _, s := range servers {
+		s.WarmupEnabled = opts.Warmup
+		s.ResourcesEnabled = opts.Resources
+		s.Capacity.Enabled = opts.Capacity
+	}
+
+	// Filter servers if specific ones are requested
+	if len(opts.Servers) > 0 {
+		// Build map of available servers for O(1) lookup
+		available := make(map[string]*ResolvedServer, len(servers))
+		for _, s := range servers {
+			available[s.Name] = s
+		}
+
+		// Single pass: collect valid servers and track invalid names
+		filtered = make([]*ResolvedServer, 0, len(opts.Servers))
+		for _, name := range opts.Servers {
+			if s, ok := available[name]; ok {
+				filtered = append(filtered, s)
+			} else {
+				invalidNames = append(invalidNames, name)
+			}
+		}
+		return filtered, invalidNames
+	}
+
+	return servers, nil
+}
+
+// GetServerNames returns a list of server names from resolved servers
+func GetServerNames(servers []*ResolvedServer) []string {
+	names := make([]string, len(servers))
+	for i, s := range servers {
+		names[i] = s.Name
+	}
+	return names
 }

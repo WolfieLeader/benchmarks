@@ -42,34 +42,35 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 
 	serverOrder := cfg.ServerOrder
 	if len(serverOrder) == 0 {
-		serverOrder = make([]string, 0, len(cfg.Servers))
-		for name := range cfg.Servers {
+		serverOrder = make([]string, 0, len(cfg.ServerImages))
+		for name := range cfg.ServerImages {
 			serverOrder = append(serverOrder, name)
 		}
 		slices.Sort(serverOrder)
 	}
 
-	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
+	servers := make([]*ResolvedServer, 0, len(cfg.ServerImages))
 	for _, name := range serverOrder {
-		port, ok := cfg.Servers[name]
+		port, ok := cfg.ServerImages[name]
 		if !ok {
 			continue
 		}
 		servers = append(servers, &ResolvedServer{
-			Name:                name,
-			ImageName:           name,
-			Port:                port,
-			BaseURL:             cfg.Global.BaseURL,
-			Timeout:             timeout,
-			CPULimit:            cfg.Global.CPULimit,
-			MemoryLimit:         cfg.Global.MemoryLimit,
-			Workers:             cfg.Global.Workers,
-			RequestsPerEndpoint: cfg.Global.RequestsPerEndpoint,
-			Testcases:           allTestcases,
-			EndpointOrder:       order,
-			Warmup:              cfg.Global.Warmup,
-			Resources:           cfg.Global.Resources,
-			Capacity:            cfg.Global.Capacity,
+			Name:                      name,
+			ImageName:                 name,
+			Port:                      port,
+			BaseURL:                   cfg.Global.BaseURL,
+			Timeout:                   timeout,
+			CPULimit:                  cfg.Global.CPULimit,
+			MemoryLimit:               cfg.Global.MemoryLimit,
+			Workers:                   cfg.Global.Workers,
+			RequestsPerEndpoint:       cfg.Global.RequestsPerEndpoint,
+			Testcases:                 allTestcases,
+			EndpointOrder:             order,
+			WarmupRequestsPerTestcase: cfg.Global.WarmupRequestsPerTestcase,
+			WarmupEnabled:             cfg.Global.WarmupEnabled,
+			ResourcesEnabled:          cfg.Global.ResourcesEnabled,
+			Capacity:                  cfg.Global.Capacity,
 		})
 	}
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Benchmark Configuration",
   "type": "object",
-  "required": ["global", "servers", "endpoints"],
+  "required": ["global", "server_images", "endpoints"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -46,36 +46,16 @@
           "type": "string",
           "description": "Docker memory limit (e.g. 1gb)"
         },
-        "warmup": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "requests_per_testcase": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        },
-        "resources": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            }
-          }
+        "warmup_requests_per_testcase": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of warmup requests per testcase (warmup enabled via CLI)"
         },
         "capacity": {
           "type": "object",
+          "description": "Capacity testing configuration (enabled via CLI at runtime)",
           "additionalProperties": false,
           "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable capacity testing to find max sustainable worker count"
-            },
             "min_workers": {
               "type": "integer",
               "minimum": 1,
@@ -115,14 +95,14 @@
         }
       }
     },
-    "servers": {
+    "server_images": {
       "type": "object",
       "additionalProperties": {
         "type": "integer",
         "minimum": 1,
         "maximum": 65535
       },
-      "description": "Map of server name to port"
+      "description": "Map of Docker image name to container port (e.g. 'node-express': 3001)"
     },
     "endpoints": {
       "type": "object",

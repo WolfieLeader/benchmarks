@@ -83,7 +83,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		first := testcases[0]
 
 		// Run warmup if enabled
-		if s.server.Warmup.Enabled {
+		if s.server.WarmupEnabled {
 			s.runWarmup(testcases)
 		}
 
@@ -108,7 +108,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 			first := testcases[0]
 
 			// Run warmup if enabled
-			if s.server.Warmup.Enabled {
+			if s.server.WarmupEnabled {
 				s.runWarmup(testcases)
 			}
 
@@ -279,7 +279,7 @@ func percentile(sorted []time.Duration, p int) time.Duration {
 
 // runWarmup executes warmup requests without recording latencies
 func (s *Suite) runWarmup(testcases []*config.Testcase) {
-	warmupRequests := s.server.Warmup.RequestsPerTestcase * len(testcases)
+	warmupRequests := s.server.WarmupRequestsPerTestcase * len(testcases)
 	workers := min(s.server.Workers, warmupRequests)
 
 	workCh := make(chan *config.Testcase)

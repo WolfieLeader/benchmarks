@@ -8,15 +8,8 @@
     "cooldown": "1s",
     "cpu_limit": "2.0",
     "memory_limit": "1gb",
-    "warmup": {
-      "enabled": true,
-      "requests_per_testcase": 50
-    },
-    "resources": {
-      "enabled": true
-    },
+    "warmup_requests_per_testcase": 50,
     "capacity": {
-      "enabled": true,
       "min_workers": 1,
       "max_workers": 4096,
       "precision": "1%",
@@ -26,7 +19,7 @@
       "measure": "5s"
     }
   },
-  "servers": {
+  "server_images": {
     "node-express": 3001,
     "node-nestjs": 3002,
     "node-fastify": 3003,
@@ -43,13 +36,13 @@
       "path": "/",
       "method": "GET",
       "expected_status": 200,
-      "expected_text": "OK"
+      "expected_body": { "message": "Hello World" }
     },
     "health": {
       "path": "/health",
       "method": "GET",
       "expected_status": 200,
-      "expected_body": { "message": "Hello World" }
+      "expected_body": { "status": "healthy" }
     },
     "params_search": {
       "path": "/params/search",
@@ -187,6 +180,93 @@
             "size": 21,
             "content": "Line 1\nLine 2\nLine 3\n"
           }
+        }
+      ]
+    },
+    "db_health": {
+      "path": "/db/postgres/health",
+      "method": "GET",
+      "expected_status": 200,
+      "expected_body": { "status": "healthy" },
+      "test_cases": [
+        { "name": "postgres" },
+        {
+          "name": "mongodb",
+          "path": "/db/mongodb/health"
+        },
+        {
+          "name": "redis",
+          "path": "/db/redis/health"
+        },
+        {
+          "name": "cassandra",
+          "path": "/db/cassandra/health"
+        },
+        {
+          "name": "invalid_database",
+          "path": "/db/invalid/health",
+          "expected_status": 404,
+          "expected_body": { "error": "not found" }
+        }
+      ]
+    },
+    "db_create": {
+      "path": "/db/postgres/users",
+      "method": "POST",
+      "body": { "name": "John Doe", "email": "john@example.com" },
+      "expected_status": 201,
+      "expected_body": { "name": "John Doe", "email": "john@example.com" },
+      "test_cases": [
+        { "name": "postgres" },
+        {
+          "name": "with_favorite_number",
+          "body": { "name": "Jane Doe", "email": "jane@example.com", "favoriteNumber": 42 },
+          "expected_body": { "name": "Jane Doe", "email": "jane@example.com", "favoriteNumber": 42 }
+        },
+        {
+          "name": "mongodb",
+          "path": "/db/mongodb/users"
+        },
+        {
+          "name": "redis",
+          "path": "/db/redis/users"
+        },
+        {
+          "name": "cassandra",
+          "path": "/db/cassandra/users"
+        },
+        {
+          "name": "invalid_body",
+          "body": { "invalid": "data" },
+          "expected_status": 400,
+          "expected_body": { "error": "invalid JSON body" }
+        },
+        {
+          "name": "invalid_email",
+          "body": { "name": "Test", "email": "not-an-email" },
+          "expected_status": 400,
+          "expected_body": { "error": "invalid JSON body" }
+        }
+      ]
+    },
+    "db_delete_all": {
+      "path": "/db/postgres/users",
+      "method": "DELETE",
+      "expected_status": 200,
+      "expected_body": { "success": true },
+      "test_cases": [
+        { "name": "postgres" },
+        {
+          "name": "mongodb",
+          "path": "/db/mongodb/users"
+        },
+        {
+          "name": "redis",
+          "path": "/db/redis/users"
+        },
+        {
+          "name": "cassandra",
+          "path": "/db/cassandra/users"
         }
       ]
     }

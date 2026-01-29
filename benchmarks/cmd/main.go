@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
+	"benchmark-client/internal/cli"
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
@@ -24,6 +28,25 @@ func main() {
 		printer.Failf("Failed to load configuration: %v", err)
 		return
 	}
+
+	// Get runtime options from CLI flags or interactive prompt
+	opts, err := getRuntimeOptions(config.GetServerNames(resolvedServers))
+	if err != nil {
+		printer.Failf("Failed to get options: %v", err)
+		return
+	}
+
+	// Apply runtime options and filter servers
+	var invalidServers []string
+	resolvedServers, invalidServers = config.ApplyRuntimeOptions(cfg, resolvedServers, opts)
+	if len(invalidServers) > 0 {
+		printer.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
+	}
+	if len(resolvedServers) == 0 {
+		printer.Failf("No valid servers selected")
+		return
+	}
+
 	cfg.Print()
 
 	var cooldown time.Duration
@@ -111,7 +134,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	// Start resource sampling immediately after container creation (before health check)
 	// This captures samples during startup, health check, warmup, and benchmark
 	var sampler *container.ResourceSampler
-	if server.Resources.Enabled {
+	if server.ResourcesEnabled {
 		sampler = container.NewResourceSampler(string(containerId))
 		sampler.Start(ctx)
 	}
@@ -187,4 +210,41 @@ func findRootTestcase(server *config.ResolvedServer) *config.Testcase {
 		}
 	}
 	return nil
+}
+
+func getRuntimeOptions(availableServers []string) (*config.RuntimeOptions, error) {
+	// Try to parse CLI flags first
+	cliOpts, err := cli.ParseFlags(os.Args[1:])
+	if err != nil {
+		if errors.Is(err, cli.ErrHelp) {
+			os.Exit(0)
+		}
+		return nil, err
+	}
+
+	if cliOpts != nil {
+		// Non-interactive mode: use CLI flags
+		return &config.RuntimeOptions{
+			Warmup:    cliOpts.Warmup,
+			Resources: cliOpts.Resources,
+			Capacity:  cliOpts.Capacity,
+			Servers:   cliOpts.Servers,
+		}, nil
+	}
+
+	// Interactive mode: show prompt
+	cli.PrintBanner()
+	opts, err := cli.PromptOptions(availableServers)
+	if err != nil {
+		return nil, err
+	}
+
+	cli.PrintSummary(opts, len(availableServers))
+
+	return &config.RuntimeOptions{
+		Warmup:    opts.Warmup,
+		Resources: opts.Resources,
+		Capacity:  opts.Capacity,
+		Servers:   opts.Servers,
+	}, nil
 }

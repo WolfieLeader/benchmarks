@@ -60,7 +60,7 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 	}
 	cfg.EndpointOrder = order
 
-	serverOrder, err := extractKeyOrder(data, "servers")
+	serverOrder, err := extractKeyOrder(data, "server_images")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,11 +99,11 @@ func applyDefaults(cfg *Config) error {
 		cfg.Endpoints[name] = endpoint
 	}
 
-	if len(cfg.Servers) == 0 {
+	if len(cfg.ServerImages) == 0 {
 		return errors.New("no servers defined")
 	}
 
-	for name, port := range cfg.Servers {
+	for name, port := range cfg.ServerImages {
 		if strings.TrimSpace(name) == "" {
 			return errors.New("image name is required")
 		}
@@ -115,7 +115,7 @@ func applyDefaults(cfg *Config) error {
 			return errors.New("port must be between 0 and 65535")
 		}
 
-		cfg.Servers[name] = port
+		cfg.ServerImages[name] = port
 	}
 
 	return nil
@@ -135,32 +135,32 @@ func extractKeyOrder(data []byte, key string) ([]string, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	tok, err := dec.Token()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read endpoints: %w", err)
+		return nil, fmt.Errorf("failed to read %s: %w", key, err)
 	}
 
 	delim, ok := tok.(json.Delim)
 	if !ok || delim != '{' {
-		return nil, errors.New("endpoints must be an object")
+		return nil, fmt.Errorf("%s must be an object", key)
 	}
 
 	order := make([]string, 0)
 	for dec.More() {
 		keyTok, err := dec.Token()
 		if err != nil {
-			return nil, fmt.Errorf("failed to read endpoint key: %w", err)
+			return nil, fmt.Errorf("failed to read %s key: %w", key, err)
 		}
-		key, ok := keyTok.(string)
+		k, ok := keyTok.(string)
 		if !ok {
-			return nil, errors.New("invalid endpoint key")
+			return nil, fmt.Errorf("invalid %s key", key)
 		}
-		order = append(order, key)
+		order = append(order, k)
 		if err := skipJSONValue(dec); err != nil {
 			return nil, err
 		}
 	}
 
 	if _, err := dec.Token(); err != nil {
-		return nil, fmt.Errorf("failed to close endpoints object: %w", err)
+		return nil, fmt.Errorf("failed to close %s object: %w", key, err)
 	}
 
 	return order, nil
@@ -169,7 +169,7 @@ func extractKeyOrder(data []byte, key string) ([]string, error) {
 func skipJSONValue(dec *json.Decoder) error {
 	tok, err := dec.Token()
 	if err != nil {
-		return fmt.Errorf("failed to read endpoint value: %w", err)
+		return fmt.Errorf("failed to read value: %w", err)
 	}
 
 	delim, ok := tok.(json.Delim)
@@ -239,64 +239,62 @@ func applyGlobalDefaults(g *GlobalConfig) error {
 	}
 	g.MemoryLimit = normalizedMemory
 
-	// Warmup defaults
-	if g.Warmup.Enabled && g.Warmup.RequestsPerTestcase <= 0 {
-		g.Warmup.RequestsPerTestcase = DefaultWarmupRequests
+	// Warmup defaults (enabled flag is set at runtime via CLI)
+	if g.WarmupRequestsPerTestcase <= 0 {
+		g.WarmupRequestsPerTestcase = DefaultWarmupRequests
 	}
 
 	// Resources defaults (Docker stats API pushes ~1 sample/sec, no config needed)
 
-	// Capacity defaults
-	if g.Capacity.Enabled {
-		if g.Capacity.MinWorkers <= 0 {
-			g.Capacity.MinWorkers = DefaultCapacityMinWorkers
-		}
-		if g.Capacity.MaxWorkers <= 0 {
-			g.Capacity.MaxWorkers = DefaultCapacityMaxWorkers
-		}
-		if g.Capacity.MaxWorkers < g.Capacity.MinWorkers {
-			return fmt.Errorf("capacity max_workers (%d) must be >= min_workers (%d)", g.Capacity.MaxWorkers, g.Capacity.MinWorkers)
-		}
-
-		precision, err := parsePercent(g.Capacity.Precision, DefaultCapacityPrecision)
-		if err != nil {
-			return fmt.Errorf("capacity precision: %w", err)
-		}
-		if precision > 50 {
-			return errors.New("capacity precision must be <= 50%%")
-		}
-		g.Capacity.PrecisionPct = precision
-
-		successRate, err := parsePercent(g.Capacity.SuccessRate, DefaultCapacitySuccessRate)
-		if err != nil {
-			return fmt.Errorf("capacity success_rate: %w", err)
-		}
-		if successRate > 100 {
-			return errors.New("capacity success_rate must be <= 100%%")
-		}
-		g.Capacity.SuccessRatePct = successRate / 100
-
-		p99Threshold, err := parseDuration(g.Capacity.P99Threshold, DefaultCapacityP99Threshold)
-		if err != nil {
-			return fmt.Errorf("capacity p99_threshold: %w", err)
-		}
-		g.Capacity.P99ThresholdDur = p99Threshold
-
-		warmup, err := parseDuration(g.Capacity.Warmup, DefaultCapacityWarmup)
-		if err != nil {
-			return fmt.Errorf("capacity warmup: %w", err)
-		}
-		g.Capacity.WarmupDuration = warmup
-
-		measure, err := parseDuration(g.Capacity.Measure, DefaultCapacityMeasure)
-		if err != nil {
-			return fmt.Errorf("capacity measure: %w", err)
-		}
-		if measure <= 0 {
-			return errors.New("capacity measure must be > 0")
-		}
-		g.Capacity.MeasureDuration = measure
+	// Capacity defaults (always apply - enabled flag is set at runtime via CLI)
+	if g.Capacity.MinWorkers <= 0 {
+		g.Capacity.MinWorkers = DefaultCapacityMinWorkers
 	}
+	if g.Capacity.MaxWorkers <= 0 {
+		g.Capacity.MaxWorkers = DefaultCapacityMaxWorkers
+	}
+	if g.Capacity.MaxWorkers < g.Capacity.MinWorkers {
+		return fmt.Errorf("capacity max_workers (%d) must be >= min_workers (%d)", g.Capacity.MaxWorkers, g.Capacity.MinWorkers)
+	}
+
+	precision, err := parsePercent(g.Capacity.Precision, DefaultCapacityPrecision)
+	if err != nil {
+		return fmt.Errorf("capacity precision: %w", err)
+	}
+	if precision > 50 {
+		return errors.New("capacity precision must be <= 50%%")
+	}
+	g.Capacity.PrecisionPct = precision
+
+	successRate, err := parsePercent(g.Capacity.SuccessRate, DefaultCapacitySuccessRate)
+	if err != nil {
+		return fmt.Errorf("capacity success_rate: %w", err)
+	}
+	if successRate > 100 {
+		return errors.New("capacity success_rate must be <= 100%%")
+	}
+	g.Capacity.SuccessRatePct = successRate / 100
+
+	p99Threshold, err := parseDuration(g.Capacity.P99Threshold, DefaultCapacityP99Threshold)
+	if err != nil {
+		return fmt.Errorf("capacity p99_threshold: %w", err)
+	}
+	g.Capacity.P99ThresholdDur = p99Threshold
+
+	warmup, err := parseDuration(g.Capacity.Warmup, DefaultCapacityWarmup)
+	if err != nil {
+		return fmt.Errorf("capacity warmup: %w", err)
+	}
+	g.Capacity.WarmupDuration = warmup
+
+	measure, err := parseDuration(g.Capacity.Measure, DefaultCapacityMeasure)
+	if err != nil {
+		return fmt.Errorf("capacity measure: %w", err)
+	}
+	if measure <= 0 {
+		return errors.New("capacity measure must be > 0")
+	}
+	g.Capacity.MeasureDuration = measure
 
 	if strings.TrimSpace(g.Cooldown) != "" {
 		cooldown := strings.TrimSpace(g.Cooldown)
