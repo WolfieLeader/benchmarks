@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
+	"benchmark-client/internal/database"
 	"benchmark-client/internal/printer"
 	"benchmark-client/internal/summary"
 )
@@ -23,7 +25,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
+	cfg, resolvedServers, err := config.LoadV2(config.DefaultConfigFile)
 	if err != nil {
 		printer.Failf("Failed to load configuration: %v", err)
 		return
@@ -38,7 +40,7 @@ func main() {
 
 	// Apply runtime options and filter servers
 	var invalidServers []string
-	resolvedServers, invalidServers = config.ApplyRuntimeOptions(cfg, resolvedServers, opts)
+	resolvedServers, invalidServers = config.ApplyRuntimeOptionsV2(cfg, resolvedServers, opts)
 	if len(invalidServers) > 0 {
 		printer.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
 	}
@@ -49,17 +51,35 @@ func main() {
 
 	cfg.Print()
 
-	var cooldown time.Duration
-	if cfg.Global.Cooldown != "" {
-		cooldown, err = time.ParseDuration(cfg.Global.Cooldown)
-		if err != nil {
-			printer.Failf("Invalid cooldown: %v", err)
-			return
-		}
+	// Cooldown is pre-parsed in v2 config
+	cooldown := cfg.Benchmark.CooldownDuration
+
+	// Start database compose stack
+	compose := database.NewComposeManager(filepath.Join("..", "infra", "compose", "databases.yml"))
+	printer.Section("Database Stack")
+	printer.Infof("Starting databases...")
+	if err = compose.Start(ctx); err != nil {
+		printer.Failf("Failed to start databases: %v", err)
+		return
 	}
+	defer func() {
+		printer.Infof("Stopping databases...")
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer stopCancel()
+		if stopErr := compose.Stop(stopCtx); stopErr != nil {
+			printer.Warnf("Failed to stop databases: %v", stopErr)
+		}
+	}()
+
+	printer.Infof("Waiting for databases to be healthy...")
+	if err = compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
+		printer.Failf("Databases did not become healthy: %v", err)
+		return
+	}
+	printer.Successf("All databases ready")
 
 	resultsDir := filepath.Join("..", "results", time.Now().UTC().Format("20060102-150405"))
-	writer := summary.NewWriter(&cfg.Global, resultsDir)
+	writer := summary.NewWriter(&cfg.Benchmark, resultsDir)
 
 	for i, server := range resolvedServers {
 		if ctx.Err() != nil {
@@ -69,7 +89,7 @@ func main() {
 
 		printer.ServerHeader(server.Name)
 
-		result := runServerBenchmark(ctx, server)
+		result := runServerBenchmark(ctx, server, cfg.Databases, compose.NetworkName())
 
 		summary.PrintServerSummary(result)
 		var path string
@@ -106,7 +126,7 @@ func main() {
 	summary.PrintFinalSummary(metaResults, servers)
 }
 
-func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *summary.ServerResult {
+func runServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) *summary.ServerResult {
 	result := &summary.ServerResult{
 		Name:        server.Name,
 		ContainerID: "",
@@ -122,6 +142,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 		HostPort:    8080,
 		CPULimit:    server.CPULimit,
 		MemoryLimit: server.MemoryLimit,
+		Network:     network,
 	}
 
 	containerId, err := container.StartWithOptions(ctx, time.Minute, options)
@@ -159,6 +180,15 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 
 	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
 
+	// Reset all databases before running tests
+	if err = resetDatabases(ctx, serverURL, databases); err != nil {
+		if sampler != nil {
+			sampler.Stop()
+		}
+		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
+		return result
+	}
+
 	// Benchmark duration should reflect warmup + measured requests, not container startup
 	result.StartTime = time.Now()
 
@@ -176,6 +206,9 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 		return result
 	}
 
+	// Run flow-based tests if any flows are configured
+	flows := suite.RunFlows(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
+
 	// Stop resource sampling and collect stats
 	if sampler != nil {
 		stats := sampler.Stop()
@@ -183,6 +216,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer) *sum
 	}
 
 	result.Complete(endpoints)
+	result.Flows = flows
 
 	// Run capacity test if enabled and not skipped
 	if server.Capacity.Enabled && ctx.Err() == nil {
@@ -209,6 +243,28 @@ func findRootTestcase(server *config.ResolvedServer) *config.Testcase {
 			return tc
 		}
 	}
+	return nil
+}
+
+func resetDatabases(ctx context.Context, serverURL string, databases []string) error {
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	for _, db := range databases {
+		resetURL := fmt.Sprintf("%s/db/%s/reset", serverURL, db)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, resetURL, http.NoBody)
+		if err != nil {
+			return fmt.Errorf("reset %s: failed to create request: %w", db, err)
+		}
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("reset %s: %w", db, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("reset %s: unexpected status %d", db, resp.StatusCode)
+		}
+	}
+	printer.Infof("Reset all databases")
 	return nil
 }
 

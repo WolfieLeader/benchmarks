@@ -22,6 +22,7 @@ type StartOptions struct {
 	HostPort    int
 	CPULimit    string
 	MemoryLimit string
+	Network     string
 }
 
 func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOptions) (Id, error) {
@@ -45,6 +46,9 @@ func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOpti
 	}
 	if opts.MemoryLimit != "" {
 		args = append(args, "--memory="+opts.MemoryLimit)
+	}
+	if opts.Network != "" {
+		args = append(args, "--network="+opts.Network)
 	}
 
 	args = append(args, opts.Image)

@@ -277,6 +277,175 @@ func percentile(sorted []time.Duration, p int) time.Duration {
 	return sorted[idx]
 }
 
+// FlowStats contains statistics for a flow execution
+type FlowStats struct {
+	FlowId      string          `json:"flow_id"`
+	Database    string          `json:"database,omitempty"`
+	TotalRuns   int             `json:"total_runs"`
+	Successes   int             `json:"successes"`
+	Failures    int             `json:"failures"`
+	SuccessRate float64         `json:"success_rate"`
+	AvgDuration time.Duration   `json:"avg_duration"`
+	P50Duration time.Duration   `json:"p50_duration"`
+	P95Duration time.Duration   `json:"p95_duration"`
+	P99Duration time.Duration   `json:"p99_duration"`
+	LastError   string          `json:"last_error,omitempty"`
+	FailedStep  int             `json:"failed_step,omitempty"`
+	StepCount   int             `json:"step_count"`
+	Steps       []FlowStepStats `json:"steps,omitempty"`
+}
+
+// FlowStepStats contains per-step statistics within a flow
+type FlowStepStats struct {
+	Name   string        `json:"name"`
+	Method string        `json:"method"`
+	Path   string        `json:"path"`
+	Avg    time.Duration `json:"avg"`
+	P50    time.Duration `json:"p50"`
+	P95    time.Duration `json:"p95"`
+	P99    time.Duration `json:"p99"`
+}
+
+// RunFlows executes all configured flows
+func (s *Suite) RunFlows(hostPort int) []FlowStats {
+	if len(s.server.Flows) == 0 {
+		return nil
+	}
+
+	baseURL := fmt.Sprintf("http://localhost:%d", hostPort)
+	results := make([]FlowStats, 0, len(s.server.Flows))
+
+	for _, flow := range s.server.Flows {
+		stats := s.runFlow(baseURL, flow)
+		results = append(results, stats)
+	}
+
+	return results
+}
+
+func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
+	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
+	iterations := s.server.RequestsPerEndpoint
+	stepCount := len(flow.Endpoints)
+
+	type workItem struct {
+		workerID int
+		cycleNum int
+	}
+
+	workCh := make(chan workItem)
+	go func() {
+		defer close(workCh)
+		for i := range iterations {
+			select {
+			case <-s.ctx.Done():
+				return
+			case workCh <- workItem{workerID: i % workers, cycleNum: i}:
+			}
+		}
+	}()
+
+	resultsCh := make(chan FlowResult, workers)
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			for item := range workCh {
+				result := RunFlow(s.ctx, s.httpClient, baseURL, flow, item.workerID, item.cycleNum, s.server.Timeout)
+				resultsCh <- result
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsCh)
+	}()
+
+	var successes, failures int
+	var totalDuration time.Duration
+	var lastError string
+	var failedStep int
+	durations := make([]time.Duration, 0, iterations)
+
+	// Per-step duration collection (only for successful flows)
+	stepDurations := make([][]time.Duration, stepCount)
+	for i := range stepDurations {
+		stepDurations[i] = make([]time.Duration, 0, iterations)
+	}
+
+	for r := range resultsCh {
+		if r.Success {
+			successes++
+			durations = append(durations, r.TotalDuration)
+			// Collect per-step durations
+			for i, d := range r.StepDurations {
+				stepDurations[i] = append(stepDurations[i], d)
+			}
+		} else {
+			failures++
+			lastError = r.Error
+			failedStep = r.FailedStep
+		}
+		totalDuration += r.TotalDuration
+	}
+
+	var avgDuration, p50, p95, p99 time.Duration
+	if successes > 0 {
+		avgDuration = totalDuration / time.Duration(successes+failures)
+		slices.Sort(durations)
+		p50 = percentile(durations, 50)
+		p95 = percentile(durations, 95)
+		p99 = percentile(durations, 99)
+	}
+
+	var successRate float64
+	total := successes + failures
+	if total > 0 {
+		successRate = float64(successes) / float64(total)
+	}
+
+	// Calculate per-step statistics
+	steps := make([]FlowStepStats, stepCount)
+	for i, ep := range flow.Endpoints {
+		steps[i] = FlowStepStats{
+			Name:   ep.Name,
+			Method: ep.Method,
+			Path:   ep.Path,
+		}
+		if len(stepDurations[i]) > 0 {
+			var stepTotal time.Duration
+			for _, d := range stepDurations[i] {
+				stepTotal += d
+			}
+			steps[i].Avg = stepTotal / time.Duration(len(stepDurations[i]))
+			slices.Sort(stepDurations[i])
+			steps[i].P50 = percentile(stepDurations[i], 50)
+			steps[i].P95 = percentile(stepDurations[i], 95)
+			steps[i].P99 = percentile(stepDurations[i], 99)
+		}
+	}
+
+	return FlowStats{
+		FlowId:      flow.Id,
+		Database:    flow.Database,
+		TotalRuns:   total,
+		Successes:   successes,
+		Failures:    failures,
+		SuccessRate: successRate,
+		AvgDuration: avgDuration,
+		P50Duration: p50,
+		P95Duration: p95,
+		P99Duration: p99,
+		LastError:   lastError,
+		FailedStep:  failedStep,
+		StepCount:   stepCount,
+		Steps:       steps,
+	}
+}
+
 // runWarmup executes warmup requests without recording latencies
 func (s *Suite) runWarmup(testcases []*config.Testcase) {
 	warmupRequests := s.server.WarmupRequestsPerTestcase * len(testcases)

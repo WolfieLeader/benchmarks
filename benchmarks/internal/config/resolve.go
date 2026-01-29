@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"mime/multipart"
@@ -12,12 +13,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
-func resolve(cfg *Config) ([]*ResolvedServer, error) {
-	timeout, _ := time.ParseDuration(cfg.Global.Timeout)
-
+func resolveV2(cfg *ConfigV2) ([]*ResolvedServer, error) {
 	var allTestcases []*Testcase
 	order := cfg.EndpointOrder
 	if len(order) == 0 {
@@ -33,139 +31,259 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		if !ok {
 			continue
 		}
-		testcases, err := resolveEndpoint(cfg.Global.BaseURL, endpointName, &endpoint)
+		// Skip standalone tests for endpoints that are part of a flow
+		// (they use placeholders that are only resolved during flow execution)
+		if endpoint.Flow != nil {
+			continue
+		}
+		testcases, err := resolveEndpointV2(cfg.Benchmark.BaseURL, cfg.Databases, endpointName, &endpoint)
 		if err != nil {
 			return nil, err
 		}
 		allTestcases = append(allTestcases, testcases...)
 	}
 
-	serverOrder := cfg.ServerOrder
-	if len(serverOrder) == 0 {
-		serverOrder = make([]string, 0, len(cfg.ServerImages))
-		for name := range cfg.ServerImages {
-			serverOrder = append(serverOrder, name)
-		}
-		slices.Sort(serverOrder)
+	// Resolve flows
+	flows, err := resolveFlows(cfg, order)
+	if err != nil {
+		return nil, err
 	}
 
-	servers := make([]*ResolvedServer, 0, len(cfg.ServerImages))
-	for _, name := range serverOrder {
-		port, ok := cfg.ServerImages[name]
-		if !ok {
-			continue
-		}
+	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
+	for _, server := range cfg.Servers {
 		servers = append(servers, &ResolvedServer{
-			Name:                      name,
-			ImageName:                 name,
-			Port:                      port,
-			BaseURL:                   cfg.Global.BaseURL,
-			Timeout:                   timeout,
-			CPULimit:                  cfg.Global.CPULimit,
-			MemoryLimit:               cfg.Global.MemoryLimit,
-			Workers:                   cfg.Global.Workers,
-			RequestsPerEndpoint:       cfg.Global.RequestsPerEndpoint,
+			Name:                      server.Name,
+			ImageName:                 server.Name,
+			Port:                      server.Port,
+			BaseURL:                   cfg.Benchmark.BaseURL,
+			Timeout:                   cfg.Benchmark.TimeoutDuration,
+			CPULimit:                  cfg.Container.CPU,
+			MemoryLimit:               cfg.Container.Memory,
+			Workers:                   cfg.Benchmark.Workers,
+			RequestsPerEndpoint:       cfg.Benchmark.Requests,
 			Testcases:                 allTestcases,
 			EndpointOrder:             order,
-			WarmupRequestsPerTestcase: cfg.Global.WarmupRequestsPerTestcase,
-			WarmupEnabled:             cfg.Global.WarmupEnabled,
-			ResourcesEnabled:          cfg.Global.ResourcesEnabled,
-			Capacity:                  cfg.Global.Capacity,
+			WarmupRequestsPerTestcase: cfg.Benchmark.Warmup,
+			WarmupEnabled:             cfg.Benchmark.WarmupEnabled,
+			ResourcesEnabled:          cfg.Benchmark.ResourcesEnabled,
+			Capacity:                  cfg.Capacity,
+			Flows:                     flows,
 		})
 	}
 
 	return servers, nil
 }
 
-func resolveEndpoint(baseURL, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {
+func resolveFlows(cfg *ConfigV2, order []string) ([]*ResolvedFlow, error) {
+	// Group endpoints by flow.id, preserving order
+	flowEndpoints := make(map[string][]string) // flow.id -> endpoint names in order
+	flowVars := make(map[string]map[string]VarConfig)
+
+	for _, name := range order {
+		endpoint, ok := cfg.Endpoints[name]
+		if !ok || endpoint.Flow == nil {
+			continue
+		}
+		flowId := endpoint.Flow.Id
+		flowEndpoints[flowId] = append(flowEndpoints[flowId], name)
+
+		// Capture vars from first endpoint that has them
+		if endpoint.Flow.Vars != nil && flowVars[flowId] == nil {
+			flowVars[flowId] = endpoint.Flow.Vars
+		}
+	}
+
+	var flows []*ResolvedFlow
+
+	for flowId, endpointNames := range flowEndpoints {
+		// Check if any endpoint has per_database
+		var perDatabase bool
+		for _, name := range endpointNames {
+			if cfg.Endpoints[name].PerDatabase {
+				perDatabase = true
+				break
+			}
+		}
+
+		databases := []string{""}
+		if perDatabase && len(cfg.Databases) > 0 {
+			databases = cfg.Databases
+		}
+
+		for _, db := range databases {
+			flow := &ResolvedFlow{
+				Id:        flowId,
+				Database:  db,
+				Vars:      flowVars[flowId],
+				Endpoints: make([]*ResolvedFlowEndpoint, 0, len(endpointNames)),
+			}
+
+			for _, name := range endpointNames {
+				ep := cfg.Endpoints[name]
+				path := ep.Path
+				if db != "" {
+					path = strings.ReplaceAll(path, "{database}", db)
+				}
+
+				resolved := &ResolvedFlowEndpoint{
+					Name:           name,
+					Method:         ep.Method,
+					Path:           path,
+					Body:           ep.Body,
+					Headers:        ep.Headers,
+					ExpectedStatus: ep.Expect.Status,
+					ExpectedBody:   ep.Expect.Body,
+				}
+				if ep.Flow != nil {
+					resolved.Capture = ep.Flow.Capture
+				}
+				flow.Endpoints = append(flow.Endpoints, resolved)
+			}
+
+			flows = append(flows, flow)
+		}
+	}
+
+	return flows, nil
+}
+
+func resolveEndpointV2(baseURL string, databases []string, endpointName string, endpoint *EndpointConfigV2) ([]*Testcase, error) {
 	endpointFile, err := loadFile(endpoint.File)
 	if err != nil {
 		return nil, fmt.Errorf("endpoint %q file: %w", endpointName, err)
 	}
 
-	if len(endpoint.TestCases) == 0 {
-		var tc *Testcase
-		tc, err = buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile)
-		if err != nil {
-			return nil, err
-		}
-		return []*Testcase{tc}, nil
-	}
+	var testcases []*Testcase
 
-	testcases := make([]*Testcase, 0, len(endpoint.TestCases))
-	for i := range endpoint.TestCases {
-		tcConfig := &endpoint.TestCases[i]
-		file := endpointFile
-		if tcConfig.File != "" {
-			file, err = loadFile(tcConfig.File)
-			if err != nil {
-				return nil, fmt.Errorf("endpoint %q test case %d file: %w", endpointName, i, err)
+	// If per_database is true, expand for each database
+	if endpoint.PerDatabase && len(databases) > 0 {
+		for _, db := range databases {
+			// Create base testcase with database substitution
+			tc, tcErr := buildTestcaseV2(baseURL, endpointName, db, endpoint, nil, endpointFile, db)
+			if tcErr != nil {
+				return nil, tcErr
+			}
+			testcases = append(testcases, tc)
+
+			// Add variations for this database
+			for i := range endpoint.Variations {
+				variation := &endpoint.Variations[i]
+				file := endpointFile
+				if variation.File != "" {
+					file, tcErr = loadFile(variation.File)
+					if tcErr != nil {
+						return nil, fmt.Errorf("endpoint %q variation %d file: %w", endpointName, i, tcErr)
+					}
+				}
+
+				variationName := fmt.Sprintf("variation_%d", i)
+				tc, tcErr = buildTestcaseV2(baseURL, endpointName, db+"/"+variationName, endpoint, variation, file, db)
+				if tcErr != nil {
+					return nil, fmt.Errorf("endpoint %q database %q variation %d: %w", endpointName, db, i, tcErr)
+				}
+				testcases = append(testcases, tc)
 			}
 		}
+	} else {
+		// No per_database expansion - create single base testcase
+		if len(endpoint.Variations) == 0 {
+			tc, tcErr := buildTestcaseV2(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+			if tcErr != nil {
+				return nil, tcErr
+			}
+			return []*Testcase{tc}, nil
+		}
 
-		var tc *Testcase
-		tc, err = buildTestcase(baseURL, endpointName, tcConfig.Name, endpoint, tcConfig, file)
-		if err != nil {
-			return nil, fmt.Errorf("endpoint %q test case %q: %w", endpointName, tcConfig.Name, err)
+		// Create base testcase
+		tc, tcErr := buildTestcaseV2(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+		if tcErr != nil {
+			return nil, tcErr
 		}
 		testcases = append(testcases, tc)
+
+		// Add variations
+		for i := range endpoint.Variations {
+			variation := &endpoint.Variations[i]
+			file := endpointFile
+			if variation.File != "" {
+				file, err = loadFile(variation.File)
+				if err != nil {
+					return nil, fmt.Errorf("endpoint %q variation %d file: %w", endpointName, i, err)
+				}
+			}
+
+			variationName := fmt.Sprintf("variation_%d", i)
+			tc, err = buildTestcaseV2(baseURL, endpointName, variationName, endpoint, variation, file, "")
+			if err != nil {
+				return nil, fmt.Errorf("endpoint %q variation %d: %w", endpointName, i, err)
+			}
+			testcases = append(testcases, tc)
+		}
 	}
 
 	return testcases, nil
 }
 
-func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig, tcOverride *TestCaseConfig, file *FileUpload) (*Testcase, error) {
+func buildTestcaseV2(baseURL, endpointName, name string, endpoint *EndpointConfigV2, variation *VariationConfig, file *FileUpload, database string) (*Testcase, error) {
 	path := endpoint.Path
 	method := strings.ToUpper(endpoint.Method)
 	headers := maps.Clone(endpoint.Headers)
 	query := maps.Clone(endpoint.Query)
 	body := endpoint.Body
 	formData := maps.Clone(endpoint.FormData)
-	expectedStatus := endpoint.ExpectedStatus
-	expectedHeaders := maps.Clone(endpoint.ExpectedHeaders)
-	expectedBody := endpoint.ExpectedBody
-	expectedText := endpoint.ExpectedText
+	expectedStatus := endpoint.Expect.Status
+	expectedHeaders := maps.Clone(endpoint.Expect.Headers)
+	expectedBody := endpoint.Expect.Body
+	expectedText := endpoint.Expect.Text
 
-	if tcOverride != nil {
-		if tcOverride.Path != "" {
-			path = tcOverride.Path
+	// Apply variation overrides
+	if variation != nil {
+		if variation.Path != "" {
+			path = variation.Path
 		}
-		if len(tcOverride.Headers) > 0 {
+		if len(variation.Headers) > 0 {
 			if headers == nil {
 				headers = make(map[string]string)
 			}
-			maps.Copy(headers, tcOverride.Headers)
+			maps.Copy(headers, variation.Headers)
 		}
-		if len(tcOverride.Query) > 0 {
+		if len(variation.Query) > 0 {
 			if query == nil {
 				query = make(map[string]string)
 			}
-			maps.Copy(query, tcOverride.Query)
+			maps.Copy(query, variation.Query)
 		}
-		if tcOverride.Body != nil {
-			body = tcOverride.Body
+		if variation.Body != nil {
+			body = variation.Body
 		}
-		if len(tcOverride.FormData) > 0 {
+		if len(variation.FormData) > 0 {
 			if formData == nil {
 				formData = make(map[string]string)
 			}
-			maps.Copy(formData, tcOverride.FormData)
+			maps.Copy(formData, variation.FormData)
 		}
-		if tcOverride.ExpectedStatus != 0 {
-			expectedStatus = tcOverride.ExpectedStatus
-		}
-		if len(tcOverride.ExpectedHeaders) > 0 {
-			if expectedHeaders == nil {
-				expectedHeaders = make(map[string]string)
+		if variation.Expect != nil {
+			if variation.Expect.Status != 0 {
+				expectedStatus = variation.Expect.Status
 			}
-			maps.Copy(expectedHeaders, tcOverride.ExpectedHeaders)
+			if len(variation.Expect.Headers) > 0 {
+				if expectedHeaders == nil {
+					expectedHeaders = make(map[string]string)
+				}
+				maps.Copy(expectedHeaders, variation.Expect.Headers)
+			}
+			if variation.Expect.Body != nil {
+				expectedBody = variation.Expect.Body
+			}
+			if variation.Expect.Text != "" {
+				expectedText = variation.Expect.Text
+			}
 		}
-		if tcOverride.ExpectedBody != nil {
-			expectedBody = tcOverride.ExpectedBody
-		}
-		if tcOverride.ExpectedText != "" {
-			expectedText = tcOverride.ExpectedText
-		}
+	}
+
+	// Replace {database} placeholder if database is provided
+	if database != "" {
+		path = strings.ReplaceAll(path, "{database}", database)
 	}
 
 	fullURL, err := buildURL(baseURL, path, query)
@@ -256,8 +374,28 @@ func loadFile(filename string) (*FileUpload, error) {
 		return nil, nil
 	}
 
-	path := filepath.Join("..", "assets", filename)
-	content, err := os.ReadFile(path) //nolint:gosec // path is constructed from controlled assets directory
+	// Prevent path traversal attacks
+	if strings.Contains(filename, "..") {
+		return nil, errors.New("invalid filename: path traversal not allowed")
+	}
+
+	assetsDir := filepath.Join("..", "assets")
+	path := filepath.Join(assetsDir, filename)
+
+	// Verify the resolved path is still within assets directory
+	absAssetsDir, err := filepath.Abs(assetsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve assets directory: %w", err)
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absAssetsDir+string(filepath.Separator)) {
+		return nil, errors.New("invalid filename: path must be within assets directory")
+	}
+
+	content, err := os.ReadFile(absPath) //nolint:gosec // path is validated to be within assets directory
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}

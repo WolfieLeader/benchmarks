@@ -73,6 +73,49 @@ func PrintServerSummary(result *ServerResult) {
 		}
 	}
 	printer.Blank()
+
+	// Print flow results if any
+	if len(result.Flows) > 0 {
+		printer.Blank()
+		printer.Linef("Flows")
+		fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "Method", "Path", "Status", "Avg")
+		fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "──────", "────────────────────────────────", "──────", "───────")
+
+		for i := range result.Flows {
+			flow := &result.Flows[i]
+			flowName := flow.FlowId
+			if flow.Database != "" {
+				flowName = fmt.Sprintf("%s/%s", flow.FlowId, flow.Database)
+			}
+			statusSymbol := printer.SymbolPass
+			status := "OK"
+			if flow.SuccessRate < 1.0 {
+				statusSymbol = printer.SymbolFail
+				status = fmt.Sprintf("%.0f%%", flow.SuccessRate*100)
+			}
+			fmt.Printf("  %-6s  %-32s  %s %-4s  %s\n",
+				"FLOW",
+				printer.TruncatePath(flowName, 32),
+				statusSymbol,
+				status,
+				printer.FormatLatency(flow.AvgDuration))
+
+			// Print per-step stats
+			for j := range flow.Steps {
+				step := &flow.Steps[j]
+				path := printer.TruncatePath(step.Path, 26)
+				fmt.Printf("    %-6s  %-26s          %s\n",
+					step.Method,
+					path,
+					printer.FormatLatency(step.Avg))
+			}
+
+			if flow.LastError != "" {
+				printer.Linef("       └─ last error (step %d): %s", flow.FailedStep, printer.Truncate(flow.LastError, 50))
+			}
+		}
+		printer.Blank()
+	}
 }
 
 func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
@@ -160,9 +203,6 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		}
 
 		rank := fmt.Sprintf("%2d", i+1)
-		if i == 0 {
-			rank = printer.SymbolPass + strconv.Itoa(i+1)
-		}
 
 		if hasAnyCapacity {
 			capStr := "       -"
@@ -186,6 +226,85 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 				printer.FormatLatency(s.p95),
 				memStr)
 		}
+	}
+	printer.Blank()
+
+	// Print flow rankings by server+database combination
+	printFlowRankings(servers)
+}
+
+func printFlowRankings(servers []ServerSummary) {
+	type rankedFlow struct {
+		name        string
+		flowId      string
+		avgDuration int64
+		successRate float64
+	}
+
+	flows := make([]rankedFlow, 0)
+	for i := range servers {
+		s := &servers[i]
+		if s.Error != "" || len(s.Flows) == 0 {
+			continue
+		}
+		for j := range s.Flows {
+			f := &s.Flows[j]
+			name := s.Name
+			if f.Database != "" {
+				name = fmt.Sprintf("%s-%s", s.Name, f.Database)
+			}
+			flows = append(flows, rankedFlow{
+				name:        name,
+				flowId:      f.FlowId,
+				avgDuration: f.AvgDuration.Nanoseconds(),
+				successRate: f.SuccessRate,
+			})
+		}
+	}
+
+	if len(flows) == 0 {
+		return
+	}
+
+	// Sort by success rate (failed flows last), then by avg duration
+	slices.SortFunc(flows, func(a, b rankedFlow) int {
+		// Failed flows (0% success) go to the bottom
+		aFailed := a.successRate == 0
+		bFailed := b.successRate == 0
+		if aFailed != bFailed {
+			if aFailed {
+				return 1
+			}
+			return -1
+		}
+		// Sort by avg duration
+		if a.avgDuration < b.avgDuration {
+			return -1
+		}
+		if a.avgDuration > b.avgDuration {
+			return 1
+		}
+		return 0
+	})
+
+	printer.Linef("Flow Rankings (by avg duration)")
+	printer.Blank()
+
+	fmt.Println("   #  Server+Database          Flow      Avg     Success")
+	fmt.Println("  ──  ──────────────────────  ──────  ───────  ─────────")
+
+	for i, f := range flows {
+		rank := fmt.Sprintf("%2d", i+1)
+		successStr := "100%"
+		if f.successRate < 1.0 {
+			successStr = fmt.Sprintf("%.0f%%", f.successRate*100)
+		}
+		fmt.Printf("  %s  %-22s  %-6s  %s  %7s\n",
+			rank,
+			printer.Truncate(f.name, 22),
+			f.flowId,
+			printer.FormatLatency(f.avgDuration),
+			successStr)
 	}
 	printer.Blank()
 }

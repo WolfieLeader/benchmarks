@@ -135,17 +135,17 @@ func PromptOptions(availableServers []string) (*Options, error) {
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select servers").
-				Description("space: toggle • ctrl + a: select all • enter: confirm").
+				Description("Select the servers you want to benchmark").
 				Options(serverOptions...).
 				Value(&selectedServers),
 		).WithHideFunc(func() bool { return serverMode != "select" }),
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select benchmark phases").
-				Description("space: toggle • ctrl + a: select all • enter: confirm").
+				Description("Choose which benchmark phases to run").
 				Options(
 					huh.NewOption("Warmup (recommended)", "warmup").Selected(true),
-					huh.NewOption("Resource monitoring (recommended)", "resources"),
+					huh.NewOption("Resource monitoring", "resources"),
 					huh.NewOption("Capacity test (slow)", "capacity"),
 				).Value(&phases),
 		),

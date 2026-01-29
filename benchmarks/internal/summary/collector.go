@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"benchmark-client/internal/client"
@@ -23,6 +22,7 @@ type ServerResult struct {
 	EndTime     time.Time                `json:"-"`
 	Duration    time.Duration            `json:"-"`
 	Endpoints   []client.EndpointResult  `json:"-"`
+	Flows       []client.FlowStats       `json:"-"`
 	Error       string                   `json:"-"`
 	Resources   *container.ResourceStats `json:"-"`
 	Capacity    *client.CapacityResult   `json:"-"`
@@ -58,6 +58,7 @@ type ServerSummary struct {
 	Error      string                   `json:"error,omitempty"`
 	Stats      *StatsSummary            `json:"stats,omitempty"`
 	Endpoints  []EndpointSummary        `json:"endpoints,omitempty"`
+	Flows      []client.FlowStats       `json:"flows,omitempty"`
 	Resources  *container.ResourceStats `json:"resources,omitempty"`
 	Capacity   *client.CapacityResult   `json:"capacity,omitempty"`
 }
@@ -83,13 +84,12 @@ type StatsSummary struct {
 }
 
 type Writer struct {
-	mu         sync.Mutex
 	startTime  time.Time
-	config     *config.GlobalConfig
+	config     *config.BenchmarkConfig
 	resultsDir string
 }
 
-func NewWriter(cfg *config.GlobalConfig, resultsDir string) *Writer {
+func NewWriter(cfg *config.BenchmarkConfig, resultsDir string) *Writer {
 	return &Writer{
 		startTime:  time.Now(),
 		config:     cfg,
@@ -98,7 +98,7 @@ func NewWriter(cfg *config.GlobalConfig, resultsDir string) *Writer {
 }
 
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
-	summary := serverSummaryFromResult(result, w.config.RequestsPerEndpoint)
+	summary := serverSummaryFromResult(result, w.config.Requests)
 
 	data, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
@@ -135,6 +135,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 			DurationMs: s.DurationMs,
 			Error:      s.Error,
 			Stats:      s.Stats,
+			Flows:      s.Flows,
 			Resources:  s.Resources,
 			Capacity:   s.Capacity,
 		})
@@ -180,14 +181,12 @@ func (r *ServerResult) SetError(err error) {
 }
 
 func (w *Writer) meta() ResultMeta {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	return ResultMeta{
 		Timestamp: w.startTime,
 		Config: ResultConfig{
 			BaseURL:             w.config.BaseURL,
 			Workers:             w.config.Workers,
-			RequestsPerEndpoint: w.config.RequestsPerEndpoint,
+			RequestsPerEndpoint: w.config.Requests,
 		},
 	}
 }
@@ -247,6 +246,7 @@ func serverSummaryFromResult(result *ServerResult, iterations int) ServerSummary
 		Error:      result.Error,
 		Stats:      aggregateEndpointStats(result.Endpoints, iterations),
 		Endpoints:  endpoints,
+		Flows:      result.Flows,
 		Resources:  result.Resources,
 		Capacity:   result.Capacity,
 	}

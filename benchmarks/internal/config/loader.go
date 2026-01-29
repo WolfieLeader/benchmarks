@@ -38,7 +38,8 @@ const (
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
-func Load(filename string) (*Config, []*ResolvedServer, error) {
+// LoadV2 loads a v2 format config file and resolves it
+func LoadV2(filename string) (*ConfigV2, []*ResolvedServer, error) {
 	data, err := os.ReadFile(filename) //nolint:gosec // config file path is controlled
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
@@ -49,7 +50,7 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 		return nil, nil, fmt.Errorf("unsupported config file format: %s", ext)
 	}
 
-	var cfg Config
+	var cfg ConfigV2
 	if err = json.Unmarshal(data, &cfg); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse JSON config: %w", err)
 	}
@@ -60,65 +61,16 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 	}
 	cfg.EndpointOrder = order
 
-	serverOrder, err := extractKeyOrder(data, "server_images")
-	if err != nil {
-		return nil, nil, err
-	}
-	cfg.ServerOrder = serverOrder
-
-	if err = applyDefaults(&cfg); err != nil {
+	if err = applyDefaultsV2(&cfg); err != nil {
 		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	resolved, err := resolve(&cfg)
+	resolved, err := resolveV2(&cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
 	}
 
 	return &cfg, resolved, nil
-}
-
-func applyDefaults(cfg *Config) error {
-	if cfg == nil {
-		return errors.New("configuration is nil")
-	}
-
-	if err := applyGlobalDefaults(&cfg.Global); err != nil {
-		return fmt.Errorf("global config: %w", err)
-	}
-
-	if len(cfg.Endpoints) == 0 {
-		return errors.New("no endpoints defined")
-	}
-
-	for name := range cfg.Endpoints {
-		endpoint := cfg.Endpoints[name]
-		if err := applyEndpointDefaults(name, &endpoint); err != nil {
-			return fmt.Errorf("endpoint %q: %w", name, err)
-		}
-		cfg.Endpoints[name] = endpoint
-	}
-
-	if len(cfg.ServerImages) == 0 {
-		return errors.New("no servers defined")
-	}
-
-	for name, port := range cfg.ServerImages {
-		if strings.TrimSpace(name) == "" {
-			return errors.New("image name is required")
-		}
-
-		if port == 0 {
-			port = DefaultPort
-		}
-		if port < 0 || port > 65535 {
-			return errors.New("port must be between 0 and 65535")
-		}
-
-		cfg.ServerImages[name] = port
-	}
-
-	return nil
 }
 
 func extractKeyOrder(data []byte, key string) ([]string, error) {
@@ -200,128 +152,165 @@ func skipJSONValue(dec *json.Decoder) error {
 	return nil
 }
 
-func applyGlobalDefaults(g *GlobalConfig) error {
-	if strings.TrimSpace(g.BaseURL) == "" {
-		g.BaseURL = DefaultBaseURL
-	}
-	if _, err := url.Parse(g.BaseURL); err != nil {
-		return fmt.Errorf("invalid base_url: %w", err)
+func applyDefaultsV2(cfg *ConfigV2) error {
+	if cfg == nil {
+		return errors.New("configuration is nil")
 	}
 
-	if g.Workers <= 0 {
-		g.Workers = DefaultWorkers
+	// Benchmark defaults
+	if strings.TrimSpace(cfg.Benchmark.BaseURL) == "" {
+		cfg.Benchmark.BaseURL = DefaultBaseURL
+	}
+	if _, err := url.Parse(cfg.Benchmark.BaseURL); err != nil {
+		return fmt.Errorf("benchmark base_url: %w", err)
 	}
 
-	if g.RequestsPerEndpoint <= 0 {
-		g.RequestsPerEndpoint = DefaultIterations
+	if cfg.Benchmark.Workers <= 0 {
+		cfg.Benchmark.Workers = DefaultWorkers
 	}
 
-	if strings.TrimSpace(g.Timeout) == "" {
-		g.Timeout = DefaultTimeout
-	}
-	if _, err := time.ParseDuration(g.Timeout); err != nil {
-		return fmt.Errorf("invalid timeout format: %w", err)
+	if cfg.Benchmark.Requests <= 0 {
+		cfg.Benchmark.Requests = DefaultIterations
 	}
 
-	if strings.TrimSpace(g.CPULimit) == "" {
-		g.CPULimit = DefaultCPU
+	if strings.TrimSpace(cfg.Benchmark.Timeout) == "" {
+		cfg.Benchmark.Timeout = DefaultTimeout
 	}
-	if err := validateCpu(g.CPULimit); err != nil {
-		return fmt.Errorf("cpu_limit: %w", err)
-	}
-
-	if strings.TrimSpace(g.MemoryLimit) == "" {
-		g.MemoryLimit = DefaultMemory
-	}
-	normalizedMemory, err := normalizeMemoryLimit(g.MemoryLimit)
+	timeout, err := time.ParseDuration(cfg.Benchmark.Timeout)
 	if err != nil {
-		return fmt.Errorf("memory_limit: %w", err)
+		return fmt.Errorf("benchmark timeout: %w", err)
 	}
-	g.MemoryLimit = normalizedMemory
+	cfg.Benchmark.TimeoutDuration = timeout
 
-	// Warmup defaults (enabled flag is set at runtime via CLI)
-	if g.WarmupRequestsPerTestcase <= 0 {
-		g.WarmupRequestsPerTestcase = DefaultWarmupRequests
-	}
-
-	// Resources defaults (Docker stats API pushes ~1 sample/sec, no config needed)
-
-	// Capacity defaults (always apply - enabled flag is set at runtime via CLI)
-	if g.Capacity.MinWorkers <= 0 {
-		g.Capacity.MinWorkers = DefaultCapacityMinWorkers
-	}
-	if g.Capacity.MaxWorkers <= 0 {
-		g.Capacity.MaxWorkers = DefaultCapacityMaxWorkers
-	}
-	if g.Capacity.MaxWorkers < g.Capacity.MinWorkers {
-		return fmt.Errorf("capacity max_workers (%d) must be >= min_workers (%d)", g.Capacity.MaxWorkers, g.Capacity.MinWorkers)
+	if strings.TrimSpace(cfg.Benchmark.Cooldown) != "" {
+		cooldown, cooldownErr := time.ParseDuration(cfg.Benchmark.Cooldown)
+		if cooldownErr != nil {
+			return fmt.Errorf("benchmark cooldown: %w", cooldownErr)
+		}
+		if cooldown < 0 {
+			return errors.New("benchmark cooldown must be >= 0")
+		}
+		cfg.Benchmark.CooldownDuration = cooldown
 	}
 
-	precision, err := parsePercent(g.Capacity.Precision, DefaultCapacityPrecision)
+	if cfg.Benchmark.Warmup <= 0 {
+		cfg.Benchmark.Warmup = DefaultWarmupRequests
+	}
+
+	// Container defaults
+	if strings.TrimSpace(cfg.Container.CPU) == "" {
+		cfg.Container.CPU = DefaultCPU
+	}
+	if cpuErr := validateCpu(cfg.Container.CPU); cpuErr != nil {
+		return fmt.Errorf("container cpu: %w", cpuErr)
+	}
+
+	if strings.TrimSpace(cfg.Container.Memory) == "" {
+		cfg.Container.Memory = DefaultMemory
+	}
+	normalizedMemory, err := normalizeMemoryLimit(cfg.Container.Memory)
+	if err != nil {
+		return fmt.Errorf("container memory: %w", err)
+	}
+	cfg.Container.Memory = normalizedMemory
+
+	// Capacity defaults
+	if cfg.Capacity.MinWorkers <= 0 {
+		cfg.Capacity.MinWorkers = DefaultCapacityMinWorkers
+	}
+	if cfg.Capacity.MaxWorkers <= 0 {
+		cfg.Capacity.MaxWorkers = DefaultCapacityMaxWorkers
+	}
+	if cfg.Capacity.MaxWorkers < cfg.Capacity.MinWorkers {
+		return fmt.Errorf("capacity max_workers (%d) must be >= min_workers (%d)", cfg.Capacity.MaxWorkers, cfg.Capacity.MinWorkers)
+	}
+
+	precision, err := parsePercent(cfg.Capacity.Precision, DefaultCapacityPrecision)
 	if err != nil {
 		return fmt.Errorf("capacity precision: %w", err)
 	}
 	if precision > 50 {
-		return errors.New("capacity precision must be <= 50%%")
+		return errors.New("capacity precision must be <= 50%")
 	}
-	g.Capacity.PrecisionPct = precision
+	cfg.Capacity.PrecisionPct = precision
 
-	successRate, err := parsePercent(g.Capacity.SuccessRate, DefaultCapacitySuccessRate)
+	successRate, err := parsePercent(cfg.Capacity.SuccessRate, DefaultCapacitySuccessRate)
 	if err != nil {
 		return fmt.Errorf("capacity success_rate: %w", err)
 	}
 	if successRate > 100 {
-		return errors.New("capacity success_rate must be <= 100%%")
+		return errors.New("capacity success_rate must be <= 100%")
 	}
-	g.Capacity.SuccessRatePct = successRate / 100
+	cfg.Capacity.SuccessRatePct = successRate / 100
 
-	p99Threshold, err := parseDuration(g.Capacity.P99Threshold, DefaultCapacityP99Threshold)
+	p99Threshold, err := parseDuration(cfg.Capacity.P99Threshold, DefaultCapacityP99Threshold)
 	if err != nil {
 		return fmt.Errorf("capacity p99_threshold: %w", err)
 	}
-	g.Capacity.P99ThresholdDur = p99Threshold
+	cfg.Capacity.P99ThresholdDur = p99Threshold
 
-	warmup, err := parseDuration(g.Capacity.Warmup, DefaultCapacityWarmup)
+	warmupDuration, err := parseDuration(cfg.Capacity.Warmup, DefaultCapacityWarmup)
 	if err != nil {
 		return fmt.Errorf("capacity warmup: %w", err)
 	}
-	g.Capacity.WarmupDuration = warmup
+	cfg.Capacity.WarmupDuration = warmupDuration
 
-	measure, err := parseDuration(g.Capacity.Measure, DefaultCapacityMeasure)
+	measureDuration, err := parseDuration(cfg.Capacity.Measure, DefaultCapacityMeasure)
 	if err != nil {
 		return fmt.Errorf("capacity measure: %w", err)
 	}
-	if measure <= 0 {
-		return errors.New("capacity measure must be > 0")
-	}
-	g.Capacity.MeasureDuration = measure
+	cfg.Capacity.MeasureDuration = measureDuration
 
-	if strings.TrimSpace(g.Cooldown) != "" {
-		cooldown := strings.TrimSpace(g.Cooldown)
-		parsed, err := time.ParseDuration(cooldown)
-		if err != nil {
-			return fmt.Errorf("cooldown: %w", err)
+	// Validate servers
+	if len(cfg.Servers) == 0 {
+		return errors.New("no servers defined")
+	}
+
+	for i, server := range cfg.Servers {
+		if strings.TrimSpace(server.Name) == "" {
+			return fmt.Errorf("server[%d]: name is required", i)
 		}
-		if parsed < 0 {
-			return errors.New("cooldown must be >= 0")
+		if server.Port == 0 {
+			cfg.Servers[i].Port = DefaultPort
 		}
-		if parsed == 0 {
-			g.Cooldown = ""
-		} else {
-			g.Cooldown = parsed.String()
+		if server.Port < 0 || server.Port > 65535 {
+			return fmt.Errorf("server[%d]: port must be between 0 and 65535", i)
 		}
+	}
+
+	// Validate endpoints
+	if len(cfg.Endpoints) == 0 {
+		return errors.New("no endpoints defined")
+	}
+
+	for name := range cfg.Endpoints {
+		endpoint := cfg.Endpoints[name]
+		if err := applyEndpointDefaultsV2(name, &endpoint); err != nil {
+			return fmt.Errorf("endpoint %q: %w", name, err)
+		}
+		cfg.Endpoints[name] = endpoint
 	}
 
 	return nil
 }
 
-func applyEndpointDefaults(name string, e *EndpointConfig) error {
+func applyEndpointDefaultsV2(name string, e *EndpointConfigV2) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("endpoint name is required")
 	}
 
+	// Parse route shorthand "METHOD /path" into separate fields
+	if route := strings.TrimSpace(e.Route); route != "" {
+		parts := strings.SplitN(route, " ", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid route format %q, expected \"METHOD /path\"", route)
+		}
+		e.Method = strings.TrimSpace(parts[0])
+		e.Path = strings.TrimSpace(parts[1])
+	}
+
 	if strings.TrimSpace(e.Path) == "" {
-		return errors.New("path is required")
+		return errors.New("path is required (use route or path field)")
 	}
 	if !strings.HasPrefix(e.Path, "/") {
 		e.Path = "/" + e.Path
@@ -335,46 +324,27 @@ func applyEndpointDefaults(name string, e *EndpointConfig) error {
 		return fmt.Errorf("invalid method %q", e.Method)
 	}
 
-	if e.ExpectedStatus == 0 {
-		e.ExpectedStatus = DefaultStatus
+	if e.Expect.Status == 0 {
+		e.Expect.Status = DefaultStatus
 	}
 
-	if e.ExpectedStatus < 100 || e.ExpectedStatus > 599 {
-		return errors.New("expected_status must be between 100 and 599")
+	if e.Expect.Status < 100 || e.Expect.Status > 599 {
+		return errors.New("expect.status must be between 100 and 599")
 	}
 
-	if e.ExpectedBody == nil && e.ExpectedText == "" {
-		return errors.New("expected_body or expected_text is required")
-	}
-
-	for i := range e.TestCases {
-		if err := applyTestCaseDefaults(i, &e.TestCases[i]); err != nil {
-			return fmt.Errorf("test_case[%d]: %w", i, err)
+	// Validate flow config if present
+	if e.Flow != nil {
+		if strings.TrimSpace(e.Flow.Id) == "" {
+			return errors.New("flow.id is required when flow is specified")
 		}
-	}
-
-	if strings.TrimSpace(e.File) == "" && e.File != "" {
-		return errors.New("file filename is required")
-	}
-
-	return nil
-}
-
-func applyTestCaseDefaults(index int, tc *TestCaseConfig) error {
-	if tc.Name == "" {
-		tc.Name = fmt.Sprintf("test_case_%d", index)
-	}
-
-	if tc.Path != "" && !strings.HasPrefix(tc.Path, "/") {
-		tc.Path = "/" + tc.Path
-	}
-
-	if tc.ExpectedStatus != 0 && (tc.ExpectedStatus < 100 || tc.ExpectedStatus > 599) {
-		return errors.New("expected_status override must be between 100 and 599")
-	}
-
-	if strings.TrimSpace(tc.File) == "" && tc.File != "" {
-		return errors.New("file filename is required")
+		for varName, varCfg := range e.Flow.Vars {
+			if varCfg.Type != "email" && varCfg.Type != "int" {
+				return fmt.Errorf("flow.vars.%s: type must be \"email\" or \"int\"", varName)
+			}
+			if varCfg.Type == "int" && varCfg.Max < varCfg.Min {
+				return fmt.Errorf("flow.vars.%s: max must be >= min", varName)
+			}
+		}
 	}
 
 	return nil
