@@ -35,6 +35,7 @@
     "lineEnding": "auto"
   },
   "javascript": {
+    "parser": { "unsafeParameterDecoratorsEnabled": true },
     "formatter": {
       "arrowParentheses": "always",
       "bracketSameLine": true,
