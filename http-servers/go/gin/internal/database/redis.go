@@ -173,11 +173,11 @@ func (r *RedisRepository) DeleteAll() error {
 func (r *RedisRepository) HealthCheck() (bool, error) {
 	ctx := context.Background()
 	if err := r.connect(); err != nil {
-		return false, nil
+		return false, err
 	}
 
 	_, err := r.client.Ping(ctx).Result()
-	return err == nil, nil
+	return err == nil, err
 }
 
 func (r *RedisRepository) Disconnect() error {

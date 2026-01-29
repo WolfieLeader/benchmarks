@@ -145,7 +145,7 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		Network:     network,
 	}
 
-	containerId, err := container.StartWithOptions(ctx, time.Minute, options)
+	containerId, err := container.StartWithOptions(ctx, time.Minute, &options)
 	if err != nil {
 		result.SetError(fmt.Errorf("failed to start container: %w", err))
 		return result

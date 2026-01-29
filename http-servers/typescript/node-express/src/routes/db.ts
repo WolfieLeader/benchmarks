@@ -1,4 +1,3 @@
-import type { RequestHandler } from "express";
 import { Router } from "express";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
 import { type UserRepository, resolveRepository } from "../database/repository";
@@ -11,16 +10,6 @@ declare global {
     }
   }
 }
-
-const withRepository: RequestHandler<{ database: string }> = (req, res, next) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-  req.repository = repository;
-  next();
-};
 
 export const dbRouter = Router();
 

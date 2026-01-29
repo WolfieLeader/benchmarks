@@ -25,7 +25,7 @@ type StartOptions struct {
 	Network     string
 }
 
-func StartWithOptions(ctx context.Context, timeout time.Duration, opts StartOptions) (Id, error) {
+func StartWithOptions(ctx context.Context, timeout time.Duration, opts *StartOptions) (Id, error) {
 	startCtx, startCancel := context.WithTimeout(ctx, timeout)
 	defer startCancel()
 

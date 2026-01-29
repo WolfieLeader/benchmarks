@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -88,7 +89,7 @@ func (r *MongoRepository) FindById(id string) (*User, error) {
 	var doc userDocument
 	err := r.collection.FindOne(ctx, bson.M{"_id": oid}).Decode(&doc)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, err
@@ -127,7 +128,7 @@ func (r *MongoRepository) Update(id string, data *UpdateUser) (*User, error) {
 	var doc userDocument
 	err := r.collection.FindOneAndUpdate(ctx, bson.M{"_id": oid}, bson.M{"$set": updateFields}, opts).Decode(&doc)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, err
@@ -168,11 +169,11 @@ func (r *MongoRepository) DeleteAll() error {
 func (r *MongoRepository) HealthCheck() (bool, error) {
 	ctx := context.Background()
 	if err := r.connect(ctx); err != nil {
-		return false, nil
+		return false, err
 	}
 
 	err := r.database.RunCommand(ctx, bson.M{"ping": 1}).Err()
-	return err == nil, nil
+	return err == nil, err
 }
 
 func (r *MongoRepository) Disconnect() error {

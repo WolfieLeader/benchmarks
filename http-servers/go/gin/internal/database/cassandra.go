@@ -1,6 +1,9 @@
 package database
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
 )
@@ -76,7 +79,7 @@ func (r *CassandraRepository) FindById(id string) (*User, error) {
 	var favoriteNumber *int
 
 	if err := r.session.Query(query, id).Scan(&userId, &name, &email, &favoriteNumber); err != nil {
-		if err == gocql.ErrNotFound {
+		if errors.Is(err, gocql.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -123,14 +126,16 @@ func (r *CassandraRepository) Update(id string, data *UpdateUser) (*User, error)
 	}
 
 	params = append(params, id)
-	query := "UPDATE users SET "
+	var sb strings.Builder
+	sb.WriteString("UPDATE users SET ")
 	for i, clause := range setClauses {
 		if i > 0 {
-			query += ", "
+			sb.WriteString(", ")
 		}
-		query += clause
+		sb.WriteString(clause)
 	}
-	query += " WHERE id = ?"
+	sb.WriteString(" WHERE id = ?")
+	query := sb.String()
 
 	if err := r.session.Query(query, params...).Exec(); err != nil {
 		return nil, err
@@ -170,11 +175,11 @@ func (r *CassandraRepository) DeleteAll() error {
 
 func (r *CassandraRepository) HealthCheck() (bool, error) {
 	if err := r.connect(); err != nil {
-		return false, nil
+		return false, err
 	}
 
 	err := r.session.Query(`SELECT now() FROM system.local`).Exec()
-	return err == nil, nil
+	return err == nil, err
 }
 
 func (r *CassandraRepository) Disconnect() error {

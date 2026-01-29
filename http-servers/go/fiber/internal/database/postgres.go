@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"fiber-server/internal/database/sqlc"
@@ -114,7 +115,7 @@ func (r *PostgresRepository) FindById(id string) (*User, error) {
 
 	user, err := r.queries.GetUserById(ctx, pgId)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -144,7 +145,7 @@ func (r *PostgresRepository) Update(id string, data *UpdateUser) (*User, error) 
 		FavoriteNumber: intToInt32Ptr(data.FavoriteNumber),
 	})
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
