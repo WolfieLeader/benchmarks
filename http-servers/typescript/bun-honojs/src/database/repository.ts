@@ -1,4 +1,4 @@
-import { env } from "~/consts/env";
+import { env } from "~/config/env";
 import { CassandraUserRepository } from "./cassandra";
 import { MongoUserRepository } from "./mongodb";
 import { PostgresUserRepository } from "./postgres";
@@ -28,8 +28,8 @@ const repositoryFactories: Record<DatabaseType, () => UserRepository> = {
     new CassandraUserRepository({
       contactPoints: env.CASSANDRA_CONTACT_POINTS,
       localDataCenter: env.CASSANDRA_LOCAL_DATACENTER,
-      keyspace: env.CASSANDRA_KEYSPACE
-    })
+      keyspace: env.CASSANDRA_KEYSPACE,
+    }),
 };
 
 export function isDatabaseType(value: string): value is DatabaseType {

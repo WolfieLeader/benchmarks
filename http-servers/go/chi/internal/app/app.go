@@ -34,6 +34,7 @@ func New() *App {
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })
+	r.Route("/db", func(r chi.Router) { routes.RegisterDb(r, env) })
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)

@@ -1,17 +1,41 @@
+import type { RequestHandler } from "express";
 import { Router } from "express";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
-import { resolveRepository } from "../database/repository";
+import { type UserRepository, resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
-export const dbRouter = Router();
+declare global {
+  namespace Express {
+    interface Request {
+      repository: UserRepository;
+    }
+  }
+}
 
-dbRouter.post("/:database/users", async (req, res) => {
+const withRepository: RequestHandler<{ database: string }> = (req, res, next) => {
   const repository = resolveRepository(req.params.database);
   if (!repository) {
     res.status(404).json({ error: NOT_FOUND });
     return;
   }
+  req.repository = repository;
+  next();
+};
 
+export const dbRouter = Router();
+
+// Apply middleware to all routes with :database param
+dbRouter.param("database", (req, res, next, database) => {
+  const repository = resolveRepository(database);
+  if (!repository) {
+    res.status(404).json({ error: NOT_FOUND });
+    return;
+  }
+  req.repository = repository;
+  next();
+});
+
+dbRouter.post("/:database/users", async (req, res) => {
   const parsed = zCreateUser.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: INVALID_JSON_BODY });
@@ -19,7 +43,7 @@ dbRouter.post("/:database/users", async (req, res) => {
   }
 
   try {
-    const user = await repository.create(parsed.data);
+    const user = await req.repository.create(parsed.data);
     res.status(201).json(user);
   } catch {
     res.status(500).json({ error: INTERNAL_ERROR });
@@ -27,14 +51,8 @@ dbRouter.post("/:database/users", async (req, res) => {
 });
 
 dbRouter.get("/:database/users/:id", async (req, res) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-
   try {
-    const user = await repository.findById(req.params.id);
+    const user = await req.repository.findById(req.params.id);
     if (!user) {
       res.status(404).json({ error: NOT_FOUND });
       return;
@@ -46,12 +64,6 @@ dbRouter.get("/:database/users/:id", async (req, res) => {
 });
 
 dbRouter.patch("/:database/users/:id", async (req, res) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-
   const parsed = zUpdateUser.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: INVALID_JSON_BODY });
@@ -59,7 +71,7 @@ dbRouter.patch("/:database/users/:id", async (req, res) => {
   }
 
   try {
-    const user = await repository.update(req.params.id, parsed.data);
+    const user = await req.repository.update(req.params.id, parsed.data);
     if (!user) {
       res.status(404).json({ error: NOT_FOUND });
       return;
@@ -71,14 +83,8 @@ dbRouter.patch("/:database/users/:id", async (req, res) => {
 });
 
 dbRouter.delete("/:database/users/:id", async (req, res) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-
   try {
-    const deleted = await repository.delete(req.params.id);
+    const deleted = await req.repository.delete(req.params.id);
     if (!deleted) {
       res.status(404).json({ error: NOT_FOUND });
       return;
@@ -90,14 +96,8 @@ dbRouter.delete("/:database/users/:id", async (req, res) => {
 });
 
 dbRouter.delete("/:database/users", async (req, res) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-
   try {
-    await repository.deleteAll();
+    await req.repository.deleteAll();
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: INTERNAL_ERROR });
@@ -105,14 +105,8 @@ dbRouter.delete("/:database/users", async (req, res) => {
 });
 
 dbRouter.get("/:database/health", async (req, res) => {
-  const repository = resolveRepository(req.params.database);
-  if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
-    return;
-  }
-
   try {
-    const healthy = await repository.healthCheck();
+    const healthy = await req.repository.healthCheck();
     if (!healthy) {
       res.status(503).json({ error: "database unavailable" });
       return;

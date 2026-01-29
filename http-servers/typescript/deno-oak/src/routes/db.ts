@@ -1,21 +1,39 @@
+import type { RouterMiddleware } from "@oak/oak";
 import { Router } from "@oak/oak";
 import {
   INTERNAL_ERROR,
   INVALID_JSON_BODY,
   NOT_FOUND,
 } from "../consts/errors.ts";
-import { resolveRepository } from "../database/repository.ts";
+import {
+  resolveRepository,
+  type UserRepository,
+} from "../database/repository.ts";
 import { zCreateUser, zUpdateUser } from "../database/types.ts";
 
-export const dbRoutes = new Router();
+type DbState = { repository: UserRepository };
 
-dbRoutes.post("/:database/users", async (ctx) => {
+const withRepository: RouterMiddleware<
+  "/:database/:path*",
+  { database: string },
+  DbState
+> = async (ctx, next) => {
   const repository = resolveRepository(ctx.params.database);
   if (!repository) {
     ctx.response.status = 404;
     ctx.response.body = { error: NOT_FOUND };
     return;
   }
+  ctx.state.repository = repository;
+  await next();
+};
+
+export const dbRoutes = new Router<DbState>();
+
+dbRoutes.use("/:database/:path*", withRepository);
+
+dbRoutes.post("/:database/users", async (ctx) => {
+  const { repository } = ctx.state;
 
   let body: unknown;
   try {
@@ -44,12 +62,7 @@ dbRoutes.post("/:database/users", async (ctx) => {
 });
 
 dbRoutes.get("/:database/users/:id", async (ctx) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = { error: NOT_FOUND };
-    return;
-  }
+  const { repository } = ctx.state;
 
   try {
     const user = await repository.findById(ctx.params.id);
@@ -66,12 +79,7 @@ dbRoutes.get("/:database/users/:id", async (ctx) => {
 });
 
 dbRoutes.patch("/:database/users/:id", async (ctx) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = { error: NOT_FOUND };
-    return;
-  }
+  const { repository } = ctx.state;
 
   let body: unknown;
   try {
@@ -104,12 +112,7 @@ dbRoutes.patch("/:database/users/:id", async (ctx) => {
 });
 
 dbRoutes.delete("/:database/users/:id", async (ctx) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = { error: NOT_FOUND };
-    return;
-  }
+  const { repository } = ctx.state;
 
   try {
     const deleted = await repository.delete(ctx.params.id);
@@ -126,12 +129,7 @@ dbRoutes.delete("/:database/users/:id", async (ctx) => {
 });
 
 dbRoutes.delete("/:database/users", async (ctx) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = { error: NOT_FOUND };
-    return;
-  }
+  const { repository } = ctx.state;
 
   try {
     await repository.deleteAll();
@@ -143,12 +141,7 @@ dbRoutes.delete("/:database/users", async (ctx) => {
 });
 
 dbRoutes.get("/:database/health", async (ctx) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = { error: NOT_FOUND };
-    return;
-  }
+  const { repository } = ctx.state;
 
   try {
     const healthy = await repository.healthCheck();

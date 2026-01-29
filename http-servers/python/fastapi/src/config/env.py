@@ -16,6 +16,13 @@ class Env(BaseModel):
     ENV: Literal["dev", "prod"] = "dev"
     HOST: str = "0.0.0.0"
     PORT: int = 4001
+    POSTGRES_URL: str = "postgres://postgres:postgres@localhost:5432/benchmarks"
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_DB: str = "benchmarks"
+    REDIS_URL: str = "redis://localhost:6379"
+    CASSANDRA_CONTACT_POINTS: list[str] = ["localhost"]
+    CASSANDRA_LOCAL_DATACENTER: str = "datacenter1"
+    CASSANDRA_KEYSPACE: str = "benchmarks"
 
     @field_validator("HOST", mode="before")
     @classmethod
@@ -57,6 +64,15 @@ class Env(BaseModel):
         if value < 1 or value > 65535:
             raise ValueError("PORT must be an integer between 1 and 65535")
         return value
+
+    @field_validator("CASSANDRA_CONTACT_POINTS", mode="before")
+    @classmethod
+    def parse_contact_points(cls, value: str | list[str] | None) -> list[str]:
+        if value is None:
+            return ["localhost"]
+        if isinstance(value, list):
+            return value
+        return [cp.strip() for cp in value.split(",") if cp.strip()]
 
 
 env = Env.model_validate(os.environ)

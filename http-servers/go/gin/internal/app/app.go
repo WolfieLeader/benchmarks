@@ -30,6 +30,7 @@ func New() *App {
 		c.JSON(200, gin.H{"message": "Hello World"})
 	})
 	routes.RegisterParams(r.Group("/params"))
+	routes.RegisterDb(r.Group("/db"), env)
 
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"error": consts.ErrNotFound})

@@ -6,6 +6,7 @@ import { zCreateUser, zUpdateUser } from "./database/types";
 @Controller("db")
 export class DbController {
   @Post(":database/users")
+  @HttpCode(201)
   async create(@Param("database") database: string, @Body() body: unknown) {
     const repository = resolveRepository(database);
     if (!repository) {
@@ -18,8 +19,7 @@ export class DbController {
     }
 
     try {
-      const user = await repository.create(parsed.data);
-      throw new HttpException(user, HttpStatus.CREATED);
+      return await repository.create(parsed.data);
     } catch (err) {
       if (err instanceof HttpException) throw err;
       throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);

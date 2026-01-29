@@ -1,16 +1,27 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
-import { resolveRepository } from "../database/repository";
+import { type UserRepository, resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
+declare module "fastify" {
+  interface FastifyRequest {
+    repository: UserRepository;
+  }
+}
+
 export const dbRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post<{ Params: { database: string } }>("/:database/users", async (request, reply) => {
+  fastify.decorateRequest("repository", null);
+
+  fastify.addHook("preHandler", async (request: FastifyRequest<{ Params: { database: string } }>, reply) => {
     const repository = resolveRepository(request.params.database);
     if (!repository) {
       reply.code(404);
-      return { error: NOT_FOUND };
+      return reply.send({ error: NOT_FOUND });
     }
+    request.repository = repository;
+  });
 
+  fastify.post<{ Params: { database: string } }>("/:database/users", async (request, reply) => {
     const parsed = zCreateUser.safeParse(request.body);
     if (!parsed.success) {
       reply.code(400);
@@ -18,7 +29,7 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const user = await repository.create(parsed.data);
+      const user = await request.repository.create(parsed.data);
       reply.code(201);
       return user;
     } catch {
@@ -28,14 +39,8 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.get<{ Params: { database: string; id: string } }>("/:database/users/:id", async (request, reply) => {
-    const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(404);
-      return { error: NOT_FOUND };
-    }
-
     try {
-      const user = await repository.findById(request.params.id);
+      const user = await request.repository.findById(request.params.id);
       if (!user) {
         reply.code(404);
         return { error: NOT_FOUND };
@@ -48,12 +53,6 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.patch<{ Params: { database: string; id: string } }>("/:database/users/:id", async (request, reply) => {
-    const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(404);
-      return { error: NOT_FOUND };
-    }
-
     const parsed = zUpdateUser.safeParse(request.body);
     if (!parsed.success) {
       reply.code(400);
@@ -61,7 +60,7 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const user = await repository.update(request.params.id, parsed.data);
+      const user = await request.repository.update(request.params.id, parsed.data);
       if (!user) {
         reply.code(404);
         return { error: NOT_FOUND };
@@ -74,14 +73,8 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { database: string; id: string } }>("/:database/users/:id", async (request, reply) => {
-    const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(404);
-      return { error: NOT_FOUND };
-    }
-
     try {
-      const deleted = await repository.delete(request.params.id);
+      const deleted = await request.repository.delete(request.params.id);
       if (!deleted) {
         reply.code(404);
         return { error: NOT_FOUND };
@@ -94,14 +87,8 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { database: string } }>("/:database/users", async (request, reply) => {
-    const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(404);
-      return { error: NOT_FOUND };
-    }
-
     try {
-      await repository.deleteAll();
+      await request.repository.deleteAll();
       return { success: true };
     } catch {
       reply.code(500);
@@ -110,14 +97,8 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.get<{ Params: { database: string } }>("/:database/health", async (request, reply) => {
-    const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(404);
-      return { error: NOT_FOUND };
-    }
-
     try {
-      const healthy = await repository.healthCheck();
+      const healthy = await request.repository.healthCheck();
       if (!healthy) {
         reply.code(503);
         return { error: "database unavailable" };

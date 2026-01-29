@@ -15,7 +15,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import multer from "multer";
 import { MAX_FILE_BYTES } from "../consts/defaults";
-import type { ParamsService } from "./params.service";
+import { ParamsService } from "./params.service";
 
 @Controller("params")
 export class ParamsController {

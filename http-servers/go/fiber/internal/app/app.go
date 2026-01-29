@@ -37,6 +37,7 @@ func New() *App {
 	})
 
 	routes.RegisterParams(r.Group("/params"))
+	routes.RegisterDb(r.Group("/db"), env)
 
 	r.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
