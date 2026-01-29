@@ -1,199 +1,141 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Benchmark Configuration",
+  "title": "Benchmark Configuration v2",
   "type": "object",
-  "required": ["global", "server_images", "endpoints"],
+  "required": ["benchmark", "container", "servers", "endpoints"],
   "additionalProperties": false,
   "properties": {
-    "$schema": {
-      "type": "string"
-    },
-    "global": {
+    "$schema": { "type": "string" },
+    "benchmark": {
       "type": "object",
-      "required": ["base_url", "workers", "requests_per_endpoint", "timeout"],
+      "required": ["workers", "requests", "timeout"],
       "additionalProperties": false,
       "properties": {
-        "base_url": {
-          "type": "string",
-          "format": "uri",
-          "description": "Base URL for all benchmark requests"
-        },
-        "workers": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of concurrent workers"
-        },
-        "requests_per_endpoint": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of requests per endpoint"
-        },
-        "timeout": {
-          "type": "string",
-          "pattern": "^[0-9]+(ms|s|m)$",
-          "description": "Request timeout (e.g. 10s, 100ms)"
-        },
-        "cooldown": {
-          "type": "string",
-          "pattern": "^[0-9]+(ms|s|m)$",
-          "description": "Cooldown between servers"
-        },
-        "cpu_limit": {
-          "type": "string",
-          "description": "Docker CPU limit (e.g. 2.0)"
-        },
-        "memory_limit": {
-          "type": "string",
-          "description": "Docker memory limit (e.g. 1gb)"
-        },
-        "warmup_requests_per_testcase": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of warmup requests per testcase (warmup enabled via CLI)"
-        },
-        "capacity": {
-          "type": "object",
-          "description": "Capacity testing configuration (enabled via CLI at runtime)",
-          "additionalProperties": false,
-          "properties": {
-            "min_workers": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Starting worker count for growth phase"
-            },
-            "max_workers": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Maximum worker count to test"
-            },
-            "precision": {
-              "type": "string",
-              "pattern": "^[0-9]+(\\.[0-9]+)?%$",
-              "description": "Stop binary search when range is within this percentage (e.g. 5%)"
-            },
-            "success_rate": {
-              "type": "string",
-              "pattern": "^[0-9]+(\\.[0-9]+)?%$",
-              "description": "Minimum success rate to pass (e.g. 99%)"
-            },
-            "p99_threshold": {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m)$",
-              "description": "Maximum p99 latency to pass (e.g. 50ms)"
-            },
-            "warmup": {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m)$",
-              "description": "Warmup duration per iteration (e.g. 2s, 500ms)"
-            },
-            "measure": {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m)$",
-              "description": "Measurement duration per iteration (e.g. 10s, 5s)"
-            }
-          }
-        }
+        "base_url": { "type": "string", "format": "uri" },
+        "workers": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "requests": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+        "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "cooldown": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "warmup": { "type": "integer", "minimum": 0 }
       }
     },
-    "server_images": {
+    "container": {
       "type": "object",
-      "additionalProperties": {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 65535
+      "required": ["cpu", "memory"],
+      "additionalProperties": false,
+      "properties": {
+        "cpu": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%?$" },
+        "memory": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?([kKmMgG][bB]?)?$" }
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_workers": { "type": "integer", "minimum": 1 },
+        "max_workers": { "type": "integer", "minimum": 1 },
+        "precision": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%$" },
+        "success_rate": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%$" },
+        "p99_threshold": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "warmup": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "measure": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" }
+      }
+    },
+    "databases": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "port"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        }
       },
-      "description": "Map of Docker image name to container port (e.g. 'node-express': 3001)"
+      "minItems": 1
     },
     "endpoints": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/endpoint"
-      }
+      "additionalProperties": { "$ref": "#/$defs/endpoint" }
     }
   },
   "$defs": {
     "endpoint": {
       "type": "object",
-      "required": ["method", "path"],
+      "required": ["expect"],
+      "additionalProperties": false,
       "properties": {
-        "method": {
-          "type": "string",
-          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
-        },
-        "path": {
-          "type": "string"
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "query": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
+        "route": { "type": "string", "pattern": "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS) /.*$" },
+        "path": { "type": "string", "pattern": "^/.*$" },
+        "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"] },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "query": { "type": "object", "additionalProperties": { "type": "string" } },
         "body": {},
-        "form_data": {
+        "form_data": { "type": "object", "additionalProperties": { "type": "string" } },
+        "file": { "type": "string" },
+        "expect": { "$ref": "#/$defs/expect" },
+        "per_database": { "type": "boolean" },
+        "variations": { "type": "array", "items": { "$ref": "#/$defs/variation" } },
+        "flow": { "$ref": "#/$defs/flow" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "body": {},
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "text": { "type": "string" }
+      }
+    },
+    "variation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^/.*$" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "query": { "type": "object", "additionalProperties": { "type": "string" } },
+        "body": {},
+        "form_data": { "type": "object", "additionalProperties": { "type": "string" } },
+        "file": { "type": "string" },
+        "expect": { "$ref": "#/$defs/expect" }
+      }
+    },
+    "flow": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "capture": {
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "file": {
-          "type": "string"
-        },
-        "expected_status": {
-          "type": "integer"
-        },
-        "expected_headers": {
+        "vars": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "expected_body": {},
-        "expected_text": {
-          "type": "string"
-        },
-        "test_cases": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/test_case"
-          }
+          "additionalProperties": { "$ref": "#/$defs/varConfig" }
         }
       }
     },
-    "test_case": {
+    "varConfig": {
       "type": "object",
-      "required": ["name"],
+      "required": ["type"],
+      "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "query": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "body": {},
-        "form_data": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "file": {
-          "type": "string"
-        },
-        "expected_status": {
-          "type": "integer"
-        },
-        "expected_headers": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "expected_body": {},
-        "expected_text": {
-          "type": "string"
+        "type": { "type": "string", "enum": ["email", "int"] },
+        "min": { "type": "integer" },
+        "max": { "type": "integer" },
+        "optional": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number", "minimum": 0, "maximum": 1 }
+          ]
         }
       }
     }

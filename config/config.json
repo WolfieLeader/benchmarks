@@ -1,274 +1,176 @@
 {
   "$schema": "./config.schema.json",
-  "global": {
+
+  "benchmark": {
     "base_url": "http://localhost:8080",
     "workers": 50,
-    "requests_per_endpoint": 5000,
+    "requests": 5000,
     "timeout": "10s",
     "cooldown": "1s",
-    "cpu_limit": "2.0",
-    "memory_limit": "1gb",
-    "warmup_requests_per_testcase": 50,
-    "capacity": {
-      "min_workers": 1,
-      "max_workers": 4096,
-      "precision": "1%",
-      "success_rate": "95%",
-      "p99_threshold": "50ms",
-      "warmup": "2s",
-      "measure": "5s"
-    }
+    "warmup": 50
   },
-  "server_images": {
-    "node-express": 3001,
-    "node-nestjs": 3002,
-    "node-fastify": 3003,
-    "deno-oak": 3004,
-    "bun-honojs": 3005,
-    "bun-elysia": 3006,
-    "python-fastapi": 4001,
-    "go-chi": 5001,
-    "go-gin": 5002,
-    "go-fiber": 5003
+
+  "container": {
+    "cpu": "2.0",
+    "memory": "1gb"
   },
+
+  "capacity": {
+    "min_workers": 1,
+    "max_workers": 4096,
+    "precision": "1%",
+    "success_rate": "95%",
+    "p99_threshold": "50ms",
+    "warmup": "2s",
+    "measure": "10s"
+  },
+
+  "databases": ["postgres", "mongodb", "redis", "cassandra"],
+
+  "servers": [
+    { "name": "node-express", "port": 3001 },
+    { "name": "node-nestjs", "port": 3002 },
+    { "name": "node-fastify", "port": 3003 },
+    { "name": "deno-oak", "port": 3004 },
+    { "name": "bun-honojs", "port": 3005 },
+    { "name": "bun-elysia", "port": 3006 },
+    { "name": "python-fastapi", "port": 4001 },
+    { "name": "go-chi", "port": 5001 },
+    { "name": "go-gin", "port": 5002 },
+    { "name": "go-fiber", "port": 5003 }
+  ],
+
   "endpoints": {
     "root": {
-      "path": "/",
-      "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "message": "Hello World" }
+      "route": "GET /",
+      "expect": { "status": 200, "body": { "message": "Hello World" } }
     },
+
     "health": {
-      "path": "/health",
-      "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "status": "healthy" }
+      "route": "GET /health",
+      "expect": { "status": 200, "body": { "status": "healthy" } }
     },
+
     "params_search": {
       "path": "/params/search",
       "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "search": "none", "limit": 10 },
-      "test_cases": [
-        { "name": "default" },
-        {
-          "name": "custom_query",
-          "query": { "q": "hello", "limit": "5" },
-          "expected_body": { "search": "hello", "limit": 5 }
-        },
-        {
-          "name": "query_with_spaces",
-          "query": { "q": "  trimmed  ", "limit": "20" },
-          "expected_body": { "search": "trimmed", "limit": 20 }
-        },
-        {
-          "name": "invalid_limit_uses_default",
-          "query": { "q": "test", "limit": "abc" },
-          "expected_body": { "search": "test", "limit": 10 }
-        }
+      "expect": { "status": 200, "body": { "search": "none", "limit": 10 } },
+      "variations": [
+        { "query": { "q": "hello", "limit": "5" }, "expect": { "body": { "search": "hello", "limit": 5 } } },
+        { "query": { "q": "  trimmed  ", "limit": "20" }, "expect": { "body": { "search": "trimmed", "limit": 20 } } },
+        { "query": { "q": "test", "limit": "abc" }, "expect": { "body": { "search": "test", "limit": 10 } } }
       ]
     },
+
     "params_url": {
       "path": "/params/url/testvalue",
       "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "dynamic": "testvalue" },
-      "test_cases": [
-        { "name": "default" },
-        {
-          "name": "numeric_value",
-          "path": "/params/url/12345",
-          "expected_body": { "dynamic": "12345" }
-        },
-        {
-          "name": "special_chars",
-          "path": "/params/url/hello-world_123",
-          "expected_body": { "dynamic": "hello-world_123" }
-        }
+      "expect": { "status": 200, "body": { "dynamic": "testvalue" } },
+      "variations": [
+        { "path": "/params/url/12345", "expect": { "body": { "dynamic": "12345" } } },
+        { "path": "/params/url/hello-world_123", "expect": { "body": { "dynamic": "hello-world_123" } } }
       ]
     },
+
     "params_header": {
       "path": "/params/header",
       "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "header": "none" },
-      "test_cases": [
-        { "name": "default" },
-        {
-          "name": "custom_header",
-          "headers": { "X-Custom-Header": "my-custom-value" },
-          "expected_body": { "header": "my-custom-value" }
-        },
-        {
-          "name": "header_with_spaces",
-          "headers": { "X-Custom-Header": "  trimmed  " },
-          "expected_body": { "header": "trimmed" }
-        }
+      "expect": { "status": 200, "body": { "header": "none" } },
+      "variations": [
+        { "headers": { "X-Custom-Header": "my-custom-value" }, "expect": { "body": { "header": "my-custom-value" } } },
+        { "headers": { "X-Custom-Header": "  trimmed  " }, "expect": { "body": { "header": "trimmed" } } }
       ]
     },
+
     "params_body": {
       "path": "/params/body",
       "method": "POST",
       "body": { "key": "value" },
-      "expected_status": 200,
-      "expected_body": { "body": { "key": "value" } },
-      "test_cases": [
-        { "name": "default" },
+      "expect": { "status": 200, "body": { "body": { "key": "value" } } },
+      "variations": [
         {
-          "name": "nested_object",
           "body": { "user": { "name": "John", "age": 30 } },
-          "expected_body": { "body": { "user": { "name": "John", "age": 30 } } }
+          "expect": { "body": { "body": { "user": { "name": "John", "age": 30 } } } }
         },
-        {
-          "name": "object_with_array",
-          "body": { "items": ["a", "b", "c"] },
-          "expected_body": { "body": { "items": ["a", "b", "c"] } }
-        }
+        { "body": { "items": ["a", "b", "c"] }, "expect": { "body": { "body": { "items": ["a", "b", "c"] } } } }
       ]
     },
+
     "params_cookie": {
       "path": "/params/cookie",
       "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "cookie": "none" },
-      "test_cases": [
-        { "name": "default" },
-        {
-          "name": "with_cookie",
-          "headers": { "Cookie": "foo=bar" },
-          "expected_body": { "cookie": "bar" }
-        },
-        {
-          "name": "cookie_with_spaces",
-          "headers": { "Cookie": "foo=  spaced  " },
-          "expected_body": { "cookie": "spaced" }
-        }
+      "expect": { "status": 200, "body": { "cookie": "none" } },
+      "variations": [
+        { "headers": { "Cookie": "foo=bar" }, "expect": { "body": { "cookie": "bar" } } },
+        { "headers": { "Cookie": "foo=  spaced  " }, "expect": { "body": { "cookie": "spaced" } } }
       ]
     },
+
     "params_form": {
       "path": "/params/form",
       "method": "POST",
       "form_data": { "name": "John", "age": "25" },
-      "expected_status": 200,
-      "expected_body": { "name": "John", "age": 25 },
-      "test_cases": [
-        { "name": "default" },
-        {
-          "name": "form_with_spaces",
-          "form_data": { "name": "  Jane  ", "age": "30" },
-          "expected_body": { "name": "Jane", "age": 30 }
-        }
+      "expect": { "status": 200, "body": { "name": "John", "age": 25 } },
+      "variations": [
+        { "form_data": { "name": "  Jane  ", "age": "30" }, "expect": { "body": { "name": "Jane", "age": 30 } } }
       ]
     },
+
     "params_file": {
       "path": "/params/file",
       "method": "POST",
       "file": "test.txt",
-      "expected_status": 200,
-      "expected_body": {
-        "filename": "test.txt",
-        "size": 14,
-        "content": "Hello, World!\n"
-      },
-      "test_cases": [
-        { "name": "default" },
+      "expect": { "status": 200, "body": { "filename": "test.txt", "size": 14, "content": "Hello, World!\n" } },
+      "variations": [
         {
-          "name": "multiline_file",
           "file": "multi.txt",
-          "expected_body": {
-            "filename": "multi.txt",
-            "size": 21,
-            "content": "Line 1\nLine 2\nLine 3\n"
-          }
+          "expect": { "body": { "filename": "multi.txt", "size": 21, "content": "Line 1\nLine 2\nLine 3\n" } }
         }
       ]
     },
+
     "db_health": {
-      "path": "/db/postgres/health",
+      "path": "/db/{database}/health",
       "method": "GET",
-      "expected_status": 200,
-      "expected_body": { "status": "healthy" },
-      "test_cases": [
-        { "name": "postgres" },
-        {
-          "name": "mongodb",
-          "path": "/db/mongodb/health"
-        },
-        {
-          "name": "redis",
-          "path": "/db/redis/health"
-        },
-        {
-          "name": "cassandra",
-          "path": "/db/cassandra/health"
-        },
-        {
-          "name": "invalid_database",
-          "path": "/db/invalid/health",
-          "expected_status": 404,
-          "expected_body": { "error": "not found" }
-        }
-      ]
+      "expect": { "status": 200, "body": { "status": "healthy" } },
+      "per_database": true
     },
-    "db_create": {
-      "path": "/db/postgres/users",
-      "method": "POST",
-      "body": { "name": "John Doe", "email": "john@example.com" },
-      "expected_status": 201,
-      "expected_body": { "name": "John Doe", "email": "john@example.com" },
-      "test_cases": [
-        { "name": "postgres" },
-        {
-          "name": "with_favorite_number",
-          "body": { "name": "Jane Doe", "email": "jane@example.com", "favoriteNumber": 42 },
-          "expected_body": { "name": "Jane Doe", "email": "jane@example.com", "favoriteNumber": 42 }
-        },
-        {
-          "name": "mongodb",
-          "path": "/db/mongodb/users"
-        },
-        {
-          "name": "redis",
-          "path": "/db/redis/users"
-        },
-        {
-          "name": "cassandra",
-          "path": "/db/cassandra/users"
-        },
-        {
-          "name": "invalid_body",
-          "body": { "invalid": "data" },
-          "expected_status": 400,
-          "expected_body": { "error": "invalid JSON body" }
-        },
-        {
-          "name": "invalid_email",
-          "body": { "name": "Test", "email": "not-an-email" },
-          "expected_status": 400,
-          "expected_body": { "error": "invalid JSON body" }
+
+    "crud_create": {
+      "route": "POST /db/{database}/users",
+      "body": { "name": "Test User", "email": "{unique_email}", "favoriteNumber": "{favorite_number}" },
+      "expect": { "status": 201, "body": { "email": "{unique_email}" } },
+      "per_database": true,
+      "flow": {
+        "id": "crud",
+        "capture": { "id": "id" },
+        "vars": {
+          "unique_email": { "type": "email" },
+          "favorite_number": { "type": "int", "min": 0, "max": 100, "optional": true }
         }
-      ]
+      }
     },
-    "db_delete_all": {
-      "path": "/db/postgres/users",
-      "method": "DELETE",
-      "expected_status": 200,
-      "expected_body": { "success": true },
-      "test_cases": [
-        { "name": "postgres" },
-        {
-          "name": "mongodb",
-          "path": "/db/mongodb/users"
-        },
-        {
-          "name": "redis",
-          "path": "/db/redis/users"
-        },
-        {
-          "name": "cassandra",
-          "path": "/db/cassandra/users"
-        }
-      ]
+
+    "crud_read": {
+      "route": "GET /db/{database}/users/{id}",
+      "expect": { "status": 200, "body": { "email": "{unique_email}" } },
+      "per_database": true,
+      "flow": { "id": "crud" }
+    },
+
+    "crud_update": {
+      "route": "PATCH /db/{database}/users/{id}",
+      "body": { "name": "Updated User" },
+      "expect": { "status": 200 },
+      "per_database": true,
+      "flow": { "id": "crud" }
+    },
+
+    "crud_delete": {
+      "route": "DELETE /db/{database}/users/{id}",
+      "expect": { "status": 200 },
+      "per_database": true,
+      "flow": { "id": "crud" }
     }
   }
 }
