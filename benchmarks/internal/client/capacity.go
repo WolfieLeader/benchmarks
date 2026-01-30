@@ -210,7 +210,7 @@ func (ct *CapacityTester) measure(httpClient *http.Client, workers int, duration
 	var p99 time.Duration
 	if len(latencies) > 0 {
 		slices.Sort(latencies)
-		p99 = percentile(latencies, 99)
+		p99 = Percentile(latencies, 99)
 	}
 
 	p99Ms := float64(p99) / float64(time.Millisecond)

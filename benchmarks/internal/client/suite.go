@@ -19,16 +19,6 @@ type Suite struct {
 	server     *config.ResolvedServer
 }
 
-type Stats struct {
-	Avg         time.Duration `json:"avg"`
-	High        time.Duration `json:"high"`
-	Low         time.Duration `json:"low"`
-	P50         time.Duration `json:"p50"`
-	P95         time.Duration `json:"p95"`
-	P99         time.Duration `json:"p99"`
-	SuccessRate float64       `json:"success_rate"`
-}
-
 func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
 	transport := NewHTTPTransport(server.Workers)
 
@@ -170,8 +160,6 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, failur
 	}()
 
 	var count int
-	var totalLatency, high, low time.Duration
-	low = time.Hour
 	latencies := make([]time.Duration, 0, iterations)
 
 	for r := range resultsCh {
@@ -182,38 +170,11 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, failur
 		}
 
 		count++
-		totalLatency += r.latency
-		high = max(high, r.latency)
-		low = min(low, r.latency)
 		latencies = append(latencies, r.latency)
 	}
 
-	var avg, p50, p95, p99 time.Duration
-	if count > 0 {
-		avg = totalLatency / time.Duration(count)
-		slices.Sort(latencies)
-		p50 = percentile(latencies, 50)
-		p95 = percentile(latencies, 95)
-		p99 = percentile(latencies, 99)
-	}
-	if low == time.Hour {
-		low = 0
-	}
-
-	var successRate float64
-	if iterations > 0 {
-		successRate = float64(count) / float64(iterations)
-	}
-
-	return &Stats{
-		Avg:         avg,
-		High:        high,
-		Low:         low,
-		P50:         p50,
-		P95:         p95,
-		P99:         p99,
-		SuccessRate: successRate,
-	}, failureCount, lastError
+	stats = CalculateStats(latencies, count, iterations)
+	return stats, failureCount, lastError
 }
 
 func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
@@ -247,23 +208,6 @@ func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
 	}
 
 	return latency, nil
-}
-
-func percentile(sorted []time.Duration, p int) time.Duration {
-	if len(sorted) == 0 {
-		return 0
-	}
-	if p <= 0 {
-		return sorted[0]
-	}
-	if p >= 100 {
-		return sorted[len(sorted)-1]
-	}
-	idx := (p * len(sorted)) / 100
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-	return sorted[idx]
 }
 
 // FlowStats contains statistics for a flow execution
@@ -385,9 +329,9 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 	if successes > 0 {
 		avgDuration = totalDuration / time.Duration(successes+failures)
 		slices.Sort(durations)
-		p50 = percentile(durations, 50)
-		p95 = percentile(durations, 95)
-		p99 = percentile(durations, 99)
+		p50 = Percentile(durations, 50)
+		p95 = Percentile(durations, 95)
+		p99 = Percentile(durations, 99)
 	}
 
 	var successRate float64
@@ -411,9 +355,9 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 			}
 			steps[i].Avg = stepTotal / time.Duration(len(stepDurations[i]))
 			slices.Sort(stepDurations[i])
-			steps[i].P50 = percentile(stepDurations[i], 50)
-			steps[i].P95 = percentile(stepDurations[i], 95)
-			steps[i].P99 = percentile(stepDurations[i], 99)
+			steps[i].P50 = Percentile(stepDurations[i], 50)
+			steps[i].P95 = Percentile(stepDurations[i], 95)
+			steps[i].P99 = Percentile(stepDurations[i], 99)
 		}
 	}
 
