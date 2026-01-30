@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"slices"
 	"sync"
@@ -129,17 +128,7 @@ func (ct *CapacityTester) testWorkers(workers int, iterations *int) (iterationSt
 }
 
 func (ct *CapacityTester) runIteration(workers int) (iterationStats, error) {
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:        workers * 2,
-		MaxIdleConnsPerHost: workers * 2,
-		IdleConnTimeout:     90 * time.Second,
-		DisableCompression:  true,
-		ForceAttemptHTTP2:   false,
-	}
+	transport := NewHTTPTransport(workers)
 	httpClient := &http.Client{Transport: transport}
 	defer transport.CloseIdleConnections()
 

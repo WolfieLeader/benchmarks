@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"slices"
 	"sync"
@@ -31,17 +30,7 @@ type Stats struct {
 }
 
 func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:        server.Workers * 2,
-		MaxIdleConnsPerHost: server.Workers * 2,
-		IdleConnTimeout:     90 * time.Second,
-		DisableCompression:  true,
-		ForceAttemptHTTP2:   false,
-	}
+	transport := NewHTTPTransport(server.Workers)
 
 	return &Suite{
 		ctx:        ctx,
