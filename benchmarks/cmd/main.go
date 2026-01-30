@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -181,13 +180,14 @@ func runServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
 
 	// Reset all databases before running tests
-	if err = resetDatabases(ctx, serverURL, databases); err != nil {
+	if err = database.ResetAll(ctx, serverURL, databases); err != nil {
 		if sampler != nil {
 			sampler.Stop()
 		}
 		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
 		return result
 	}
+	printer.Infof("Reset all databases")
 
 	// Benchmark duration should reflect warmup + measured requests, not container startup
 	result.StartTime = time.Now()
@@ -243,28 +243,6 @@ func findRootTestcase(server *config.ResolvedServer) *config.Testcase {
 			return tc
 		}
 	}
-	return nil
-}
-
-func resetDatabases(ctx context.Context, serverURL string, databases []string) error {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	for _, db := range databases {
-		resetURL := fmt.Sprintf("%s/db/%s/reset", serverURL, db)
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, resetURL, http.NoBody)
-		if err != nil {
-			return fmt.Errorf("reset %s: failed to create request: %w", db, err)
-		}
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("reset %s: %w", db, err)
-		}
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("reset %s: unexpected status %d", db, resp.StatusCode)
-		}
-	}
-	printer.Infof("Reset all databases")
 	return nil
 }
 
