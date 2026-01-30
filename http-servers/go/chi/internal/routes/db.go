@@ -59,18 +59,18 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	var data database.CreateUser
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	user, err := repo.Create(&data)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -83,7 +83,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	user, err := repo.FindById(id)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if user == nil {
@@ -99,19 +99,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	var data database.UpdateUser
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	id := chi.URLParam(r, "id")
 	user, err := repo.Update(id, &data)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if user == nil {
@@ -128,7 +128,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	deleted, err := repo.Delete(id)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if !deleted {
@@ -143,7 +143,7 @@ func deleteAllUsers(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	if err := repo.DeleteAll(); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -154,7 +154,7 @@ func resetDatabase(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	if err := repo.DeleteAll(); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal)
+		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -166,7 +166,11 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 
 	healthy, err := repo.HealthCheck()
 	if err != nil || !healthy {
-		utils.WriteError(w, http.StatusServiceUnavailable, "database unavailable")
+		details := ""
+		if err != nil {
+			details = err.Error()
+		}
+		utils.WriteError(w, http.StatusServiceUnavailable, "database unavailable", details)
 		return
 	}
 

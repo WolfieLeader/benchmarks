@@ -203,6 +203,7 @@ secrets.yaml
 # ============================================
 *.tmp
 *.temp
+bin/
 tmp/
 temp/
 .cache/

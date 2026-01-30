@@ -7,7 +7,8 @@ import {
   FILE_NOT_FOUND,
   FILE_SIZE_EXCEEDS,
   ONLY_TEXT_PLAIN,
-  FILE_NOT_TEXT
+  FILE_NOT_TEXT,
+  makeError
 } from "../consts/errors";
 import { collectFormFields } from "../app";
 
@@ -38,7 +39,7 @@ export async function paramsRoutes(app: FastifyInstance) {
 
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
       reply.code(400);
-      return { error: INVALID_JSON_BODY };
+      return makeError(INVALID_JSON_BODY, "expected a JSON object");
     }
 
     return { body };
@@ -57,7 +58,10 @@ export async function paramsRoutes(app: FastifyInstance) {
       !contentType.startsWith("multipart/form-data")
     ) {
       reply.code(400);
-      return { error: INVALID_FORM_DATA };
+      return makeError(
+        INVALID_FORM_DATA,
+        "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
+      );
     }
 
     const fields = await collectFormFields(request);
@@ -74,35 +78,35 @@ export async function paramsRoutes(app: FastifyInstance) {
     const contentType = request.headers["content-type"]?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data")) {
       reply.code(400);
-      return { error: INVALID_MULTIPART };
+      return makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data");
     }
 
     const file = await request.file();
     if (!file) {
       reply.code(400);
-      return { error: FILE_NOT_FOUND };
+      return makeError(FILE_NOT_FOUND, "no file field named 'file' in form data");
     }
 
     if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
       reply.code(415);
-      return { error: ONLY_TEXT_PLAIN };
+      return makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`);
     }
 
     const buffer = await file.toBuffer();
     if (buffer.length > MAX_FILE_BYTES || file.file.truncated) {
       reply.code(413);
-      return { error: FILE_SIZE_EXCEEDS };
+      return makeError(FILE_SIZE_EXCEEDS, `file size ${buffer.length} exceeds limit ${MAX_FILE_BYTES}`);
     }
 
     const head = buffer.subarray(0, SNIFF_LEN);
     if (head.includes(NULL_BYTE)) {
       reply.code(415);
-      return { error: FILE_NOT_TEXT };
+      return makeError(FILE_NOT_TEXT, "file contains null bytes in header");
     }
 
     if (buffer.includes(NULL_BYTE)) {
       reply.code(415);
-      return { error: FILE_NOT_TEXT };
+      return makeError(FILE_NOT_TEXT, "file contains null bytes");
     }
 
     let content: string;
@@ -111,7 +115,7 @@ export async function paramsRoutes(app: FastifyInstance) {
       content = decoder.decode(buffer);
     } catch {
       reply.code(415);
-      return { error: FILE_NOT_TEXT };
+      return makeError(FILE_NOT_TEXT, "file is not valid UTF-8");
     }
 
     return {

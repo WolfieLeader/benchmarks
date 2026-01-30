@@ -16,6 +16,7 @@ from src.consts.errors import (
     FILE_SIZE_EXCEEDS,
     ONLY_TEXT_PLAIN,
     FILE_NOT_TEXT,
+    make_error,
 )
 
 
@@ -54,7 +55,7 @@ async def header_params(
 @params_router.post("/body")
 async def body_params(body: Any = Body()):
     if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail=INVALID_JSON_BODY)
+        raise HTTPException(status_code=400, detail=make_error(INVALID_JSON_BODY, "expected a JSON object"))
     return {"body": body}
 
 
@@ -73,12 +74,19 @@ async def form_params(request: Request):
     if not (
         content_type.startswith("application/x-www-form-urlencoded") or content_type.startswith("multipart/form-data")
     ):
-        raise HTTPException(status_code=400, detail=INVALID_FORM_DATA)
+        raise HTTPException(
+            status_code=400,
+            detail=make_error(
+                INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
+            ),
+        )
 
     try:
         form = await request.form()
-    except Exception:
-        raise HTTPException(status_code=400, detail=INVALID_FORM_DATA)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=make_error(INVALID_FORM_DATA, str(e) or "failed to parse form body")
+        )
 
     name_val = form.get("name")
     name = name_val.strip() if isinstance(name_val, str) else ""
@@ -102,23 +110,38 @@ async def form_params(request: Request):
 async def file_params(request: Request, file: UploadFile | None = File(default=None)):
     content_type = request.headers.get("content-type", "").lower()
     if not content_type.startswith("multipart/form-data"):
-        raise HTTPException(status_code=400, detail=INVALID_MULTIPART)
+        raise HTTPException(
+            status_code=400, detail=make_error(INVALID_MULTIPART, "expected content-type: multipart/form-data")
+        )
 
     if file is None:
-        raise HTTPException(status_code=400, detail=FILE_NOT_FOUND)
+        raise HTTPException(
+            status_code=400, detail=make_error(FILE_NOT_FOUND, "no file field named 'file' in form data")
+        )
 
     if file.content_type and not file.content_type.startswith("text/plain"):
-        raise HTTPException(status_code=415, detail=ONLY_TEXT_PLAIN)
+        raise HTTPException(
+            status_code=415, detail=make_error(ONLY_TEXT_PLAIN, f"received mimetype: {file.content_type or 'unknown'}")
+        )
 
     data = await file.read(MAX_FILE_BYTES + 1)
     if len(data) > MAX_FILE_BYTES:
-        raise HTTPException(status_code=413, detail=FILE_SIZE_EXCEEDS)
+        raise HTTPException(
+            status_code=413,
+            detail=make_error(FILE_SIZE_EXCEEDS, f"file size {len(data)} exceeds limit {MAX_FILE_BYTES}"),
+        )
 
     head = data[:SNIFF_LEN]
-    if NULL_BYTE in head or NULL_BYTE in data:
+    if NULL_BYTE in head:
         raise HTTPException(
             status_code=415,
-            detail=FILE_NOT_TEXT,
+            detail=make_error(FILE_NOT_TEXT, "file contains null bytes in header"),
+        )
+
+    if NULL_BYTE in data:
+        raise HTTPException(
+            status_code=415,
+            detail=make_error(FILE_NOT_TEXT, "file contains null bytes"),
         )
 
     try:
@@ -126,7 +149,7 @@ async def file_params(request: Request, file: UploadFile | None = File(default=N
     except UnicodeDecodeError:
         raise HTTPException(
             status_code=415,
-            detail=FILE_NOT_TEXT,
+            detail=make_error(FILE_NOT_TEXT, "file is not valid UTF-8"),
         )
 
     return {

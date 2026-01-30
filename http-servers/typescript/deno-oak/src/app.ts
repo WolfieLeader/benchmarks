@@ -2,7 +2,7 @@ import { Application, Router } from "@oak/oak";
 import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
 import { env } from "./config/env.ts";
-import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors.ts";
+import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors.ts";
 
 export function createApp() {
   const app = new Application();
@@ -14,7 +14,7 @@ export function createApp() {
     } catch (err) {
       if (err instanceof Error) {
         ctx.response.status = 500;
-        ctx.response.body = { error: err.message || INTERNAL_ERROR };
+        ctx.response.body = makeError(INTERNAL_ERROR, err.message || undefined);
       }
     }
   });

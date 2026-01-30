@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
 import type { UserRepository } from "../database/repository";
 import { resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
@@ -11,10 +11,10 @@ type DbVariables = {
 
 const withRepository: MiddlewareHandler<{ Variables: DbVariables }> = async (c, next) => {
   const database = c.req.param("database");
-  if (!database) return c.json({ error: NOT_FOUND }, 404);
+  if (!database) return c.json(makeError(NOT_FOUND, "database parameter missing"), 404);
 
   const repository = resolveRepository(database);
-  if (!repository) return c.json({ error: NOT_FOUND }, 404);
+  if (!repository) return c.json(makeError(NOT_FOUND, `unknown database type: ${database}`), 404);
 
   c.set("repository", repository);
   await next();
@@ -31,77 +31,80 @@ dbRoutes.post("/:database/users", async (c) => {
   let body: unknown;
   try {
     body = await c.req.json();
-  } catch {
-    return c.json({ error: INVALID_JSON_BODY }, 400);
+  } catch (err) {
+    return c.json(makeError(INVALID_JSON_BODY, err), 400);
   }
 
   const parsed = zCreateUser.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: INVALID_JSON_BODY }, 400);
+    return c.json(makeError(INVALID_JSON_BODY, parsed.error.message), 400);
   }
 
   try {
     const user = await repository.create(parsed.data);
     return c.json(user, 201);
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
 // Read user
 dbRoutes.get("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
+  const id = c.req.param("id");
 
   try {
-    const user = await repository.findById(c.req.param("id"));
+    const user = await repository.findById(id);
     if (!user) {
-      return c.json({ error: NOT_FOUND }, 404);
+      return c.json(makeError(NOT_FOUND, `user with id ${id} not found`), 404);
     }
     return c.json(user);
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
 // Update user (PATCH - partial update)
 dbRoutes.patch("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
+  const id = c.req.param("id");
 
   let body: unknown;
   try {
     body = await c.req.json();
-  } catch {
-    return c.json({ error: INVALID_JSON_BODY }, 400);
+  } catch (err) {
+    return c.json(makeError(INVALID_JSON_BODY, err), 400);
   }
 
   const parsed = zUpdateUser.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: INVALID_JSON_BODY }, 400);
+    return c.json(makeError(INVALID_JSON_BODY, parsed.error.message), 400);
   }
 
   try {
-    const user = await repository.update(c.req.param("id"), parsed.data);
+    const user = await repository.update(id, parsed.data);
     if (!user) {
-      return c.json({ error: NOT_FOUND }, 404);
+      return c.json(makeError(NOT_FOUND, `user with id ${id} not found`), 404);
     }
     return c.json(user);
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
 // Delete user
 dbRoutes.delete("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
+  const id = c.req.param("id");
 
   try {
-    const deleted = await repository.delete(c.req.param("id"));
+    const deleted = await repository.delete(id);
     if (!deleted) {
-      return c.json({ error: NOT_FOUND }, 404);
+      return c.json(makeError(NOT_FOUND, `user with id ${id} not found`), 404);
     }
     return c.json({ success: true });
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
@@ -111,8 +114,8 @@ dbRoutes.delete("/:database/users", async (c) => {
   try {
     await repository.deleteAll();
     return c.json({ success: true });
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
@@ -122,8 +125,8 @@ dbRoutes.delete("/:database/reset", async (c) => {
   try {
     await repository.deleteAll();
     return c.json({ status: "ok" });
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
 
@@ -132,8 +135,10 @@ dbRoutes.get("/:database/health", async (c) => {
   const repository = c.get("repository");
   try {
     const healthy = await repository.healthCheck();
-    return healthy ? c.json({ status: "healthy" }) : c.json({ error: "database unavailable" }, 503);
-  } catch {
-    return c.json({ error: INTERNAL_ERROR }, 500);
+    return healthy
+      ? c.json({ status: "healthy" })
+      : c.json(makeError("database unavailable", "health check returned false"), 503);
+  } catch (err) {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });

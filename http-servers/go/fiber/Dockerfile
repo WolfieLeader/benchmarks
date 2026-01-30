@@ -10,7 +10,7 @@ COPY . .
 ENV CGO_ENABLED=0 \
     GOOS=linux
 
-RUN go build -trimpath -ldflags="-s -w" -o server ./cmd/main.go
+RUN go build -trimpath -ldflags="-s -w" -o bin/server ./cmd/main.go
 
 FROM alpine
 
@@ -27,7 +27,7 @@ ENV ENV=prod \
     CASSANDRA_KEYSPACE=benchmarks \
     CASSANDRA_LOCAL_DATACENTER=datacenter1
 
-COPY --from=builder /app/server .
+COPY --from=builder /app/bin/server .
 
 RUN addgroup -g 1001 -S app-group && \
     adduser -S app-runner -u 1001 -G app-group

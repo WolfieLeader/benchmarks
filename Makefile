@@ -8,7 +8,9 @@
 	install-chi install-gin install-fiber install-fastapi install-benchmark install \
 	update-honojs update-elysia update-oak update-express update-nestjs update-fastify \
 	update-chi update-gin update-fiber update-fastapi update-benchmark update \
-	clean images clean-images fmt lint tools install-root-tools update-root-tools \
+	clean images clean-images fmt lint check typecheck verify install-root-tools update-root-tools \
+	check-express check-fastify check-nestjs check-honojs check-elysia check-oak \
+	check-chi check-gin check-fiber check-fastapi check-benchmark \
 	db-up db-down sqlc sqlc-chi sqlc-gin sqlc-fiber
 
 # ==============================================================================
@@ -220,6 +222,12 @@ clean:
 		http-servers/typescript/node-nestjs/node_modules \
 		http-servers/typescript/node-fastify/node_modules \
 		http-servers/typescript/deno-oak/node_modules \
+		http-servers/go/chi/bin \
+		http-servers/go/chi/tmp \
+		http-servers/go/gin/bin \
+		http-servers/go/gin/tmp \
+		http-servers/go/fiber/bin \
+		http-servers/go/fiber/tmp
 	@echo "Clean complete!"
 
 # ==============================================================================
@@ -253,6 +261,59 @@ lint:
 	cd http-servers/typescript/deno-oak && deno task lint
 	cd http-servers/python/fastapi && uv run ruff check .
 	pnpm run lint:md
+
+# ==============================================================================
+# Type/Compile Check (Per Server)
+# ==============================================================================
+
+# --- Node.js ---
+check-express:
+	cd http-servers/typescript/node-express && pnpm run typecheck
+
+check-fastify:
+	cd http-servers/typescript/node-fastify && pnpm run typecheck
+
+check-nestjs:
+	cd http-servers/typescript/node-nestjs && pnpm run typecheck
+
+# --- Bun ---
+check-honojs:
+	cd http-servers/typescript/bun-honojs && bun run typecheck
+
+check-elysia:
+	cd http-servers/typescript/bun-elysia && bun run typecheck
+
+# --- Deno ---
+check-oak:
+	cd http-servers/typescript/deno-oak && deno task check
+
+# --- Go ---
+check-chi:
+	cd http-servers/go/chi && go build -o bin/server ./cmd/main.go
+
+check-gin:
+	cd http-servers/go/gin && go build -o bin/server ./cmd/main.go
+
+check-fiber:
+	cd http-servers/go/fiber && go build -o bin/server ./cmd/main.go
+
+# --- Python ---
+check-fastapi:
+	cd http-servers/python/fastapi && uv run pyright src
+
+# --- Benchmark ---
+check-benchmark:
+	cd benchmarks && go build -o bin/benchmark ./cmd/main.go
+
+# --- All ---
+check: check-express check-fastify check-nestjs check-honojs check-elysia check-oak \
+	check-chi check-gin check-fiber check-fastapi check-benchmark
+
+# Alias for backwards compatibility
+typecheck: check
+
+# --- Full Verification ---
+verify: check fmt lint
 
 # ==============================================================================
 # SQLC Code Generation

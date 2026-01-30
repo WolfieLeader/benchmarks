@@ -54,7 +54,7 @@ func handleHeaderParams(c *gin.Context) {
 func handleBodyParams(c *gin.Context) {
 	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 	utils.WriteResponse(c, http.StatusOK, gin.H{"body": body})
@@ -101,7 +101,7 @@ func handleFileParams(c *gin.Context) {
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrFileNotFound)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrFileNotFound, err.Error())
 		return
 	}
 	if fileHeader.Size > consts.MaxFileBytes {
@@ -111,7 +111,7 @@ func handleFileParams(c *gin.Context) {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal, err.Error())
 		return
 	}
 	defer func() { _ = file.Close() }()
@@ -120,7 +120,7 @@ func handleFileParams(c *gin.Context) {
 
 	head, err := br.Peek(consts.SniffLen)
 	if err != nil && !errors.Is(err, io.EOF) {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -137,7 +137,7 @@ func handleFileParams(c *gin.Context) {
 	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInternal, err.Error())
 		return
 	}
 	if int64(len(data)) > consts.MaxFileBytes {

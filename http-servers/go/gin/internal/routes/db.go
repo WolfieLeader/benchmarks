@@ -6,6 +6,7 @@ import (
 	"gin-server/internal/config"
 	"gin-server/internal/consts"
 	"gin-server/internal/database"
+	"gin-server/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -20,7 +21,7 @@ func withRepository(env *config.Env) gin.HandlerFunc {
 		dbType := c.Param("database")
 		repo := database.ResolveRepository(dbType, env)
 		if repo == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
+			utils.WriteError(c, http.StatusNotFound, consts.ErrNotFound, "unknown database type: "+dbType)
 			c.Abort()
 			return
 		}
@@ -54,18 +55,18 @@ func createUser(c *gin.Context) {
 
 	var data database.CreateUser
 	if err := c.ShouldBindJSON(&data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": consts.ErrInvalidJSON})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": consts.ErrInvalidJSON})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	user, err := repo.Create(&data)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -78,11 +79,11 @@ func getUser(c *gin.Context) {
 	id := c.Param("id")
 	user, err := repo.FindById(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
+		utils.WriteError(c, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
@@ -94,23 +95,23 @@ func updateUser(c *gin.Context) {
 
 	var data database.UpdateUser
 	if err := c.ShouldBindJSON(&data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": consts.ErrInvalidJSON})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": consts.ErrInvalidJSON})
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
 	id := c.Param("id")
 	user, err := repo.Update(id, &data)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
+		utils.WriteError(c, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
@@ -123,11 +124,11 @@ func deleteUser(c *gin.Context) {
 	id := c.Param("id")
 	deleted, err := repo.Delete(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 	if !deleted {
-		c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
+		utils.WriteError(c, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
@@ -138,7 +139,7 @@ func deleteAllUsers(c *gin.Context) {
 	repo := getRepository(c)
 
 	if err := repo.DeleteAll(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -149,7 +150,7 @@ func resetDatabase(c *gin.Context) {
 	repo := getRepository(c)
 
 	if err := repo.DeleteAll(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": consts.ErrInternal})
+		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -161,7 +162,11 @@ func healthCheck(c *gin.Context) {
 
 	healthy, err := repo.HealthCheck()
 	if err != nil || !healthy {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database unavailable"})
+		details := ""
+		if err != nil {
+			details = err.Error()
+		}
+		utils.WriteError(c, http.StatusServiceUnavailable, "database unavailable", details)
 		return
 	}
 

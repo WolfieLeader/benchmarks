@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post } from "@nestjs/common";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
 import { resolveRepository } from "./database/repository";
 import { zCreateUser, zUpdateUser } from "./database/types";
 
@@ -10,19 +10,19 @@ export class DbController {
   async create(@Param("database") database: string, @Body() body: unknown) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     const parsed = zCreateUser.safeParse(body);
     if (!parsed.success) {
-      throw new HttpException({ error: INVALID_JSON_BODY }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(makeError(INVALID_JSON_BODY, parsed.error.message), HttpStatus.BAD_REQUEST);
     }
 
     try {
       return await repository.create(parsed.data);
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -30,18 +30,18 @@ export class DbController {
   async findById(@Param("database") database: string, @Param("id") id: string) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     try {
       const user = await repository.findById(id);
       if (!user) {
-        throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+        throw new HttpException(makeError(NOT_FOUND, `user with id ${id} not found`), HttpStatus.NOT_FOUND);
       }
       return user;
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -50,23 +50,23 @@ export class DbController {
   async update(@Param("database") database: string, @Param("id") id: string, @Body() body: unknown) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     const parsed = zUpdateUser.safeParse(body);
     if (!parsed.success) {
-      throw new HttpException({ error: INVALID_JSON_BODY }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(makeError(INVALID_JSON_BODY, parsed.error.message), HttpStatus.BAD_REQUEST);
     }
 
     try {
       const user = await repository.update(id, parsed.data);
       if (!user) {
-        throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+        throw new HttpException(makeError(NOT_FOUND, `user with id ${id} not found`), HttpStatus.NOT_FOUND);
       }
       return user;
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -74,18 +74,18 @@ export class DbController {
   async deleteOne(@Param("database") database: string, @Param("id") id: string) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     try {
       const deleted = await repository.delete(id);
       if (!deleted) {
-        throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+        throw new HttpException(makeError(NOT_FOUND, `user with id ${id} not found`), HttpStatus.NOT_FOUND);
       }
       return { success: true };
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -93,7 +93,7 @@ export class DbController {
   async deleteAll(@Param("database") database: string) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     try {
@@ -101,7 +101,7 @@ export class DbController {
       return { success: true };
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -109,7 +109,7 @@ export class DbController {
   async reset(@Param("database") database: string) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     try {
@@ -117,7 +117,7 @@ export class DbController {
       return { status: "ok" };
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -125,18 +125,21 @@ export class DbController {
   async health(@Param("database") database: string) {
     const repository = resolveRepository(database);
     if (!repository) {
-      throw new HttpException({ error: NOT_FOUND }, HttpStatus.NOT_FOUND);
+      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
     }
 
     try {
       const healthy = await repository.healthCheck();
       if (!healthy) {
-        throw new HttpException({ error: "database unavailable" }, HttpStatus.SERVICE_UNAVAILABLE);
+        throw new HttpException(
+          makeError("database unavailable", "health check returned false"),
+          HttpStatus.SERVICE_UNAVAILABLE
+        );
       }
       return { status: "healthy" };
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      throw new HttpException({ error: INTERNAL_ERROR }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
 import { resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
@@ -7,16 +7,16 @@ class RepositoryNotFoundError extends Error {}
 
 const withRepository = new Elysia()
   .error({ REPOSITORY_NOT_FOUND: RepositoryNotFoundError })
-  .onError({ as: "scoped" }, ({ code, set }) => {
+  .onError({ as: "scoped" }, ({ code, set, error }) => {
     if (code === "REPOSITORY_NOT_FOUND") {
       set.status = 404;
-      return { error: NOT_FOUND };
+      return makeError(NOT_FOUND, error.message || "unknown database type");
     }
   })
   .derive({ as: "scoped" }, ({ params }) => {
     const { database } = params as { database: string };
     const repository = resolveRepository(database);
-    if (!repository) throw new RepositoryNotFoundError();
+    if (!repository) throw new RepositoryNotFoundError(`unknown database type: ${database}`);
     return { repository };
   });
 
@@ -26,16 +26,16 @@ export const dbRouter = new Elysia()
     const parsed = zCreateUser.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
-      return { error: INVALID_JSON_BODY };
+      return makeError(INVALID_JSON_BODY, parsed.error.message);
     }
 
     try {
       const user = await repository.create(parsed.data);
       set.status = 201;
       return user;
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .get("/:database/users/:id", async ({ repository, params, set }) => {
@@ -43,31 +43,31 @@ export const dbRouter = new Elysia()
       const user = await repository.findById(params.id);
       if (!user) {
         set.status = 404;
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${params.id} not found`);
       }
       return user;
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .patch("/:database/users/:id", async ({ repository, params, body, set }) => {
     const parsed = zUpdateUser.safeParse(body);
     if (!parsed.success) {
       set.status = 400;
-      return { error: INVALID_JSON_BODY };
+      return makeError(INVALID_JSON_BODY, parsed.error.message);
     }
 
     try {
       const user = await repository.update(params.id, parsed.data);
       if (!user) {
         set.status = 404;
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${params.id} not found`);
       }
       return user;
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .delete("/:database/users/:id", async ({ repository, params, set }) => {
@@ -75,30 +75,30 @@ export const dbRouter = new Elysia()
       const deleted = await repository.delete(params.id);
       if (!deleted) {
         set.status = 404;
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${params.id} not found`);
       }
       return { success: true };
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .delete("/:database/users", async ({ repository, set }) => {
     try {
       await repository.deleteAll();
       return { success: true };
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .delete("/:database/reset", async ({ repository, set }) => {
     try {
       await repository.deleteAll();
       return { status: "ok" };
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   })
   .get("/:database/health", async ({ repository, set }) => {
@@ -106,11 +106,11 @@ export const dbRouter = new Elysia()
       const healthy = await repository.healthCheck();
       if (!healthy) {
         set.status = 503;
-        return { error: "database unavailable" };
+        return makeError("database unavailable", "health check returned false");
       }
       return { status: "healthy" };
-    } catch {
+    } catch (err) {
       set.status = 500;
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });

@@ -2,7 +2,9 @@ package routes
 
 import (
 	"fiber-server/internal/config"
+	"fiber-server/internal/consts"
 	"fiber-server/internal/database"
+	"fiber-server/internal/utils"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +19,7 @@ func withRepository(env *config.Env) fiber.Handler {
 		dbType := c.Params("database")
 		repo := database.ResolveRepository(dbType, env)
 		if repo == nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+			return utils.WriteError(c, fiber.StatusNotFound, consts.ErrNotFound, "unknown database type: "+dbType)
 		}
 		c.Locals(repositoryKey, repo)
 		return c.Next()
@@ -49,16 +51,16 @@ func createUser(c *fiber.Ctx) error {
 
 	var data database.CreateUser
 	if err := c.BodyParser(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
 	user, err := repo.Create(&data)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(user)
@@ -70,10 +72,10 @@ func getUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user, err := repo.FindById(id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 	if user == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		return utils.WriteError(c, fiber.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 	}
 
 	return c.JSON(user)
@@ -84,20 +86,20 @@ func updateUser(c *fiber.Ctx) error {
 
 	var data database.UpdateUser
 	if err := c.BodyParser(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
 	if err := validate.Struct(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
 	id := c.Params("id")
 	user, err := repo.Update(id, &data)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 	if user == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		return utils.WriteError(c, fiber.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 	}
 
 	return c.JSON(user)
@@ -109,10 +111,10 @@ func deleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	deleted, err := repo.Delete(id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 	if !deleted {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		return utils.WriteError(c, fiber.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 	}
 
 	return c.JSON(fiber.Map{"success": true})
@@ -122,7 +124,7 @@ func deleteAllUsers(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
 	if err := repo.DeleteAll(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 
 	return c.JSON(fiber.Map{"success": true})
@@ -132,7 +134,7 @@ func resetDatabase(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
 	if err := repo.DeleteAll(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 
 	return c.JSON(fiber.Map{"status": "ok"})
@@ -143,7 +145,11 @@ func healthCheck(c *fiber.Ctx) error {
 
 	healthy, err := repo.HealthCheck()
 	if err != nil || !healthy {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "database unavailable"})
+		details := ""
+		if err != nil {
+			details = err.Error()
+		}
+		return utils.WriteError(c, fiber.StatusServiceUnavailable, "database unavailable", details)
 	}
 
 	return c.JSON(fiber.Map{"status": "healthy"})

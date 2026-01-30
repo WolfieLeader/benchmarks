@@ -8,7 +8,14 @@ import multer from "multer";
 
 import { AppModule } from "./app.module";
 import { env } from "./config/env";
-import { FILE_SIZE_EXCEEDS, INTERNAL_ERROR, INVALID_JSON_BODY, INVALID_MULTIPART, NOT_FOUND } from "./consts/errors";
+import {
+  FILE_SIZE_EXCEEDS,
+  INTERNAL_ERROR,
+  INVALID_JSON_BODY,
+  INVALID_MULTIPART,
+  NOT_FOUND,
+  makeError
+} from "./consts/errors";
 
 @Catch()
 class GlobalExceptionFilter implements ExceptionFilter {
@@ -17,21 +24,21 @@ class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse();
 
     if (exception instanceof NotFoundException) {
-      response.status(404).json({ error: NOT_FOUND });
+      response.status(404).json(makeError(NOT_FOUND, exception.message));
       return;
     }
 
     if (exception instanceof SyntaxError && (exception as { type?: string }).type === "entity.parse.failed") {
-      response.status(400).json({ error: INVALID_JSON_BODY });
+      response.status(400).json(makeError(INVALID_JSON_BODY, exception.message));
       return;
     }
 
     if (exception instanceof multer.MulterError) {
       if (exception.code === "LIMIT_FILE_SIZE") {
-        response.status(413).json({ error: FILE_SIZE_EXCEEDS });
+        response.status(413).json(makeError(FILE_SIZE_EXCEEDS, exception.message));
         return;
       }
-      response.status(400).json({ error: INVALID_MULTIPART });
+      response.status(400).json(makeError(INVALID_MULTIPART, exception.message));
       return;
     }
 
@@ -39,13 +46,15 @@ class GlobalExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
       if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
-        const payload = exceptionResponse as { error?: string; message?: string | string[] };
+        const payload = exceptionResponse as { error?: string; message?: string | string[]; details?: string };
         if (typeof payload.error === "string") {
-          response.status(status).json({ error: payload.error });
+          response.status(status).json({ error: payload.error, ...(payload.details && { details: payload.details }) });
           return;
         }
         if (typeof payload.message === "string") {
-          response.status(status).json({ error: payload.message });
+          response
+            .status(status)
+            .json({ error: payload.message, ...(payload.details && { details: payload.details }) });
           return;
         }
       }
@@ -53,8 +62,7 @@ class GlobalExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    const message = exception instanceof Error ? exception.message : INTERNAL_ERROR;
-    response.status(500).json({ error: message || INTERNAL_ERROR });
+    response.status(500).json(makeError(INTERNAL_ERROR, exception));
   }
 }
 

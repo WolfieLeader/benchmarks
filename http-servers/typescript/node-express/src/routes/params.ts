@@ -8,7 +8,8 @@ import {
   FILE_NOT_FOUND,
   FILE_SIZE_EXCEEDS,
   ONLY_TEXT_PLAIN,
-  FILE_NOT_TEXT
+  FILE_NOT_TEXT,
+  makeError
 } from "../consts/errors";
 
 const upload = multer({
@@ -48,7 +49,7 @@ paramsRouter.post("/body", (req: Request, res: Response) => {
   const body = req.body;
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    res.status(400).json({ error: INVALID_JSON_BODY });
+    res.status(400).json(makeError(INVALID_JSON_BODY, "expected a JSON object"));
     return;
   }
 
@@ -64,7 +65,7 @@ paramsRouter.get("/cookie", (req: Request, res: Response) => {
 function handleForm(req: Request, res: Response) {
   const body = req.body;
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    res.status(400).json({ error: INVALID_FORM_DATA });
+    res.status(400).json(makeError(INVALID_FORM_DATA, "expected form fields"));
     return;
   }
 
@@ -80,14 +81,18 @@ function handleForm(req: Request, res: Response) {
 paramsRouter.post("/form", (req: Request, res: Response) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
-    res.status(400).json({ error: INVALID_FORM_DATA });
+    res
+      .status(400)
+      .json(
+        makeError(INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data")
+      );
     return;
   }
 
   if (req.is("multipart/form-data")) {
     formParser(req, res, (err?: unknown) => {
       if (err) {
-        res.status(400).json({ error: INVALID_FORM_DATA });
+        res.status(400).json(makeError(INVALID_FORM_DATA, err));
         return;
       }
       handleForm(req, res);
@@ -101,7 +106,7 @@ paramsRouter.post("/form", (req: Request, res: Response) => {
 paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
-    res.status(400).json({ error: INVALID_MULTIPART });
+    res.status(400).json(makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data"));
     return;
   }
 
@@ -113,28 +118,28 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
 
     const file = req.file;
     if (!file) {
-      res.status(400).json({ error: FILE_NOT_FOUND });
+      res.status(400).json(makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"));
       return;
     }
 
     if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
-      res.status(415).json({ error: ONLY_TEXT_PLAIN });
+      res.status(415).json(makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`));
       return;
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      res.status(413).json({ error: FILE_SIZE_EXCEEDS });
+      res.status(413).json(makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`));
       return;
     }
 
     const head = file.buffer.subarray(0, SNIFF_LEN);
     if (head.includes(NULL_BYTE)) {
-      res.status(415).json({ error: FILE_NOT_TEXT });
+      res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes in header"));
       return;
     }
 
     if (file.buffer.includes(NULL_BYTE)) {
-      res.status(415).json({ error: FILE_NOT_TEXT });
+      res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes"));
       return;
     }
 
@@ -143,7 +148,7 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
       const decoder = new TextDecoder("utf-8", { fatal: true });
       content = decoder.decode(file.buffer);
     } catch {
-      res.status(415).json({ error: FILE_NOT_TEXT });
+      res.status(415).json(makeError(FILE_NOT_TEXT, "file is not valid UTF-8"));
       return;
     }
 

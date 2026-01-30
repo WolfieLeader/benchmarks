@@ -2,6 +2,7 @@
   "tasks": {
     "dev": "deno run --watch --allow-all src/index.ts",
     "start": "deno run --allow-all src/index.ts",
+    "check": "deno check src/**/*.ts",
     "format": "deno fmt",
     "lint": "deno lint"
   },

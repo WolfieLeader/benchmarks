@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
 import { type UserRepository, resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
@@ -10,13 +10,13 @@ declare module "fastify" {
 }
 
 export const dbRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.decorateRequest("repository", null);
+  fastify.decorateRequest("repository", null as unknown as UserRepository);
 
   fastify.addHook("preHandler", async (request: FastifyRequest<{ Params: { database: string } }>, reply) => {
     const repository = resolveRepository(request.params.database);
     if (!repository) {
       reply.code(404);
-      return reply.send({ error: NOT_FOUND });
+      return reply.send(makeError(NOT_FOUND, `unknown database type: ${request.params.database}`));
     }
     request.repository = repository;
   });
@@ -25,16 +25,16 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = zCreateUser.safeParse(request.body);
     if (!parsed.success) {
       reply.code(400);
-      return { error: INVALID_JSON_BODY };
+      return makeError(INVALID_JSON_BODY, parsed.error.message);
     }
 
     try {
       const user = await request.repository.create(parsed.data);
       reply.code(201);
       return user;
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -43,12 +43,12 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
       const user = await request.repository.findById(request.params.id);
       if (!user) {
         reply.code(404);
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${request.params.id} not found`);
       }
       return user;
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -56,19 +56,19 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = zUpdateUser.safeParse(request.body);
     if (!parsed.success) {
       reply.code(400);
-      return { error: INVALID_JSON_BODY };
+      return makeError(INVALID_JSON_BODY, parsed.error.message);
     }
 
     try {
       const user = await request.repository.update(request.params.id, parsed.data);
       if (!user) {
         reply.code(404);
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${request.params.id} not found`);
       }
       return user;
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -77,12 +77,12 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
       const deleted = await request.repository.delete(request.params.id);
       if (!deleted) {
         reply.code(404);
-        return { error: NOT_FOUND };
+        return makeError(NOT_FOUND, `user with id ${request.params.id} not found`);
       }
       return { success: true };
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -90,9 +90,9 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       await request.repository.deleteAll();
       return { success: true };
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -100,9 +100,9 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       await request.repository.deleteAll();
       return { status: "ok" };
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 
@@ -111,12 +111,12 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
       const healthy = await request.repository.healthCheck();
       if (!healthy) {
         reply.code(503);
-        return { error: "database unavailable" };
+        return makeError("database unavailable", "health check returned false");
       }
       return { status: "healthy" };
-    } catch {
+    } catch (err) {
       reply.code(500);
-      return { error: INTERNAL_ERROR };
+      return makeError(INTERNAL_ERROR, err);
     }
   });
 };

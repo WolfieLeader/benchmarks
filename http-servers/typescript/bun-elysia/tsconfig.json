@@ -1,8 +1,15 @@
 {
   "compilerOptions": {
     "strict": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "types": ["bun-types"],
     "paths": {
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src"]
 }

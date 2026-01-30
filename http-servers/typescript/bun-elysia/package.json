@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "typecheck": "bunx tsc --noEmit",
     "format": "biome format --write ./src",
     "lint": "biome lint ./src"
   },

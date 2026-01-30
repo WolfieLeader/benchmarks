@@ -91,7 +91,7 @@ class PostgresUserRepository:
         async with self._session_maker() as session:
             result = await session.execute(delete(UserModel).where(UserModel.id == uuid_id))
             await session.commit()
-            return result.rowcount == 1
+            return result.rowcount == 1  # type: ignore[union-attr]
 
     async def delete_all(self) -> None:
         async with self._session_maker() as session:

@@ -7,7 +7,8 @@ import {
   INVALID_FORM_DATA,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
-  ONLY_TEXT_PLAIN
+  ONLY_TEXT_PLAIN,
+  makeError
 } from "../consts/errors";
 
 export const paramsRouter = new Elysia();
@@ -32,13 +33,14 @@ paramsRouter.get("/header", ({ headers }) => {
 paramsRouter.post("/body", ({ body, set }) => {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     set.status = 400;
-    return { error: INVALID_JSON_BODY };
+    return makeError(INVALID_JSON_BODY, "expected a JSON object");
   }
   return { body };
 });
 
 paramsRouter.get("/cookie", ({ cookie }) => {
-  const cookieVal = cookie.foo?.value?.trim() || "none";
+  const fooValue = cookie.foo?.value;
+  const cookieVal = typeof fooValue === "string" ? fooValue.trim() || "none" : "none";
 
   cookie.bar.value = "12345";
   cookie.bar.maxAge = 10;
@@ -52,12 +54,15 @@ paramsRouter.post("/form", ({ body, set, headers }) => {
   const contentType = headers["content-type"]?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
     set.status = 400;
-    return { error: INVALID_FORM_DATA };
+    return makeError(
+      INVALID_FORM_DATA,
+      "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
+    );
   }
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     set.status = 400;
-    return { error: INVALID_FORM_DATA };
+    return makeError(INVALID_FORM_DATA, "expected form fields");
   }
 
   const form = body as Record<string, unknown>;
@@ -75,7 +80,7 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
   const contentType = headers["content-type"]?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
     set.status = 400;
-    return { error: INVALID_MULTIPART };
+    return makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data");
   }
 
   const form = body as Record<string, unknown>;
@@ -83,33 +88,33 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
 
   if (!(file instanceof File)) {
     set.status = 400;
-    return { error: FILE_NOT_FOUND };
+    return makeError(FILE_NOT_FOUND, "no file field named 'file' in form data");
   }
   if (!file.type || !file.type.startsWith("text/plain")) {
     set.status = 415;
-    return { error: ONLY_TEXT_PLAIN };
+    return makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.type || "unknown"}`);
   }
   if (file.size > MAX_FILE_BYTES) {
     set.status = 413;
-    return { error: FILE_SIZE_EXCEEDS };
+    return makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`);
   }
 
   const buffer = await file.arrayBuffer();
   const data = new Uint8Array(buffer);
   if (data.length > MAX_FILE_BYTES) {
     set.status = 413;
-    return { error: FILE_SIZE_EXCEEDS };
+    return makeError(FILE_SIZE_EXCEEDS, `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`);
   }
 
   const head = data.slice(0, SNIFF_LEN);
   if (head.includes(NULL_BYTE)) {
     set.status = 415;
-    return { error: FILE_NOT_TEXT };
+    return makeError(FILE_NOT_TEXT, "file contains null bytes in header");
   }
 
   if (data.includes(NULL_BYTE)) {
     set.status = 415;
-    return { error: FILE_NOT_TEXT };
+    return makeError(FILE_NOT_TEXT, "file contains null bytes");
   }
 
   let content: string;
@@ -117,7 +122,7 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
     content = new TextDecoder("utf-8", { fatal: true }).decode(data);
   } catch {
     set.status = 415;
-    return { error: FILE_NOT_TEXT };
+    return makeError(FILE_NOT_TEXT, "file is not valid UTF-8");
   }
 
   return {

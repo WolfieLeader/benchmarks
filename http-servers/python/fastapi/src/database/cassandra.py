@@ -4,8 +4,8 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import uuid
 from uuid import UUID
-from cassandra.cluster import Cluster
-from cassandra.policies import DCAwareRoundRobinPolicy
+from cassandra.cluster import Cluster  # type: ignore[import-untyped]
+from cassandra.policies import DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
 
 from src.database.types import CreateUser, UpdateUser, User
 
@@ -26,7 +26,7 @@ class CassandraUserRepository:
             contact_points=self._contact_points,
             load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=self._local_dc),
         )
-        self._session = self._cluster.connect(self._keyspace)
+        self._session = self._cluster.connect(self._keyspace)  # type: ignore[union-attr]
 
     async def _connect(self) -> None:
         loop = asyncio.get_event_loop()
@@ -35,7 +35,7 @@ class CassandraUserRepository:
     async def _execute(self, query: str, params: tuple = ()) -> list:
         await self._connect()
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(self._executor, lambda: list(self._session.execute(query, params)))
+        return await loop.run_in_executor(self._executor, lambda: list(self._session.execute(query, params)))  # type: ignore[union-attr]
 
     async def _execute_one(self, query: str, params: tuple = ()):
         rows = await self._execute(query, params)

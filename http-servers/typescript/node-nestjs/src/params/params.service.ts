@@ -7,7 +7,8 @@ import {
   INVALID_FORM_DATA,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
-  ONLY_TEXT_PLAIN
+  ONLY_TEXT_PLAIN,
+  makeError
 } from "../consts/errors";
 
 export interface SearchResult {
@@ -43,7 +44,7 @@ export class ParamsService {
 
   validateJsonBody(body: unknown): { body: object } {
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
-      throw new HttpException({ error: INVALID_JSON_BODY }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(makeError(INVALID_JSON_BODY, "expected a JSON object"), HttpStatus.BAD_REQUEST);
     }
     return { body };
   }
@@ -55,7 +56,10 @@ export class ParamsService {
   validateFormContentType(contentType?: string): void {
     const ct = contentType?.toLowerCase() ?? "";
     if (!ct.startsWith("application/x-www-form-urlencoded") && !ct.startsWith("multipart/form-data")) {
-      throw new HttpException({ error: INVALID_FORM_DATA }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        makeError(INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data"),
+        HttpStatus.BAD_REQUEST
+      );
     }
   }
 
@@ -71,30 +75,45 @@ export class ParamsService {
   validateMultipartContentType(contentType?: string): void {
     const ct = contentType?.toLowerCase() ?? "";
     if (!ct.startsWith("multipart/form-data")) {
-      throw new HttpException({ error: INVALID_MULTIPART }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data"),
+        HttpStatus.BAD_REQUEST
+      );
     }
   }
 
   processUploadedFile(file?: Express.Multer.File): FileResult {
     if (!file) {
-      throw new HttpException({ error: FILE_NOT_FOUND }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"),
+        HttpStatus.BAD_REQUEST
+      );
     }
 
     if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
-      throw new HttpException({ error: ONLY_TEXT_PLAIN }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+      throw new HttpException(
+        makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`),
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE
+      );
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      throw new HttpException({ error: FILE_SIZE_EXCEEDS }, HttpStatus.PAYLOAD_TOO_LARGE);
+      throw new HttpException(
+        makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`),
+        HttpStatus.PAYLOAD_TOO_LARGE
+      );
     }
 
     const head = file.buffer.subarray(0, SNIFF_LEN);
     if (head.includes(NULL_BYTE)) {
-      throw new HttpException({ error: FILE_NOT_TEXT }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+      throw new HttpException(
+        makeError(FILE_NOT_TEXT, "file contains null bytes in header"),
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE
+      );
     }
 
     if (file.buffer.includes(NULL_BYTE)) {
-      throw new HttpException({ error: FILE_NOT_TEXT }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+      throw new HttpException(makeError(FILE_NOT_TEXT, "file contains null bytes"), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
 
     let content: string;
@@ -102,7 +121,7 @@ export class ParamsService {
       const decoder = new TextDecoder("utf-8", { fatal: true });
       content = decoder.decode(file.buffer);
     } catch {
-      throw new HttpException({ error: FILE_NOT_TEXT }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+      throw new HttpException(makeError(FILE_NOT_TEXT, "file is not valid UTF-8"), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
 
     return {

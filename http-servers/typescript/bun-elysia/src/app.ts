@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { env } from "./config/env";
-import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors";
+import { INTERNAL_ERROR, NOT_FOUND, makeError } from "./consts/errors";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
@@ -27,7 +27,8 @@ export function createApp() {
 
   app.onError(({ code, error }) => {
     if (code === "NOT_FOUND") return new Response(JSON.stringify({ error: NOT_FOUND }), { status: 404 });
-    return new Response(JSON.stringify({ error: (error as Error).message || INTERNAL_ERROR }), { status: 500 });
+    const message = (error as Error).message || undefined;
+    return new Response(JSON.stringify(makeError(INTERNAL_ERROR, message)), { status: 500 });
   });
 
   return app;

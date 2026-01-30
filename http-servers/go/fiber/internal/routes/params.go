@@ -54,7 +54,7 @@ func handleHeaderParams(c *fiber.Ctx) error {
 func handleBodyParams(c *fiber.Ctx) error {
 	var body map[string]any
 	if err := c.BodyParser(&body); err != nil {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"body": body})
 }
@@ -92,7 +92,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrFileNotFound)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrFileNotFound, err.Error())
 	}
 	if fileHeader.Size > consts.MaxFileBytes {
 		return utils.WriteError(c, fiber.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
@@ -100,7 +100,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal, err.Error())
 	}
 	defer func() { _ = file.Close() }()
 
@@ -108,7 +108,7 @@ func handleFileParams(c *fiber.Ctx) error {
 
 	head, err := br.Peek(consts.SniffLen)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal, err.Error())
 	}
 
 	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
@@ -122,7 +122,7 @@ func handleFileParams(c *fiber.Ctx) error {
 	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal, err.Error())
 	}
 	if int64(len(data)) > consts.MaxFileBytes {
 		return utils.WriteError(c, fiber.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)

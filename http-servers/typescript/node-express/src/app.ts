@@ -5,7 +5,14 @@ import { MulterError } from "multer";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 import { env } from "./config/env";
-import { NOT_FOUND, FILE_SIZE_EXCEEDS, INVALID_MULTIPART, INVALID_JSON_BODY, INTERNAL_ERROR } from "./consts/errors";
+import {
+  NOT_FOUND,
+  FILE_SIZE_EXCEEDS,
+  INVALID_MULTIPART,
+  INVALID_JSON_BODY,
+  INTERNAL_ERROR,
+  makeError
+} from "./consts/errors";
 import { MAX_REQUEST_BYTES } from "./consts/defaults";
 
 export function createApp(): express.Express {
@@ -37,22 +44,21 @@ export function createApp(): express.Express {
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
-      res.status(413).json({ error: FILE_SIZE_EXCEEDS });
+      res.status(413).json(makeError(FILE_SIZE_EXCEEDS, err.message));
       return;
     }
 
     if (err instanceof MulterError) {
-      res.status(400).json({ error: INVALID_MULTIPART });
+      res.status(400).json(makeError(INVALID_MULTIPART, err.message));
       return;
     }
 
     if (err instanceof SyntaxError && (err as { status?: number }).status === 400 && "body" in err) {
-      res.status(400).json({ error: INVALID_JSON_BODY });
+      res.status(400).json(makeError(INVALID_JSON_BODY, err.message));
       return;
     }
 
-    const message = err instanceof Error ? err.message : INTERNAL_ERROR;
-    res.status(500).json({ error: message || INTERNAL_ERROR });
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   });
 
   return app;

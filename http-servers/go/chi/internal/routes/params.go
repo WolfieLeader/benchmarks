@@ -59,7 +59,7 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 
 	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
 
@@ -90,7 +90,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
 		return
 	}
 
@@ -117,13 +117,13 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, err.Error())
 		return
 	}
 
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrFileNotFound)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrFileNotFound, err.Error())
 		return
 	}
 	defer func() { _ = file.Close() }()
@@ -132,7 +132,7 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 
 	head, err := br.Peek(consts.SniffLen)
 	if err != nil && !errors.Is(err, io.EOF) {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal, err.Error())
 		return
 	}
 
@@ -149,7 +149,7 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 	limited := io.LimitReader(br, consts.MaxFileBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal, err.Error())
 		return
 	}
 	if int64(len(data)) > consts.MaxFileBytes {

@@ -1,5 +1,5 @@
-import { Router } from "express";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND } from "../consts/errors";
+import { type Router as RouterType, Router } from "express";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
 import { type UserRepository, resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
@@ -11,13 +11,13 @@ declare global {
   }
 }
 
-export const dbRouter = Router();
+export const dbRouter: RouterType = Router();
 
 // Apply middleware to all routes with :database param
 dbRouter.param("database", (req, res, next, database) => {
   const repository = resolveRepository(database);
   if (!repository) {
-    res.status(404).json({ error: NOT_FOUND });
+    res.status(404).json(makeError(NOT_FOUND, `unknown database type: ${database}`));
     return;
   }
   req.repository = repository;
@@ -27,15 +27,15 @@ dbRouter.param("database", (req, res, next, database) => {
 dbRouter.post("/:database/users", async (req, res) => {
   const parsed = zCreateUser.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: INVALID_JSON_BODY });
+    res.status(400).json(makeError(INVALID_JSON_BODY, parsed.error.message));
     return;
   }
 
   try {
     const user = await req.repository.create(parsed.data);
     res.status(201).json(user);
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
@@ -43,31 +43,31 @@ dbRouter.get("/:database/users/:id", async (req, res) => {
   try {
     const user = await req.repository.findById(req.params.id);
     if (!user) {
-      res.status(404).json({ error: NOT_FOUND });
+      res.status(404).json(makeError(NOT_FOUND, `user with id ${req.params.id} not found`));
       return;
     }
     res.json(user);
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
 dbRouter.patch("/:database/users/:id", async (req, res) => {
   const parsed = zUpdateUser.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: INVALID_JSON_BODY });
+    res.status(400).json(makeError(INVALID_JSON_BODY, parsed.error.message));
     return;
   }
 
   try {
     const user = await req.repository.update(req.params.id, parsed.data);
     if (!user) {
-      res.status(404).json({ error: NOT_FOUND });
+      res.status(404).json(makeError(NOT_FOUND, `user with id ${req.params.id} not found`));
       return;
     }
     res.json(user);
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
@@ -75,12 +75,12 @@ dbRouter.delete("/:database/users/:id", async (req, res) => {
   try {
     const deleted = await req.repository.delete(req.params.id);
     if (!deleted) {
-      res.status(404).json({ error: NOT_FOUND });
+      res.status(404).json(makeError(NOT_FOUND, `user with id ${req.params.id} not found`));
       return;
     }
     res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
@@ -88,8 +88,8 @@ dbRouter.delete("/:database/users", async (req, res) => {
   try {
     await req.repository.deleteAll();
     res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
@@ -97,8 +97,8 @@ dbRouter.delete("/:database/reset", async (req, res) => {
   try {
     await req.repository.deleteAll();
     res.json({ status: "ok" });
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
 
@@ -106,11 +106,11 @@ dbRouter.get("/:database/health", async (req, res) => {
   try {
     const healthy = await req.repository.healthCheck();
     if (!healthy) {
-      res.status(503).json({ error: "database unavailable" });
+      res.status(503).json(makeError("database unavailable", "health check returned false"));
       return;
     }
     res.json({ status: "healthy" });
-  } catch {
-    res.status(500).json({ error: INTERNAL_ERROR });
+  } catch (err) {
+    res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });

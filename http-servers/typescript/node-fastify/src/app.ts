@@ -5,7 +5,14 @@ import multipart from "@fastify/multipart";
 import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 import { env } from "./config/env";
-import { FILE_SIZE_EXCEEDS, INTERNAL_ERROR, INVALID_JSON_BODY, INVALID_MULTIPART, NOT_FOUND } from "./consts/errors";
+import {
+  FILE_SIZE_EXCEEDS,
+  INTERNAL_ERROR,
+  INVALID_JSON_BODY,
+  INVALID_MULTIPART,
+  NOT_FOUND,
+  makeError
+} from "./consts/errors";
 import { MAX_FILE_BYTES } from "./consts/defaults";
 
 export type FormFields = Record<string, string>;
@@ -45,6 +52,7 @@ export async function createApp(): Promise<FastifyInstance> {
     const err = error as { code?: string; statusCode?: number; message?: string };
     let statusCode = typeof err.statusCode === "number" ? err.statusCode : 500;
     let message = INTERNAL_ERROR;
+    const details = err.message || undefined;
 
     if (err.code === "FST_ERR_CTP_INVALID_JSON_BODY" || err.code === "FST_ERR_CTP_EMPTY_JSON_BODY") {
       statusCode = 400;
@@ -63,7 +71,7 @@ export async function createApp(): Promise<FastifyInstance> {
     }
 
     reply.code(statusCode);
-    return { error: message };
+    return makeError(message, details);
   });
 
   return app;

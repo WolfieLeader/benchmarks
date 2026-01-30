@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from src.consts.errors import INTERNAL_ERROR, NOT_FOUND
+from src.consts.errors import INTERNAL_ERROR, NOT_FOUND, make_error
 from src.database.repository import resolve_repository
 from src.database.types import CreateUser, UpdateUser
 
@@ -14,102 +14,104 @@ db_router = APIRouter()
 async def create_user(database: str, data: CreateUser):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         user = await repo.create(data)
         return user
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.get("/{database}/users/{id}")
 async def get_user(database: str, id: str):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         user = await repo.find_by_id(id)
         if user is None:
-            raise HTTPException(status_code=404, detail=NOT_FOUND)
+            raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"user with id {id} not found"))
         return user
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.patch("/{database}/users/{id}")
 async def update_user(database: str, id: str, data: UpdateUser):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         user = await repo.update(id, data)
         if user is None:
-            raise HTTPException(status_code=404, detail=NOT_FOUND)
+            raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"user with id {id} not found"))
         return user
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.delete("/{database}/users/{id}")
 async def delete_user(database: str, id: str):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         deleted = await repo.delete(id)
         if not deleted:
-            raise HTTPException(status_code=404, detail=NOT_FOUND)
+            raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"user with id {id} not found"))
         return {"success": True}
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.delete("/{database}/users")
 async def delete_all_users(database: str):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         await repo.delete_all()
         return {"success": True}
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.delete("/{database}/reset")
 async def reset_database(database: str):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         await repo.delete_all()
         return {"status": "ok"}
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
 
 
 @db_router.get("/{database}/health")
 async def health_check(database: str):
     repo = resolve_repository(database)
     if repo is None:
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
 
     try:
         healthy = await repo.health_check()
         if not healthy:
-            return JSONResponse(status_code=503, content={"error": "database unavailable"})
+            return JSONResponse(
+                status_code=503, content=make_error("database unavailable", "health check returned false")
+            )
         return {"status": "healthy"}
-    except Exception:
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))

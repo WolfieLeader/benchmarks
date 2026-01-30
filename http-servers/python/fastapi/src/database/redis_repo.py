@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
-import redis.asyncio as redis
+import redis.asyncio as aioredis
 
 from src.database.types import CreateUser, UpdateUser, User, build_user
 
@@ -10,13 +11,13 @@ from src.database.types import CreateUser, UpdateUser, User, build_user
 class RedisUserRepository:
     def __init__(self, connection_string: str):
         self._url = connection_string
-        self._client: redis.Redis | None = None
+        self._client: Any = None
         self._prefix = "user:"
 
     async def _connect(self) -> None:
         if self._client is not None:
             return
-        self._client = redis.from_url(self._url)
+        self._client = aioredis.from_url(self._url)
 
     def _key(self, id: str) -> str:
         return f"{self._prefix}{id}"

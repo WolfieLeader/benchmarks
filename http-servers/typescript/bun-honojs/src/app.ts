@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { env } from "./config/env";
-import { INTERNAL_ERROR, NOT_FOUND } from "./consts/errors";
+import { INTERNAL_ERROR, NOT_FOUND, makeError } from "./consts/errors";
 import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 
@@ -19,7 +19,9 @@ export function createApp() {
   app.route("/params", paramsRoutes);
 
   app.notFound((c) => c.json({ error: NOT_FOUND }, 404));
-  app.onError((_, c) => c.json({ error: INTERNAL_ERROR }, 500));
+  app.onError((err, c) => {
+    return c.json(makeError(INTERNAL_ERROR, err), 500);
+  });
 
   return app;
 }

@@ -12,6 +12,7 @@ import {
   INVALID_FORM_DATA,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
+  makeError,
   ONLY_TEXT_PLAIN,
 } from "../consts/errors.ts";
 
@@ -42,15 +43,15 @@ paramsRoutes.post("/body", async (ctx) => {
       throw new Error("No body");
     }
     body = await ctx.request.body.json();
-  } catch {
+  } catch (err) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_JSON_BODY };
+    ctx.response.body = makeError(INVALID_JSON_BODY, err);
     return;
   }
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_JSON_BODY };
+    ctx.response.body = makeError(INVALID_JSON_BODY, "expected a JSON object");
     return;
   }
 
@@ -77,7 +78,10 @@ paramsRoutes.post("/form", async (ctx) => {
     !contentType.startsWith("multipart/form-data")
   ) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_FORM_DATA };
+    ctx.response.body = makeError(
+      INVALID_FORM_DATA,
+      "expected content-type: application/x-www-form-urlencoded or multipart/form-data",
+    );
     return;
   }
 
@@ -100,9 +104,9 @@ paramsRoutes.post("/form", async (ctx) => {
     } else {
       throw new Error("Invalid type");
     }
-  } catch {
+  } catch (err) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_FORM_DATA };
+    ctx.response.body = makeError(INVALID_FORM_DATA, err);
     return;
   }
 
@@ -124,7 +128,10 @@ paramsRoutes.post("/file", async (ctx) => {
     "";
   if (!contentType.startsWith("multipart/form-data")) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_MULTIPART };
+    ctx.response.body = makeError(
+      INVALID_MULTIPART,
+      "expected content-type: multipart/form-data",
+    );
     return;
   }
 
@@ -138,27 +145,36 @@ paramsRoutes.post("/file", async (ctx) => {
         file = fileEntry;
       }
     }
-  } catch {
+  } catch (err) {
     ctx.response.status = 400;
-    ctx.response.body = { error: INVALID_MULTIPART };
+    ctx.response.body = makeError(INVALID_MULTIPART, err);
     return;
   }
 
   if (!file) {
     ctx.response.status = 400;
-    ctx.response.body = { error: FILE_NOT_FOUND };
+    ctx.response.body = makeError(
+      FILE_NOT_FOUND,
+      "no file field named 'file' in form data",
+    );
     return;
   }
 
   if (!file.type || !file.type.startsWith("text/plain")) {
     ctx.response.status = 415;
-    ctx.response.body = { error: ONLY_TEXT_PLAIN };
+    ctx.response.body = makeError(
+      ONLY_TEXT_PLAIN,
+      `received mimetype: ${file.type || "unknown"}`,
+    );
     return;
   }
 
   if (file.size > MAX_FILE_BYTES) {
     ctx.response.status = 413;
-    ctx.response.body = { error: FILE_SIZE_EXCEEDS };
+    ctx.response.body = makeError(
+      FILE_SIZE_EXCEEDS,
+      `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`,
+    );
     return;
   }
 
@@ -167,20 +183,26 @@ paramsRoutes.post("/file", async (ctx) => {
 
   if (data.length > MAX_FILE_BYTES) {
     ctx.response.status = 413;
-    ctx.response.body = { error: FILE_SIZE_EXCEEDS };
+    ctx.response.body = makeError(
+      FILE_SIZE_EXCEEDS,
+      `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`,
+    );
     return;
   }
 
   const head = data.slice(0, SNIFF_LEN);
   if (head.includes(NULL_BYTE)) {
     ctx.response.status = 415;
-    ctx.response.body = { error: FILE_NOT_TEXT };
+    ctx.response.body = makeError(
+      FILE_NOT_TEXT,
+      "file contains null bytes in header",
+    );
     return;
   }
 
   if (data.includes(NULL_BYTE)) {
     ctx.response.status = 415;
-    ctx.response.body = { error: FILE_NOT_TEXT };
+    ctx.response.body = makeError(FILE_NOT_TEXT, "file contains null bytes");
     return;
   }
 
@@ -189,7 +211,7 @@ paramsRoutes.post("/file", async (ctx) => {
     content = new TextDecoder("utf-8", { fatal: true }).decode(data);
   } catch {
     ctx.response.status = 415;
-    ctx.response.body = { error: FILE_NOT_TEXT };
+    ctx.response.body = makeError(FILE_NOT_TEXT, "file is not valid UTF-8");
     return;
   }
 

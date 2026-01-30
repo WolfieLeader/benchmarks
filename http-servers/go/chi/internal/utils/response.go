@@ -6,8 +6,8 @@ import (
 )
 
 type ErrorResponse struct {
-	Error   string         `json:"error"`
-	Details map[string]any `json:"details,omitempty"`
+	Error   string `json:"error"`
+	Details string `json:"details,omitempty"`
 }
 
 func WriteResponse(w http.ResponseWriter, status int, data any) {
@@ -16,10 +16,23 @@ func WriteResponse(w http.ResponseWriter, status int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func WriteError(w http.ResponseWriter, status int, message string) {
+func WriteError(w http.ResponseWriter, status int, message string, detail ...any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+	resp := ErrorResponse{Error: message}
+	if len(detail) > 0 {
+		switch v := detail[0].(type) {
+		case string:
+			if v != "" {
+				resp.Details = v
+			}
+		case error:
+			if v != nil {
+				resp.Details = v.Error()
+			}
+		}
+	}
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 const (
