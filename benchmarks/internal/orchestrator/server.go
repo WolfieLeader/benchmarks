@@ -14,7 +14,8 @@ import (
 )
 
 // RunServerBenchmark executes a complete benchmark for a single server.
-func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) *summary.ServerResult {
+// Returns the server result along with timed results for InfluxDB export.
+func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) (*summary.ServerResult, []client.TimedResult, []client.TimedFlowResult) {
 	result := &summary.ServerResult{
 		Name:      server.Name,
 		ImageName: server.ImageName,
@@ -35,7 +36,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	containerId, err := container.StartWithOptions(ctx, time.Minute, &options)
 	if err != nil {
 		result.SetError(fmt.Errorf("failed to start container: %w", err))
-		return result
+		return result, nil, nil
 	}
 	result.ContainerID = string(containerId)
 
@@ -52,7 +53,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	if err = container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("server did not become ready: %w", err))
-		return result
+		return result, nil, nil
 	}
 
 	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
@@ -61,7 +62,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	if err = database.ResetAll(ctx, serverURL, databases); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
-		return result
+		return result, nil, nil
 	}
 	printer.Infof("Reset all databases")
 
@@ -76,11 +77,15 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	if err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
-		return result
+		return result, nil, nil
 	}
 
 	// Run flow tests
 	flows := suite.RunFlows(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
+
+	// Get timed results for InfluxDB export
+	timedResults := suite.GetTimedResults()
+	timedFlows := suite.GetTimedFlows()
 
 	// Collect resource stats
 	stopSampler(sampler, result)
@@ -93,7 +98,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		runCapacityTest(ctx, server, result)
 	}
 
-	return result
+	return result, timedResults, timedFlows
 }
 
 func stopContainer(containerId container.Id) {

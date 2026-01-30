@@ -7,6 +7,7 @@ import (
 
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/database"
+	"benchmark-client/internal/influx"
 	"benchmark-client/internal/printer"
 	"benchmark-client/internal/summary"
 )
@@ -18,16 +19,30 @@ type Orchestrator struct {
 	compose   *database.ComposeManager
 	writer    *summary.Writer
 	databases []string
+	influx    *influx.Client // May be nil if disabled/unavailable
+	runId     string         // Unique identifier for this benchmark run
 }
 
 // New creates a new Orchestrator.
 func New(cfg *config.ConfigV2, servers []*config.ResolvedServer, resultsDir string) *Orchestrator {
+	// Create influx client (may be nil if disabled or unavailable)
+	influxCfg := influx.Config{
+		Enabled: cfg.Influx.Enabled,
+		URL:     cfg.Influx.URL,
+		Org:     cfg.Influx.Org,
+		Bucket:  cfg.Influx.Bucket,
+		Token:   cfg.Influx.Token,
+	}
+	influxClient := influx.NewClient(influxCfg)
+
 	return &Orchestrator{
 		cfg:       cfg,
 		servers:   servers,
 		compose:   database.NewComposeManager(filepath.Join("..", "infra", "compose", "databases.yml")),
 		writer:    summary.NewWriter(&cfg.Benchmark, resultsDir),
 		databases: cfg.Databases,
+		influx:    influxClient,
+		runId:     influx.RunID(time.Now()),
 	}
 }
 
@@ -57,7 +72,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 		printer.ServerHeader(server.Name)
 
-		result := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
+		result, timedResults, timedFlows := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
 
 		summary.PrintServerSummary(result)
 		path, err := o.writer.ExportServerResult(result)
@@ -66,6 +81,21 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		} else {
 			printer.Failf("Failed to export %s results: %v", server.Name, err)
 		}
+
+		// Export to InfluxDB
+		if o.influx != nil {
+			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults)
+			o.influx.WriteFlowLatencies(o.runId, server.Name, timedFlows)
+			if result.Capacity != nil {
+				o.influx.WriteCapacityResult(o.runId, server.Name, result.Capacity)
+			}
+			if result.Resources != nil {
+				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources)
+			}
+			o.influx.Flush()
+			printer.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
+		}
+
 		result.Endpoints = nil
 
 		if ctx.Err() != nil {
@@ -90,6 +120,12 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	}
 	printer.Infof("Meta results: %s", path)
 	summary.PrintFinalSummary(metaResults, servers)
+
+	// Close InfluxDB client
+	if o.influx != nil {
+		o.influx.Flush()
+		o.influx.Close()
+	}
 
 	return nil
 }
