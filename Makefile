@@ -253,67 +253,65 @@ lint:
 	cd http-servers/go/chi && golangci-lint run ./...
 	cd http-servers/go/gin && golangci-lint run ./...
 	cd http-servers/go/fiber && golangci-lint run ./...
-	cd http-servers/typescript/node-express && pnpm run lint
-	cd http-servers/typescript/node-fastify && pnpm run lint
-	cd http-servers/typescript/node-nestjs && pnpm run lint
-	cd http-servers/typescript/bun-honojs && bun run lint
-	cd http-servers/typescript/bun-elysia && bun run lint
-	cd http-servers/typescript/deno-oak && deno task lint
+	cd http-servers/typescript/node-express && pnpm run lint:fix
+	cd http-servers/typescript/node-fastify && pnpm run lint:fix
+	cd http-servers/typescript/node-nestjs && pnpm run lint:fix
+	cd http-servers/typescript/bun-honojs && bun run lint:fix
+	cd http-servers/typescript/bun-elysia && bun run lint:fix
+	cd http-servers/typescript/deno-oak && deno task lint:fix
 	cd http-servers/python/fastapi && uv run ruff check .
 	pnpm run lint:md
+
 
 # ==============================================================================
 # Type/Compile Check (Per Server)
 # ==============================================================================
 
 # --- Node.js ---
-check-express:
+typecheck-express:
 	cd http-servers/typescript/node-express && pnpm run typecheck
 
-check-fastify:
+typecheck-fastify:
 	cd http-servers/typescript/node-fastify && pnpm run typecheck
 
-check-nestjs:
+typecheck-nestjs:
 	cd http-servers/typescript/node-nestjs && pnpm run typecheck
 
 # --- Bun ---
-check-honojs:
+typecheck-honojs:
 	cd http-servers/typescript/bun-honojs && bun run typecheck
 
-check-elysia:
+typecheck-elysia:
 	cd http-servers/typescript/bun-elysia && bun run typecheck
 
 # --- Deno ---
-check-oak:
+typecheck-oak:
 	cd http-servers/typescript/deno-oak && deno task check
 
 # --- Go ---
-check-chi:
+typecheck-chi:
 	cd http-servers/go/chi && go build -o bin/server ./cmd/main.go
 
-check-gin:
+typecheck-gin:
 	cd http-servers/go/gin && go build -o bin/server ./cmd/main.go
 
-check-fiber:
+typecheck-fiber:
 	cd http-servers/go/fiber && go build -o bin/server ./cmd/main.go
 
 # --- Python ---
-check-fastapi:
+typecheck-fastapi:
 	cd http-servers/python/fastapi && uv run pyright src
 
 # --- Benchmark ---
-check-benchmark:
+typecheck-benchmark:
 	cd benchmarks && go build -o bin/benchmark ./cmd/main.go
 
 # --- All ---
-check: check-express check-fastify check-nestjs check-honojs check-elysia check-oak \
-	check-chi check-gin check-fiber check-fastapi check-benchmark
-
-# Alias for backwards compatibility
-typecheck: check
+typecheck: typecheck-express typecheck-fastify typecheck-nestjs typecheck-honojs typecheck-elysia typecheck-oak \
+	typecheck-chi typecheck-gin typecheck-fiber typecheck-fastapi typecheck-benchmark
 
 # --- Full Verification ---
-verify: check fmt lint
+verify: typecheck fmt lint
 
 # ==============================================================================
 # SQLC Code Generation

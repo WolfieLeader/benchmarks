@@ -1,6 +1,6 @@
-import { type Router as RouterType, Router } from "express";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
-import { type UserRepository, resolveRepository } from "../database/repository";
+import { Router, type Router as RouterType } from "express";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
+import { resolveRepository, type UserRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
 
 declare global {

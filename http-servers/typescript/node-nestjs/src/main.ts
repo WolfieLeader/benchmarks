@@ -13,8 +13,8 @@ import {
   INTERNAL_ERROR,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
-  NOT_FOUND,
-  makeError
+  makeError,
+  NOT_FOUND
 } from "./consts/errors";
 
 @Catch()

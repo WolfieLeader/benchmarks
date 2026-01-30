@@ -10,7 +10,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write ./src",
-    "lint": "biome lint ./src"
+    "lint": "biome lint ./src",
+    "lint:fix": "biome check --fix ./src"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

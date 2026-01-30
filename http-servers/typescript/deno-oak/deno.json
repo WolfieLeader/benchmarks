@@ -4,7 +4,8 @@
     "start": "deno run --allow-all src/index.ts",
     "check": "deno check src/**/*.ts",
     "format": "deno fmt",
-    "lint": "deno lint"
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix"
   },
   "imports": {
     "@oak/oak": "jsr:@oak/oak@^17.2.0",

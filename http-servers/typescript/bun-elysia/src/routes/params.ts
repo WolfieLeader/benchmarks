@@ -7,8 +7,8 @@ import {
   INVALID_FORM_DATA,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
-  ONLY_TEXT_PLAIN,
-  makeError
+  makeError,
+  ONLY_TEXT_PLAIN
 } from "../consts/errors";
 
 export const paramsRouter = new Elysia();

@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, makeError } from "../consts/errors";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
 import type { UserRepository } from "../database/repository";
 import { resolveRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";

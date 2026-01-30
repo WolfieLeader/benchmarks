@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { env } from "./config/env";
-import { INTERNAL_ERROR, NOT_FOUND, makeError } from "./consts/errors";
+import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors";
 import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 

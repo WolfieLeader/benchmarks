@@ -10,7 +10,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write ./src",
-    "lint": "biome lint ./src"
+    "lint": "biome lint ./src",
+    "lint:fix": "biome check --fix ./src"
   },
   "dependencies": {
     "cassandra-driver": "^4.8.0",

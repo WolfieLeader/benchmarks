@@ -11,7 +11,8 @@
     "start:prod": "node dist/main",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write ./src",
-    "lint": "biome lint ./src"
+    "lint": "biome lint ./src",
+    "lint:fix": "biome check --fix ./src"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.12",

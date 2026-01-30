@@ -1,19 +1,19 @@
-import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
-import { dbRoutes } from "./routes/db";
-import { paramsRoutes } from "./routes/params";
+import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { env } from "./config/env";
+import { MAX_FILE_BYTES } from "./consts/defaults";
 import {
   FILE_SIZE_EXCEEDS,
   INTERNAL_ERROR,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
-  NOT_FOUND,
-  makeError
+  makeError,
+  NOT_FOUND
 } from "./consts/errors";
-import { MAX_FILE_BYTES } from "./consts/defaults";
+import { dbRoutes } from "./routes/db";
+import { paramsRoutes } from "./routes/params";
 
 export type FormFields = Record<string, string>;
 
