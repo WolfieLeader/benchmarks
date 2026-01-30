@@ -7,10 +7,20 @@ type ConfigV2 struct {
 	Benchmark     BenchmarkConfig             `json:"benchmark"`
 	Container     ContainerConfig             `json:"container"`
 	Capacity      CapacityConfig              `json:"capacity"`
+	Influx        InfluxConfig                `json:"influx"`
 	Databases     []string                    `json:"databases"`
 	Servers       []ServerConfig              `json:"servers"`
 	Endpoints     map[string]EndpointConfigV2 `json:"endpoints"`
 	EndpointOrder []string                    `json:"-"`
+}
+
+// InfluxConfig holds InfluxDB configuration for metrics export
+type InfluxConfig struct {
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	Org     string `json:"org"`
+	Bucket  string `json:"bucket"`
+	Token   string `json:"token"`
 }
 
 // BenchmarkConfig holds benchmark execution settings

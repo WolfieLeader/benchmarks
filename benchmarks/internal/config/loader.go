@@ -261,6 +261,20 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 	}
 	cfg.Capacity.MeasureDuration = measureDuration
 
+	// Influx defaults
+	if cfg.Influx.URL == "" {
+		cfg.Influx.URL = "http://localhost:8086"
+	}
+	if cfg.Influx.Org == "" {
+		cfg.Influx.Org = "benchmarks"
+	}
+	if cfg.Influx.Bucket == "" {
+		cfg.Influx.Bucket = "benchmarks"
+	}
+	if cfg.Influx.Token == "" {
+		cfg.Influx.Token = "benchmark-token"
+	}
+
 	// Validate servers
 	if len(cfg.Servers) == 0 {
 		return errors.New("no servers defined")

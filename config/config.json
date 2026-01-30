@@ -25,6 +25,14 @@
     "measure": "10s"
   },
 
+  "influx": {
+    "enabled": true,
+    "url": "http://localhost:8086",
+    "org": "benchmarks",
+    "bucket": "benchmarks",
+    "token": "benchmark-token"
+  },
+
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
 
   "servers": [

@@ -41,6 +41,38 @@
         "measure": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" }
       }
     },
+    "influx": {
+      "type": "object",
+      "description": "InfluxDB configuration for metrics export",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether to export metrics to InfluxDB",
+          "default": false
+        },
+        "url": {
+          "type": "string",
+          "description": "InfluxDB URL",
+          "default": "http://localhost:8086"
+        },
+        "org": {
+          "type": "string",
+          "description": "InfluxDB organization",
+          "default": "benchmarks"
+        },
+        "bucket": {
+          "type": "string",
+          "description": "InfluxDB bucket",
+          "default": "benchmarks"
+        },
+        "token": {
+          "type": "string",
+          "description": "InfluxDB authentication token",
+          "default": "benchmark-token"
+        }
+      }
+    },
     "databases": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
