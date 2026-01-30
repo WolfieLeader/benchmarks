@@ -11,7 +11,8 @@
 	clean images clean-images fmt lint check typecheck verify install-root-tools update-root-tools \
 	check-express check-fastify check-nestjs check-honojs check-elysia check-oak \
 	check-chi check-gin check-fiber check-fastapi check-benchmark \
-	db-up db-down sqlc sqlc-chi sqlc-gin sqlc-fiber
+	db-up db-down sqlc sqlc-chi sqlc-gin sqlc-fiber \
+	grafana-up grafana-down grafana-reset grafana-logs
 
 # ==============================================================================
 # Benchmark Runner
@@ -188,6 +189,22 @@ db-up:
 
 db-down:
 	docker compose -f infra/compose/databases.yml down
+
+# --- Grafana Visualization Stack ---
+grafana-up:
+	docker compose -f docker-compose.grafana.yml up -d
+	@echo "Grafana: http://localhost:3000 (admin/benchmark)"
+	@echo "InfluxDB: http://localhost:8086 (admin/benchmark-admin)"
+
+grafana-down:
+	docker compose -f docker-compose.grafana.yml down
+
+grafana-reset:
+	docker compose -f docker-compose.grafana.yml down -v
+	docker compose -f docker-compose.grafana.yml up -d
+
+grafana-logs:
+	docker compose -f docker-compose.grafana.yml logs -f
 
 images:
 	docker build -t bun-honojs ./http-servers/typescript/bun-honojs
