@@ -7,7 +7,6 @@ import (
 	"benchmark-client/internal/container"
 )
 
-// WriteEndpointLatencies writes raw endpoint latencies to InfluxDB.
 func (c *Client) WriteEndpointLatencies(runId, server string, results []client.TimedResult) {
 	if c == nil {
 		return
@@ -34,7 +33,6 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 	}
 }
 
-// WriteFlowLatencies writes raw flow latencies to InfluxDB.
 func (c *Client) WriteFlowLatencies(runId, server string, results []client.TimedFlowResult) {
 	if c == nil {
 		return
@@ -42,7 +40,6 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 
 	baseTime := time.Now()
 	for _, r := range results {
-		// Write total flow durations
 		for i, l := range r.Latencies {
 			c.WritePoint("flow_latency",
 				map[string]string{
@@ -60,7 +57,6 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 			)
 		}
 
-		// Write per-step latencies
 		for stepName, latencies := range r.StepStats {
 			for i, l := range latencies {
 				c.WritePoint("flow_step_latency",
@@ -82,7 +78,6 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 	}
 }
 
-// WriteCapacityResult writes capacity test results to InfluxDB.
 func (c *Client) WriteCapacityResult(runId, server string, result *client.CapacityResult) {
 	if c == nil || result == nil {
 		return
@@ -103,7 +98,6 @@ func (c *Client) WriteCapacityResult(runId, server string, result *client.Capaci
 	)
 }
 
-// WriteResourceStats writes resource usage to InfluxDB.
 func (c *Client) WriteResourceStats(runId, server string, stats *container.ResourceStats) {
 	if c == nil || stats == nil {
 		return

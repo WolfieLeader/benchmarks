@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
@@ -13,6 +14,9 @@ type CassandraRepository struct {
 	contactPoints []string
 	localDC       string
 	keyspace      string
+	once          sync.Once
+	initErr       error
+	mu            sync.Mutex
 }
 
 func NewCassandraRepository(contactPoints []string, localDC, keyspace string) *CassandraRepository {
@@ -24,21 +28,21 @@ func NewCassandraRepository(contactPoints []string, localDC, keyspace string) *C
 }
 
 func (r *CassandraRepository) connect() error {
-	if r.session != nil {
-		return nil
-	}
-	cluster := gocql.NewCluster(r.contactPoints...)
-	cluster.Keyspace = r.keyspace
-	cluster.Consistency = gocql.Quorum
-	if r.localDC != "" {
-		cluster.PoolConfig.HostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(r.localDC)
-	}
-	session, err := cluster.CreateSession()
-	if err != nil {
-		return err
-	}
-	r.session = session
-	return nil
+	r.once.Do(func() {
+		cluster := gocql.NewCluster(r.contactPoints...)
+		cluster.Keyspace = r.keyspace
+		cluster.Consistency = gocql.Quorum
+		if r.localDC != "" {
+			cluster.PoolConfig.HostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(r.localDC)
+		}
+		session, err := cluster.CreateSession()
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		r.session = session
+	})
+	return r.initErr
 }
 
 func (r *CassandraRepository) Create(data *CreateUser) (*User, error) {
@@ -183,6 +187,8 @@ func (r *CassandraRepository) HealthCheck() (bool, error) {
 }
 
 func (r *CassandraRepository) Disconnect() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.session != nil {
 		r.session.Close()
 		r.session = nil

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE } from "../consts/defaults";
+import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
@@ -19,7 +19,7 @@ paramsRoutes.get("/search", (c) => {
 
   const limitStr = c.req.query("limit");
   const limitNum = Number(limitStr);
-  const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
 
   return c.json({ search: q, limit });
 });
@@ -112,6 +112,11 @@ paramsRoutes.post("/file", async (c) => {
   const data = new Uint8Array(buffer);
   if (data.length > MAX_FILE_BYTES) {
     return c.json(makeError(FILE_SIZE_EXCEEDS, `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`), 413);
+  }
+
+  const head = data.slice(0, SNIFF_LEN);
+  if (head.includes(NULL_BYTE)) {
+    return c.json(makeError(FILE_NOT_TEXT, "file contains null bytes in header"), 415);
   }
 
   if (data.includes(NULL_BYTE)) {

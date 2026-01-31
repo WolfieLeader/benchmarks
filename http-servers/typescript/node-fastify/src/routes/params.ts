@@ -18,7 +18,7 @@ export async function paramsRoutes(app: FastifyInstance) {
 
     const limitStr = request.query.limit?.trim();
     const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-    const limit = !limitStr?.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+    const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
     return { search: q, limit };
   });
@@ -67,9 +67,9 @@ export async function paramsRoutes(app: FastifyInstance) {
     const fields = await collectFormFields(request);
     const name = typeof fields.name === "string" && fields.name.trim() !== "" ? fields.name.trim() : "none";
 
-    const ageStr = typeof fields.age === "string" ? fields.age : "0";
+    const ageStr = typeof fields.age === "string" && fields.age.trim() !== "" ? fields.age.trim() : "0";
     const ageNum = Number(ageStr);
-    const age = !ageStr.includes(".") && Number.isSafeInteger(ageNum) ? ageNum : 0;
+    const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
     return { name, age };
   });

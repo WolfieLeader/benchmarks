@@ -129,16 +129,3 @@ dbRoutes.delete("/:database/reset", async (c) => {
     return c.json(makeError(INTERNAL_ERROR, err), 500);
   }
 });
-
-// Health check
-dbRoutes.get("/:database/health", async (c) => {
-  const repository = c.get("repository");
-  try {
-    const healthy = await repository.healthCheck();
-    return healthy
-      ? c.json({ status: "healthy" })
-      : c.json(makeError("database unavailable", "health check returned false"), 503);
-  } catch (err) {
-    return c.json(makeError(INTERNAL_ERROR, err), 500);
-  }
-});

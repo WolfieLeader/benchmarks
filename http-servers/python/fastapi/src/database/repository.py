@@ -63,3 +63,21 @@ def resolve_repository(database: str) -> UserRepository | None:
     if not is_database_type(database):
         return None
     return get_repository(database)  # type: ignore[arg-type]
+
+
+async def initialize_databases() -> None:
+    for db_type in DATABASE_TYPES:
+        repo = get_repository(db_type)
+        await repo.health_check()
+
+
+async def disconnect_databases() -> None:
+    for repo in _repositories.values():
+        await repo.disconnect()
+    _repositories.clear()
+
+
+def get_all_repositories() -> dict[DatabaseType, UserRepository]:
+    for db_type in DATABASE_TYPES:
+        get_repository(db_type)
+    return _repositories.copy()

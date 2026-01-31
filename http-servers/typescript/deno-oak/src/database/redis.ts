@@ -1,4 +1,5 @@
 import { Redis } from "ioredis";
+import { v7 as uuidv7 } from "uuid";
 import type { UserRepository } from "./repository.ts";
 import {
   buildUser,
@@ -20,7 +21,7 @@ export class RedisUserRepository implements UserRepository {
   }
 
   async create(data: CreateUser): Promise<User> {
-    const id = crypto.randomUUID();
+    const id = uuidv7();
     const fields: Record<string, string> = {
       name: data.name,
       email: data.email,
@@ -76,10 +77,20 @@ export class RedisUserRepository implements UserRepository {
   }
 
   async deleteAll(): Promise<void> {
-    const keys = await this.client.keys(`${this.prefix}*`);
-    if (keys.length > 0) {
-      await this.client.del(...keys);
-    }
+    let cursor = "0";
+    do {
+      const [nextCursor, keys] = await this.client.scan(
+        cursor,
+        "MATCH",
+        `${this.prefix}*`,
+        "COUNT",
+        100,
+      );
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+      }
+    } while (cursor !== "0");
   }
 
   async healthCheck(): Promise<boolean> {

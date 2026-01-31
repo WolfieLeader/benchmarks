@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -22,6 +23,9 @@ type MongoRepository struct {
 	collection *mongo.Collection
 	url        string
 	dbName     string
+	once       sync.Once
+	initErr    error
+	mu         sync.Mutex
 }
 
 func NewMongoRepository(connectionString, dbName string) *MongoRepository {
@@ -29,17 +33,17 @@ func NewMongoRepository(connectionString, dbName string) *MongoRepository {
 }
 
 func (r *MongoRepository) connect(ctx context.Context) error {
-	if r.client != nil {
-		return nil
-	}
-	client, err := mongo.Connect(options.Client().ApplyURI(r.url))
-	if err != nil {
-		return err
-	}
-	r.client = client
-	r.database = client.Database(r.dbName)
-	r.collection = r.database.Collection("users")
-	return nil
+	r.once.Do(func() {
+		client, err := mongo.Connect(options.Client().ApplyURI(r.url))
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		r.client = client
+		r.database = client.Database(r.dbName)
+		r.collection = r.database.Collection("users")
+	})
+	return r.initErr
 }
 
 func (r *MongoRepository) toUser(doc *userDocument) *User {
@@ -177,6 +181,8 @@ func (r *MongoRepository) HealthCheck() (bool, error) {
 }
 
 func (r *MongoRepository) Disconnect() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.client != nil {
 		ctx := context.Background()
 		err := r.client.Disconnect(ctx)

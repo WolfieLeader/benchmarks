@@ -2,7 +2,9 @@ package container
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -78,8 +80,15 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	return nil
 }
 
+type healthResponse struct {
+	Status    string            `json:"status"`
+	Databases map[string]string `json:"databases"`
+}
+
 func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string) error {
-	client := http.Client{}
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
 	deadline := time.Now().Add(timeout)
 	url := strings.TrimRight(serverUrl, "/") + "/health"
 
@@ -106,17 +115,48 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string)
 			continue
 		}
 
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			lastErr = closeErr
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
 		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			time.Sleep(HealthCheckInterval)
 			continue
 		}
+
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read health response body: %w", err)
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
+
+		var health healthResponse
+		if err := json.Unmarshal(body, &health); err != nil {
+			lastErr = fmt.Errorf("failed to parse health response: %w", err)
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
+
+		if health.Status != "healthy" {
+			lastErr = fmt.Errorf("server status is not healthy: %s", health.Status)
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
+
+		allDbsHealthy := true
+		for db, status := range health.Databases {
+			if status != "healthy" {
+				allDbsHealthy = false
+				lastErr = fmt.Errorf("database %s is not healthy: %s", db, status)
+				break
+			}
+		}
+		if !allDbsHealthy {
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
+
 		return nil
 	}
 

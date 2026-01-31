@@ -49,3 +49,27 @@ export function resolveRepository(database: string): UserRepository | null {
   if (!isDatabaseType(database)) return null;
   return getRepository(database);
 }
+
+export async function initializeDatabases(): Promise<void> {
+  await Promise.all(databaseTypes.map((db) => getRepository(db).healthCheck()));
+}
+
+export async function disconnectDatabases(): Promise<void> {
+  await Promise.all(
+    databaseTypes.map(async (db) => {
+      const repo = repositories.get(db);
+      if (repo) await repo.disconnect();
+    })
+  );
+}
+
+export async function getAllDatabaseStatuses(): Promise<Record<DatabaseType, "healthy" | "unhealthy">> {
+  const results = await Promise.all(
+    databaseTypes.map(async (db) => {
+      const repo = getRepository(db);
+      const healthy = await repo.healthCheck();
+      return [db, healthy ? "healthy" : "unhealthy"] as const;
+    })
+  );
+  return Object.fromEntries(results) as Record<DatabaseType, "healthy" | "unhealthy">;
+}

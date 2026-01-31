@@ -16,6 +16,7 @@ import {
   makeError,
   NOT_FOUND
 } from "./consts/errors";
+import { disconnectDatabases, initializeDatabases } from "./db/database/repository";
 
 @Catch()
 class GlobalExceptionFilter implements ExceptionFilter {
@@ -67,13 +68,15 @@ class GlobalExceptionFilter implements ExceptionFilter {
 }
 
 async function bootstrap() {
+  await initializeDatabases();
+
   const app = await NestFactory.create(AppModule);
 
   if (env.ENV !== "prod") {
     app.use(morgan("dev"));
   }
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
@@ -82,6 +85,16 @@ async function bootstrap() {
   await app.listen(env.PORT, env.HOST);
 
   console.log(`Server running at http://${env.HOST}:${env.PORT}/`);
+
+  async function shutdown() {
+    console.log("Shutting down...");
+    await app.close();
+    await disconnectDatabases();
+    process.exit(0);
+  }
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 bootstrap();

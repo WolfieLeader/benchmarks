@@ -1,6 +1,5 @@
 package influx
 
-// Config holds InfluxDB connection settings.
 type Config struct {
 	Enabled bool   `json:"enabled"`
 	URL     string `json:"url"`
@@ -9,7 +8,6 @@ type Config struct {
 	Token   string `json:"token"`
 }
 
-// DefaultConfig returns default InfluxDB configuration.
 func DefaultConfig() Config {
 	return Config{
 		Enabled: false,

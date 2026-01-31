@@ -20,7 +20,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, resolvedServers, err := config.LoadV2(config.DefaultConfigFile)
+	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
 	if err != nil {
 		printer.Failf("Failed to load configuration: %v", err)
 		return
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	var invalidServers []string
-	resolvedServers, invalidServers = config.ApplyRuntimeOptionsV2(cfg, resolvedServers, opts)
+	resolvedServers, invalidServers = config.ApplyRuntimeOptions(cfg, resolvedServers, opts)
 	if len(invalidServers) > 0 {
 		printer.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
 	}
@@ -44,8 +44,9 @@ func main() {
 
 	cfg.Print()
 
-	resultsDir := filepath.Join("..", "results", time.Now().UTC().Format("20060102-150405"))
-	orch := orchestrator.New(cfg, resolvedServers, resultsDir)
+	repoRoot := ".."
+	resultsDir := filepath.Join(repoRoot, "results", time.Now().UTC().Format("20060102-150405"))
+	orch := orchestrator.New(cfg, resolvedServers, repoRoot, resultsDir)
 
 	if err := orch.Run(ctx); err != nil {
 		printer.Failf("Benchmark failed: %v", err)

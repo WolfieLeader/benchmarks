@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
 
 from src.consts.errors import INTERNAL_ERROR, NOT_FOUND, make_error
 from src.database.repository import resolve_repository
@@ -96,22 +95,5 @@ async def reset_database(database: str):
     try:
         await repo.delete_all()
         return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
-
-
-@db_router.get("/{database}/health")
-async def health_check(database: str):
-    repo = resolve_repository(database)
-    if repo is None:
-        raise HTTPException(status_code=404, detail=make_error(NOT_FOUND, f"unknown database type: {database}"))
-
-    try:
-        healthy = await repo.health_check()
-        if not healthy:
-            return JSONResponse(
-                status_code=503, content=make_error("database unavailable", "health check returned false")
-            )
-        return {"status": "healthy"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))

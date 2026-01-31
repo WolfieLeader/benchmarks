@@ -17,7 +17,7 @@ paramsRouter.get("/search", ({ query }) => {
   const q = query.q?.trim() || "none";
   const limitStr = query.limit;
   const limitNum = Number(limitStr);
-  const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
   return { search: q, limit };
 });
 

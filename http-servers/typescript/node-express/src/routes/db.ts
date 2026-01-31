@@ -101,16 +101,3 @@ dbRouter.delete("/:database/reset", async (req, res) => {
     res.status(500).json(makeError(INTERNAL_ERROR, err));
   }
 });
-
-dbRouter.get("/:database/health", async (req, res) => {
-  try {
-    const healthy = await req.repository.healthCheck();
-    if (!healthy) {
-      res.status(503).json(makeError("database unavailable", "health check returned false"));
-      return;
-    }
-    res.json({ status: "healthy" });
-  } catch (err) {
-    res.status(500).json(makeError(INTERNAL_ERROR, err));
-  }
-});

@@ -122,6 +122,7 @@ class CassandraUserRepository:
 
     async def health_check(self) -> bool:
         try:
+            await self._connect()
             await self._execute("SELECT now() FROM system.local")
             return True
         except Exception:

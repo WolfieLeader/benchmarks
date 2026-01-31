@@ -10,7 +10,6 @@ import (
 	"benchmark-client/internal/printer"
 )
 
-// Client wraps InfluxDB write operations.
 type Client struct {
 	client   influxdb2.Client
 	writeAPI api.WriteAPI
@@ -18,29 +17,39 @@ type Client struct {
 	bucket   string
 }
 
-// NewClient creates a new InfluxDB client.
-// Returns nil if connection fails (graceful degradation).
-func NewClient(cfg Config) *Client {
+func NewClient(ctx context.Context, cfg Config) *Client {
 	if !cfg.Enabled {
 		return nil
 	}
 
 	client := influxdb2.NewClient(cfg.URL, cfg.Token)
 
-	// Test connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			client.Close()
+			return nil
+		}
 
-	health, err := client.Health(ctx)
-	if err != nil || health.Status != "pass" {
-		printer.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
-		client.Close()
-		return nil
+		healthCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		health, err := client.Health(healthCtx)
+		cancel()
+
+		if err == nil && health.Status == "pass" {
+			break
+		}
+
+		if time.Now().Add(2 * time.Second).After(deadline) {
+			printer.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
+			client.Close()
+			return nil
+		}
+
+		time.Sleep(2 * time.Second)
 	}
 
 	writeAPI := client.WriteAPI(cfg.Org, cfg.Bucket)
 
-	// Handle write errors
 	go func() {
 		for err := range writeAPI.Errors() {
 			printer.Warnf("InfluxDB write error: %v", err)
@@ -57,7 +66,6 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
-// Close flushes pending writes and closes the connection.
 func (c *Client) Close() {
 	if c == nil {
 		return
@@ -66,7 +74,6 @@ func (c *Client) Close() {
 	c.client.Close()
 }
 
-// WritePoint writes a single point to InfluxDB.
 func (c *Client) WritePoint(measurement string, tags map[string]string, fields map[string]any, ts time.Time) {
 	if c == nil {
 		return
@@ -75,7 +82,6 @@ func (c *Client) WritePoint(measurement string, tags map[string]string, fields m
 	c.writeAPI.WritePoint(p)
 }
 
-// Flush forces all pending writes to be sent.
 func (c *Client) Flush() {
 	if c == nil {
 		return
@@ -83,7 +89,6 @@ func (c *Client) Flush() {
 	c.writeAPI.Flush()
 }
 
-// RunID generates a unique run identifier from timestamp.
 func RunID(t time.Time) string {
 	return t.UTC().Format("20060102-150405")
 }

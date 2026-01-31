@@ -100,17 +100,4 @@ export const dbRouter = new Elysia()
       set.status = 500;
       return makeError(INTERNAL_ERROR, err);
     }
-  })
-  .get("/:database/health", async ({ repository, set }) => {
-    try {
-      const healthy = await repository.healthCheck();
-      if (!healthy) {
-        set.status = 503;
-        return makeError("database unavailable", "health check returned false");
-      }
-      return { status: "healthy" };
-    } catch (err) {
-      set.status = 500;
-      return makeError(INTERNAL_ERROR, err);
-    }
   });

@@ -54,3 +54,23 @@ export function resolveRepository(database: string): UserRepository | null {
   if (!isDatabaseType(database)) return null;
   return getRepository(database);
 }
+
+export async function initializeDatabases(): Promise<void> {
+  await Promise.all(
+    databaseTypes.map(async (dbType) => {
+      const repo = getRepository(dbType);
+      await repo.healthCheck();
+    }),
+  );
+}
+
+export async function disconnectDatabases(): Promise<void> {
+  await Promise.all(
+    databaseTypes.map(async (dbType) => {
+      const repo = repositories.get(dbType);
+      if (repo) {
+        await repo.disconnect();
+      }
+    }),
+  );
+}

@@ -81,10 +81,16 @@ export class RedisUserRepository implements UserRepository {
 
   async deleteAll(): Promise<void> {
     await this.connect();
-    const keys = await this.client.send("KEYS", [`${this.prefix}*`]);
-    if (Array.isArray(keys) && keys.length > 0) {
-      await this.client.send("DEL", keys);
-    }
+    let cursor = "0";
+    do {
+      const result = await this.client.send("SCAN", [cursor, "MATCH", `${this.prefix}*`, "COUNT", "100"]);
+      if (!Array.isArray(result) || result.length < 2) break;
+      cursor = String(result[0]);
+      const keys = result[1];
+      if (Array.isArray(keys) && keys.length > 0) {
+        await this.client.send("DEL", keys);
+      }
+    } while (cursor !== "0");
   }
 
   async healthCheck(): Promise<boolean> {

@@ -25,7 +25,7 @@ const (
 	DatabaseCassandra DatabaseType = "cassandra"
 )
 
-var databaseTypes = []DatabaseType{
+var DatabaseTypes = []DatabaseType{
 	DatabasePostgres,
 	DatabaseMongoDB,
 	DatabaseRedis,
@@ -33,7 +33,7 @@ var databaseTypes = []DatabaseType{
 }
 
 func IsDatabaseType(value string) bool {
-	for _, dt := range databaseTypes {
+	for _, dt := range DatabaseTypes {
 		if string(dt) == value {
 			return true
 		}
@@ -83,4 +83,44 @@ func ResolveRepository(database string, env *config.Env) UserRepository {
 		return nil
 	}
 	return GetRepository(DatabaseType(database), env)
+}
+
+func InitializeConnections(env *config.Env) {
+	for _, dbType := range DatabaseTypes {
+		repo := GetRepository(dbType, env)
+		if repo != nil {
+			_, _ = repo.HealthCheck()
+		}
+	}
+}
+
+type HealthStatus struct {
+	Status    string            `json:"status"`
+	Databases map[string]string `json:"databases"`
+}
+
+func GetAllHealthStatuses(env *config.Env) HealthStatus {
+	result := HealthStatus{
+		Status:    "healthy",
+		Databases: make(map[string]string),
+	}
+
+	for _, dbType := range DatabaseTypes {
+		repo := GetRepository(dbType, env)
+		if repo == nil {
+			result.Databases[string(dbType)] = "unhealthy"
+			result.Status = "unhealthy"
+			continue
+		}
+
+		healthy, _ := repo.HealthCheck()
+		if healthy {
+			result.Databases[string(dbType)] = "healthy"
+		} else {
+			result.Databases[string(dbType)] = "unhealthy"
+			result.Status = "unhealthy"
+		}
+	}
+
+	return result
 }

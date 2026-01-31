@@ -5,70 +5,78 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 const (
-	DefaultProjectName    = "benchmark-dbs"
+	DatabaseProject       = "benchmark-dbs"
+	GrafanaProject        = "benchmark-grafana"
 	HealthCheckInterval   = 2 * time.Second
 	DefaultHealthyTimeout = 120 * time.Second
 )
 
 type ComposeManager struct {
-	composePath string
-	projectName string
+	databasesPath string
+	grafanaPath   string
 }
 
-func NewComposeManager(composePath string) *ComposeManager {
+func NewComposeManager(repoRoot string) *ComposeManager {
 	return &ComposeManager{
-		composePath: composePath,
-		projectName: DefaultProjectName,
+		databasesPath: filepath.Join(repoRoot, "infra", "compose", "databases.yml"),
+		grafanaPath:   filepath.Join(repoRoot, "infra", "compose", "grafana.yml"),
 	}
 }
 
 func (m *ComposeManager) NetworkName() string {
-	return m.projectName + "_default"
+	return DatabaseProject + "_default"
 }
 
-func (m *ComposeManager) Start(ctx context.Context) error {
+func (m *ComposeManager) StartDatabases(ctx context.Context) error {
+	return m.composeUp(ctx, m.databasesPath, DatabaseProject)
+}
+
+func (m *ComposeManager) StartGrafana(ctx context.Context) error {
+	return m.composeUp(ctx, m.grafanaPath, GrafanaProject)
+}
+
+func (m *ComposeManager) StopDatabases(ctx context.Context) error {
+	return m.composeDown(ctx, m.databasesPath, DatabaseProject)
+}
+
+func (m *ComposeManager) StopGrafana(ctx context.Context) error {
+	return m.composeDown(ctx, m.grafanaPath, GrafanaProject)
+}
+
+func (m *ComposeManager) composeUp(ctx context.Context, composePath, project string) error {
 	args := []string{
 		"compose",
-		"-f", m.composePath,
-		"-p", m.projectName,
+		"-f", composePath,
+		"-p", project,
 		"up", "-d",
 	}
-
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("docker compose up failed: %w\noutput: %s", err, out)
+		return fmt.Errorf("docker compose up failed for %s: %w\noutput: %s", project, err, out)
 	}
-
 	return nil
 }
 
-func (m *ComposeManager) Stop(ctx context.Context) error {
+func (m *ComposeManager) composeDown(ctx context.Context, composePath, project string) error {
 	args := []string{
 		"compose",
-		"-f", m.composePath,
-		"-p", m.projectName,
+		"-f", composePath,
+		"-p", project,
 		"down",
 	}
-
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("docker compose down failed: %w\noutput: %s", err, out)
+		return fmt.Errorf("docker compose down failed for %s: %w\noutput: %s", project, err, out)
 	}
-
 	return nil
-}
-
-type composeService struct {
-	Name   string `json:"Name"`
-	State  string `json:"State"`
-	Health string `json:"Health"`
 }
 
 func (m *ComposeManager) WaitHealthy(ctx context.Context, timeout time.Duration) error {
@@ -102,11 +110,16 @@ func (m *ComposeManager) WaitHealthy(ctx context.Context, timeout time.Duration)
 	return fmt.Errorf("services did not become healthy within %s", timeout)
 }
 
+type composeService struct {
+	Name   string `json:"Name"`
+	State  string `json:"State"`
+	Health string `json:"Health"`
+}
+
 func (m *ComposeManager) checkServicesHealth(ctx context.Context, requiredServices []string) (bool, error) {
 	args := []string{
 		"compose",
-		"-f", m.composePath,
-		"-p", m.projectName,
+		"-p", DatabaseProject,
 		"ps", "--format", "json",
 	}
 
@@ -123,7 +136,7 @@ func (m *ComposeManager) checkServicesHealth(ctx context.Context, requiredServic
 
 	serviceHealth := make(map[string]string)
 	for _, svc := range services {
-		name := extractServiceName(svc.Name, m.projectName)
+		name := extractServiceName(svc.Name, DatabaseProject)
 		serviceHealth[name] = svc.Health
 	}
 
@@ -146,7 +159,6 @@ func parseComposeServices(data []byte) ([]composeService, error) {
 		return nil, nil
 	}
 
-	// docker compose ps --format json outputs one JSON object per line
 	lines := strings.Split(trimmed, "\n")
 	var services []composeService
 
@@ -167,10 +179,8 @@ func parseComposeServices(data []byte) ([]composeService, error) {
 }
 
 func extractServiceName(containerName, projectName string) string {
-	// Container names follow pattern: projectName-serviceName-1
 	prefix := projectName + "-"
 	if name, found := strings.CutPrefix(containerName, prefix); found {
-		// Remove the replica suffix (-1, -2, etc.)
 		if idx := strings.LastIndex(name, "-"); idx > 0 {
 			return name[:idx]
 		}

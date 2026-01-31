@@ -67,7 +67,6 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		}
 		first := testcases[0]
 
-		// Run warmup if enabled
 		if s.server.WarmupEnabled {
 			s.runWarmup(testcases)
 		}
@@ -239,7 +238,6 @@ func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
 	return latency, nil
 }
 
-// FlowStats contains statistics for a flow execution
 type FlowStats struct {
 	FlowId      string          `json:"flow_id"`
 	Database    string          `json:"database,omitempty"`
@@ -257,7 +255,6 @@ type FlowStats struct {
 	Steps       []FlowStepStats `json:"steps,omitempty"`
 }
 
-// FlowStepStats contains per-step statistics within a flow
 type FlowStepStats struct {
 	Name   string        `json:"name"`
 	Method string        `json:"method"`
@@ -268,7 +265,6 @@ type FlowStepStats struct {
 	P99    time.Duration `json:"p99"`
 }
 
-// RunFlows executes all configured flows
 func (s *Suite) RunFlows(hostPort int) []FlowStats {
 	if len(s.server.Flows) == 0 {
 		return nil
@@ -347,13 +343,11 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 	var failedStep int
 	durations := make([]time.Duration, 0, iterations)
 
-	// Per-step duration collection (only for successful flows)
 	stepDurations := make([][]time.Duration, stepCount)
 	for i := range stepDurations {
 		stepDurations[i] = make([]time.Duration, 0, iterations)
 	}
 
-	// Timed latencies collection
 	timedLatencies := make([]TimedLatency, 0, iterations)
 	stepTimedLatencies := make(map[string][]TimedLatency)
 	for _, ep := range flow.Endpoints {
@@ -365,17 +359,14 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		if r.Success {
 			successes++
 			durations = append(durations, r.TotalDuration)
-			// Collect per-step durations
 			for i, d := range r.StepDurations {
 				stepDurations[i] = append(stepDurations[i], d)
 			}
-			// Collect timed latencies for total flow duration
 			timedLatencies = append(timedLatencies, TimedLatency{
 				ServerOffset:   item.serverOffset,
 				EndpointOffset: item.flowOffset,
 				Duration:       r.TotalDuration,
 			})
-			// Collect per-step timed latencies
 			var stepOffset time.Duration
 			for i, d := range r.StepDurations {
 				stepName := flow.Endpoints[i].Name
@@ -394,7 +385,6 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		totalDuration += r.TotalDuration
 	}
 
-	// Store timed flow result
 	s.timedFlows = append(s.timedFlows, TimedFlowResult{
 		FlowId:    flow.Id,
 		Database:  flow.Database,
@@ -417,7 +407,6 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		successRate = float64(successes) / float64(total)
 	}
 
-	// Calculate per-step statistics
 	steps := make([]FlowStepStats, stepCount)
 	for i, ep := range flow.Endpoints {
 		steps[i] = FlowStepStats{
@@ -456,7 +445,6 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 	}
 }
 
-// runWarmup executes warmup requests without recording latencies
 func (s *Suite) runWarmup(testcases []*config.Testcase) {
 	warmupRequests := s.server.WarmupRequestsPerTestcase * len(testcases)
 	workers := min(s.server.Workers, warmupRequests)
@@ -486,12 +474,10 @@ func (s *Suite) runWarmup(testcases []*config.Testcase) {
 	wg.Wait()
 }
 
-// GetTimedResults returns the accumulated timed endpoint results.
 func (s *Suite) GetTimedResults() []TimedResult {
 	return s.timedResults
 }
 
-// GetTimedFlows returns the accumulated timed flow results.
 func (s *Suite) GetTimedFlows() []TimedFlowResult {
 	return s.timedFlows
 }

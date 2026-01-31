@@ -16,7 +16,6 @@ import (
 	"benchmark-client/internal/config"
 )
 
-// FlowResult contains the results of executing a flow
 type FlowResult struct {
 	FlowId        string
 	Database      string
@@ -27,7 +26,6 @@ type FlowResult struct {
 	Error         string
 }
 
-// RunFlow executes a complete flow cycle
 func RunFlow(ctx context.Context, client *http.Client, baseURL string, flow *config.ResolvedFlow, workerID, cycleNum int, timeout time.Duration) FlowResult {
 	result := FlowResult{
 		FlowId:        flow.Id,
@@ -37,7 +35,6 @@ func RunFlow(ctx context.Context, client *http.Client, baseURL string, flow *con
 		Success:       true,
 	}
 
-	// Generate variables
 	vars := generateVars(flow.Vars, workerID, cycleNum)
 	captured := make(map[string]string)
 
@@ -68,7 +65,6 @@ func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) m
 	vars := make(map[string]any)
 
 	for name, cfg := range varDefs {
-		// Check if optional and should be skipped
 		if cfg.Optional != nil {
 			skipProb := 0.5
 			switch v := cfg.Optional.(type) {
@@ -103,11 +99,9 @@ func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) m
 }
 
 func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, endpoint *config.ResolvedFlowEndpoint, vars map[string]any, captured map[string]string) (time.Duration, error) {
-	// Replace placeholders in path
 	path := replacePlaceholdersInString(endpoint.Path, vars, captured)
 	url := baseURL + path
 
-	// Build request body
 	var bodyReader io.Reader
 	if endpoint.Body != nil {
 		bodyWithVars := replacePlaceholdersInBody(endpoint.Body, vars, captured)
@@ -148,12 +142,10 @@ func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, e
 		return duration, closeErr
 	}
 
-	// Check status
 	if resp.StatusCode != endpoint.ExpectedStatus {
 		return duration, fmt.Errorf("status %d, want %d: %s", resp.StatusCode, endpoint.ExpectedStatus, truncate(body, 200))
 	}
 
-	// Capture fields
 	if len(endpoint.Capture) > 0 {
 		var respData map[string]any
 		if err := json.Unmarshal(body, &respData); err != nil {
@@ -168,7 +160,6 @@ func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, e
 		}
 	}
 
-	// Validate expected body (partial match with variable replacement)
 	if endpoint.ExpectedBody != nil {
 		var respData any
 		if err := json.Unmarshal(body, &respData); err != nil {
@@ -200,7 +191,6 @@ func replacePlaceholdersInString(s string, vars map[string]any, captured map[str
 func replacePlaceholdersInBody(body any, vars map[string]any, captured map[string]string) any {
 	switch v := body.(type) {
 	case string:
-		// Check if entire string is a placeholder for optional var
 		if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
 			varName := v[1 : len(v)-1]
 			if val, ok := vars[varName]; ok {
@@ -235,7 +225,6 @@ func replacePlaceholdersInBody(body any, vars map[string]any, captured map[strin
 }
 
 func validatePartialMatch(expected, actual any) error {
-	// Handle nil expected (optional field that was omitted)
 	if expected == nil {
 		return nil
 	}
@@ -248,7 +237,6 @@ func validatePartialMatch(expected, actual any) error {
 		}
 		for key, expVal := range exp {
 			if expVal == nil {
-				// Optional field was omitted, skip validation
 				continue
 			}
 			actVal, ok := act[key]

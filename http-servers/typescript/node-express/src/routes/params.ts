@@ -30,8 +30,7 @@ paramsRouter.get("/search", (req: Request, res: Response) => {
   const limitValue = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
   const limitStr = typeof limitValue === "string" ? limitValue : undefined;
   const limitNum = Number(limitStr);
-  const limit =
-    limitStr !== undefined && !limitStr.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
   res.json({ search: q, limit });
 });
@@ -71,7 +70,7 @@ function handleForm(req: Request, res: Response) {
 
   const name = typeof body.name === "string" ? body.name.trim() || "none" : "none";
 
-  const ageStr = typeof body.age === "string" ? body.age.trim() : "0";
+  const ageStr = typeof body.age === "string" && body.age.trim() !== "" ? body.age.trim() : "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 

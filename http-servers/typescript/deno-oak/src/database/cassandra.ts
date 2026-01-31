@@ -119,8 +119,8 @@ export class CassandraUserRepository implements UserRepository {
   }
 
   async healthCheck(): Promise<boolean> {
-    await this.connect();
     try {
+      await this.connect();
       await this.client.execute("SELECT now() FROM system.local");
       return true;
     } catch {

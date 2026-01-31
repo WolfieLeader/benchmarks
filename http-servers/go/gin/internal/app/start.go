@@ -15,7 +15,10 @@ func (app *App) Start() error {
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", app.env.HOST, app.env.PORT),
 		Handler:           app.router,
+		ReadTimeout:       15 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

@@ -5,10 +5,12 @@ import (
 
 	"chi-server/internal/config"
 	"chi-server/internal/consts"
+	"chi-server/internal/database"
 	"chi-server/internal/routes"
 	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type App struct {
@@ -21,16 +23,22 @@ func New() *App {
 
 	env := config.LoadEnv()
 
+	database.InitializeConnections(env)
+
+	if env.ENV != "prod" {
+		r.Use(middleware.Logger)
+	}
+	r.Use(middleware.Recoverer)
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message": "Hello World"}`))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status": "healthy"}`))
+		status := database.GetAllHealthStatuses(env)
+		utils.WriteResponse(w, http.StatusOK, status)
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })

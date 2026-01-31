@@ -3,6 +3,7 @@ import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
 import { env } from "./config/env.ts";
 import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors.ts";
+import { databaseTypes, getRepository } from "./database/repository.ts";
 
 export function createApp() {
   const app = new Application();
@@ -31,11 +32,18 @@ export function createApp() {
   }
 
   router.get("/", (ctx) => {
-    ctx.response.body = { message: "Hello World" };
+    ctx.response.type = "text/plain";
+    ctx.response.body = "OK";
   });
 
-  router.get("/health", (ctx) => {
-    ctx.response.body = { status: "healthy" };
+  router.get("/health", async (ctx) => {
+    const databases: Record<string, string> = {};
+    for (const dbType of databaseTypes) {
+      const repo = getRepository(dbType);
+      const healthy = await repo.healthCheck();
+      databases[dbType] = healthy ? "healthy" : "unhealthy";
+    }
+    ctx.response.body = { status: "healthy", databases };
   });
 
   router.use("/params", paramsRoutes.routes(), paramsRoutes.allowedMethods());

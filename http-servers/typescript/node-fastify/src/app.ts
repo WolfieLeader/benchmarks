@@ -12,13 +12,14 @@ import {
   makeError,
   NOT_FOUND
 } from "./consts/errors";
+import { getAllDatabaseStatuses } from "./database/repository";
 import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 
 export type FormFields = Record<string, string>;
 
 export async function createApp(): Promise<FastifyInstance> {
-  const app = fastify({ logger: false });
+  const app = fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 });
 
   await app.register(cookie);
   await app.register(formbody);
@@ -37,8 +38,13 @@ export async function createApp(): Promise<FastifyInstance> {
     });
   }
 
-  app.get("/", async () => ({ message: "Hello World" }));
-  app.get("/health", async () => ({ status: "healthy" }));
+  app.get("/", async (_req, reply) => {
+    reply.type("text/plain").send("OK");
+  });
+  app.get("/health", async () => {
+    const databases = await getAllDatabaseStatuses();
+    return { status: "healthy", databases };
+  });
 
   await app.register(paramsRoutes, { prefix: "/params" });
   await app.register(dbRoutes, { prefix: "/db" });

@@ -93,9 +93,13 @@ class RedisUserRepository:
         await self._connect()
         assert self._client is not None
 
-        keys = await self._client.keys(f"{self._prefix}*")
-        if keys:
-            await self._client.delete(*keys)
+        cursor = 0
+        while True:
+            cursor, keys = await self._client.scan(cursor, match=f"{self._prefix}*", count=100)
+            if keys:
+                await self._client.delete(*keys)
+            if cursor == 0:
+                break
 
     async def health_check(self) -> bool:
         try:

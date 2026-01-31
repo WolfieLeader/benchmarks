@@ -65,7 +65,6 @@ type ResolvedServer struct {
 	Flows                     []*ResolvedFlow
 }
 
-// RuntimeOptions holds the user's selections for benchmark phases (set via CLI)
 type RuntimeOptions struct {
 	Warmup    bool
 	Resources bool
@@ -73,7 +72,6 @@ type RuntimeOptions struct {
 	Servers   []string // empty means all servers
 }
 
-// GetServerNames returns a list of server names from resolved servers
 func GetServerNames(servers []*ResolvedServer) []string {
 	names := make([]string, len(servers))
 	for i, s := range servers {
@@ -82,7 +80,7 @@ func GetServerNames(servers []*ResolvedServer) []string {
 	return names
 }
 
-func (cfg *ConfigV2) Print() {
+func (cfg *Config) Print() {
 	printer.Section("Configuration")
 
 	printer.KeyValue("Base URL", cfg.Benchmark.BaseURL)
@@ -131,30 +129,23 @@ func (cfg *ConfigV2) Print() {
 	}
 }
 
-// ApplyRuntimeOptionsV2 applies CLI options to the v2 config and filters servers.
-// Returns the filtered servers and any invalid server names that were requested.
-func ApplyRuntimeOptionsV2(cfg *ConfigV2, servers []*ResolvedServer, opts *RuntimeOptions) (filtered []*ResolvedServer, invalidNames []string) {
-	// Apply phase flags to config
+func ApplyRuntimeOptions(cfg *Config, servers []*ResolvedServer, opts *RuntimeOptions) (filtered []*ResolvedServer, invalidNames []string) {
 	cfg.Benchmark.WarmupEnabled = opts.Warmup
 	cfg.Benchmark.ResourcesEnabled = opts.Resources
 	cfg.Capacity.Enabled = opts.Capacity
 
-	// Apply to all resolved servers
 	for _, s := range servers {
 		s.WarmupEnabled = opts.Warmup
 		s.ResourcesEnabled = opts.Resources
 		s.Capacity.Enabled = opts.Capacity
 	}
 
-	// Filter servers if specific ones are requested
 	if len(opts.Servers) > 0 {
-		// Build map of available servers for O(1) lookup
 		available := make(map[string]*ResolvedServer, len(servers))
 		for _, s := range servers {
 			available[s.Name] = s
 		}
 
-		// Single pass: collect valid servers and track invalid names
 		filtered = make([]*ResolvedServer, 0, len(opts.Servers))
 		for _, name := range opts.Servers {
 			if s, ok := available[name]; ok {

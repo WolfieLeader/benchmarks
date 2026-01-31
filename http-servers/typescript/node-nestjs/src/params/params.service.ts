@@ -33,7 +33,7 @@ export class ParamsService {
     const search = q?.trim() || "none";
     const limitStr = limit?.trim();
     const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-    const safeLimit = !limitStr?.includes(".") && Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+    const safeLimit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
 
     return { search, limit: safeLimit };
   }
@@ -65,7 +65,7 @@ export class ParamsService {
 
   parseFormData(body?: { name?: string; age?: string }): FormResult {
     const name = typeof body?.name === "string" ? body.name.trim() || "none" : "none";
-    const ageStr = typeof body?.age === "string" ? body.age.trim() : "0";
+    const ageStr = typeof body?.age === "string" && body.age.trim() !== "" ? body.age.trim() : "0";
     const ageNum = Number(ageStr);
     const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 

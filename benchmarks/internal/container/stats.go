@@ -9,7 +9,6 @@ import (
 	"sync"
 )
 
-// dockerStatsClient is configured for streaming Docker stats
 var dockerStatsClient = &http.Client{
 	Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -18,10 +17,8 @@ var dockerStatsClient = &http.Client{
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 10,
 	},
-	// No timeout - streaming connection stays open
 }
 
-// ResourceStats represents aggregated resource statistics
 type ResourceStats struct {
 	Memory   MemoryStats `json:"memory"`
 	CPU      CPUStats    `json:"cpu"`
@@ -29,21 +26,18 @@ type ResourceStats struct {
 	Warnings []string    `json:"warnings,omitempty"`
 }
 
-// MemoryStats holds memory usage statistics in bytes
 type MemoryStats struct {
 	MinBytes float64 `json:"min_bytes"`
 	AvgBytes float64 `json:"avg_bytes"`
 	MaxBytes float64 `json:"max_bytes"`
 }
 
-// CPUStats holds CPU usage statistics as percentages
 type CPUStats struct {
 	MinPercent float64 `json:"min_percent"`
 	AvgPercent float64 `json:"avg_percent"`
 	MaxPercent float64 `json:"max_percent"`
 }
 
-// ResourceSampler streams container stats during benchmark execution
 type ResourceSampler struct {
 	containerID string
 
@@ -55,7 +49,6 @@ type ResourceSampler struct {
 	doneCh  chan struct{}
 }
 
-// cpuStatsBlock represents CPU stats from Docker API
 type cpuStatsBlock struct {
 	CPUUsage struct {
 		TotalUsage uint64 `json:"total_usage"`
@@ -64,7 +57,6 @@ type cpuStatsBlock struct {
 	OnlineCPUs     int    `json:"online_cpus"`
 }
 
-// dockerStatsAPI represents the JSON from Docker stats API
 type dockerStatsAPI struct {
 	MemoryStats struct {
 		Usage uint64 `json:"usage"`
@@ -73,8 +65,6 @@ type dockerStatsAPI struct {
 	PreCPUStats cpuStatsBlock `json:"precpu_stats"`
 }
 
-// NewResourceSampler creates a new resource sampler for a container.
-// Docker stats API provides ~1 sample/second; the rate is not configurable.
 func NewResourceSampler(containerID string) *ResourceSampler {
 	return &ResourceSampler{
 		containerID: containerID,
@@ -85,7 +75,6 @@ func NewResourceSampler(containerID string) *ResourceSampler {
 	}
 }
 
-// Start begins streaming container stats in the background
 func (r *ResourceSampler) Start(ctx context.Context) {
 	r.mu.Lock()
 	if r.running {
@@ -98,7 +87,6 @@ func (r *ResourceSampler) Start(ctx context.Context) {
 	go r.stream(ctx)
 }
 
-// Stop halts the sampling and returns aggregated statistics
 func (r *ResourceSampler) Stop() ResourceStats {
 	r.mu.Lock()
 	if !r.running {
@@ -114,16 +102,12 @@ func (r *ResourceSampler) Stop() ResourceStats {
 	return r.aggregate()
 }
 
-// stream opens a persistent connection to Docker stats API and reads samples continuously
-// Docker pushes samples approximately once per second
 func (r *ResourceSampler) stream(ctx context.Context) {
 	defer close(r.doneCh)
 
-	// Create a cancellable context for the HTTP request
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Monitor stop channel to cancel the stream
 	go func() {
 		select {
 		case <-r.stopCh:
@@ -148,7 +132,6 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 		}
 	}()
 
-	// Stream JSON objects as they arrive (~1/second from Docker)
 	decoder := json.NewDecoder(resp.Body)
 	for {
 		var stats dockerStatsAPI
@@ -160,16 +143,12 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 	}
 }
 
-// processSample records a single stats sample
 func (r *ResourceSampler) processSample(stats *dockerStatsAPI) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Record memory (always valid)
 	r.memory = append(r.memory, stats.MemoryStats.Usage)
 
-	// Use Docker's built-in precpu_stats for accurate CPU calculation
-	// This works for every sample (no need to skip first)
 	currCPU := stats.CPUStats.CPUUsage.TotalUsage
 	prevCPU := stats.PreCPUStats.CPUUsage.TotalUsage
 	currSys := stats.CPUStats.SystemCPUUsage
@@ -179,7 +158,6 @@ func (r *ResourceSampler) processSample(stats *dockerStatsAPI) {
 		numCPUs = 1
 	}
 
-	// Calculate CPU percentage from Docker's provided deltas
 	if currSys > prevSys && currCPU >= prevCPU {
 		cpuDelta := currCPU - prevCPU
 		sysDelta := currSys - prevSys
@@ -201,7 +179,6 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 	result := ResourceStats{}
 	var warnings []string
 
-	// Aggregate memory
 	if len(memory) > 0 {
 		minMem, maxMem := memory[0], memory[0]
 		var totalMem uint64
@@ -222,7 +199,6 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 		result.Samples = len(memory)
 	}
 
-	// Aggregate CPU
 	if len(cpu) > 0 {
 		minCPU, maxCPU := cpu[0], cpu[0]
 		var totalCPU float64
@@ -242,7 +218,6 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 		}
 	}
 
-	// Set warning if low samples
 	if result.Samples < 3 {
 		warnings = append(warnings, "low samples")
 	}

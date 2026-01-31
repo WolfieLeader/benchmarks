@@ -47,7 +47,6 @@ func RegisterDb(r *gin.RouterGroup, env *config.Env) {
 	db.DELETE("/users/:id", deleteUser)
 	db.DELETE("/users", deleteAllUsers)
 	db.DELETE("/reset", resetDatabase)
-	db.GET("/health", healthCheck)
 }
 
 func createUser(c *gin.Context) {
@@ -155,20 +154,4 @@ func resetDatabase(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
-func healthCheck(c *gin.Context) {
-	repo := getRepository(c)
-
-	healthy, err := repo.HealthCheck()
-	if err != nil || !healthy {
-		details := ""
-		if err != nil {
-			details = err.Error()
-		}
-		utils.WriteError(c, http.StatusServiceUnavailable, "database unavailable", details)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 }

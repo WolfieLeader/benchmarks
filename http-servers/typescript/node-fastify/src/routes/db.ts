@@ -105,18 +105,4 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
       return makeError(INTERNAL_ERROR, err);
     }
   });
-
-  fastify.get<{ Params: { database: string } }>("/:database/health", async (request, reply) => {
-    try {
-      const healthy = await request.repository.healthCheck();
-      if (!healthy) {
-        reply.code(503);
-        return makeError("database unavailable", "health check returned false");
-      }
-      return { status: "healthy" };
-    } catch (err) {
-      reply.code(500);
-      return makeError(INTERNAL_ERROR, err);
-    }
-  });
 };

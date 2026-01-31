@@ -43,7 +43,6 @@ func RegisterDb(r fiber.Router, env *config.Env) {
 	db.Delete("/users/:id", deleteUser)
 	db.Delete("/users", deleteAllUsers)
 	db.Delete("/reset", resetDatabase)
-	db.Get("/health", healthCheck)
 }
 
 func createUser(c *fiber.Ctx) error {
@@ -138,19 +137,4 @@ func resetDatabase(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"status": "ok"})
-}
-
-func healthCheck(c *fiber.Ctx) error {
-	repo := getRepository(c)
-
-	healthy, err := repo.HealthCheck()
-	if err != nil || !healthy {
-		details := ""
-		if err != nil {
-			details = err.Error()
-		}
-		return utils.WriteError(c, fiber.StatusServiceUnavailable, "database unavailable", details)
-	}
-
-	return c.JSON(fiber.Map{"status": "healthy"})
 }

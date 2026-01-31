@@ -3,11 +3,11 @@ package database
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
 
-// ResetAll resets all specified databases via HTTP DELETE requests.
 func ResetAll(ctx context.Context, serverURL string, databases []string) error {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
@@ -21,6 +21,7 @@ func ResetAll(ctx context.Context, serverURL string, databases []string) error {
 		if err != nil {
 			return fmt.Errorf("reset %s: %w", db, err)
 		}
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("reset %s: unexpected status %d", db, resp.StatusCode)

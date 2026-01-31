@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// Stats contains latency statistics for a set of requests.
 type Stats struct {
 	Avg         time.Duration `json:"avg"`
 	High        time.Duration `json:"high"`
@@ -16,9 +15,6 @@ type Stats struct {
 	SuccessRate float64       `json:"success_rate"`
 }
 
-// CalculateStats computes statistics from a slice of latencies.
-// The latencies slice will be sorted in place.
-// successCount and totalCount are used to calculate success rate.
 func CalculateStats(latencies []time.Duration, successCount, totalCount int) *Stats {
 	if len(latencies) == 0 {
 		return &Stats{}
@@ -56,7 +52,6 @@ func CalculateStats(latencies []time.Duration, successCount, totalCount int) *St
 	}
 }
 
-// Percentile calculates the p-th percentile from a sorted slice of durations.
 func Percentile(sorted []time.Duration, p int) time.Duration {
 	if len(sorted) == 0 {
 		return 0

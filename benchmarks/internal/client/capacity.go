@@ -58,7 +58,6 @@ func (ct *CapacityTester) Run() (*CapacityResult, error) {
 	iterations := 0
 	var bestStats iterationStats
 
-	// First check: does min_workers pass? If not, result is 0.
 	stats, err := ct.testWorkers(low, &iterations)
 	if err != nil {
 		return nil, err
@@ -71,7 +70,6 @@ func (ct *CapacityTester) Run() (*CapacityResult, error) {
 	}
 	bestStats = stats
 
-	// Quick check: does max_workers pass? If so, skip the search.
 	if low < high {
 		stats, err = ct.testWorkers(high, &iterations)
 		if err != nil {
@@ -85,7 +83,6 @@ func (ct *CapacityTester) Run() (*CapacityResult, error) {
 		}
 	}
 
-	// Binary search: find the highest passing worker count
 	for high-low > precisionWorkers {
 		if ct.ctx.Err() != nil {
 			return nil, ct.ctx.Err()
@@ -132,12 +129,10 @@ func (ct *CapacityTester) runIteration(workers int) (iterationStats, error) {
 	httpClient := &http.Client{Transport: transport}
 	defer transport.CloseIdleConnections()
 
-	// Warmup phase
 	if ct.config.WarmupDuration > 0 {
 		ct.runTimedPhase(httpClient, workers, ct.config.WarmupDuration)
 	}
 
-	// Measure phase
 	return ct.measure(httpClient, workers, ct.config.MeasureDuration)
 }
 

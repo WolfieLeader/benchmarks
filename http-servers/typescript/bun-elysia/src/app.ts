@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors";
+import { getAllDatabaseStatuses } from "./database/repository";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
@@ -19,16 +20,22 @@ export function createApp() {
       });
   }
 
-  app.get("/", () => ({ message: "Hello World" }));
-  app.get("/health", () => ({ status: "healthy" }));
+  app.get("/", () => "OK");
+  app.get("/health", async () => {
+    const databases = await getAllDatabaseStatuses();
+    return { status: "healthy", databases };
+  });
 
   app.group("/params", (app) => app.use(paramsRouter));
   app.group("/db", (app) => app.use(dbRouter));
 
-  app.onError(({ code, error }) => {
-    if (code === "NOT_FOUND") return new Response(JSON.stringify({ error: NOT_FOUND }), { status: 404 });
-    const message = (error as Error).message || undefined;
-    return new Response(JSON.stringify(makeError(INTERNAL_ERROR, message)), { status: 500 });
+  app.onError(({ code, set, error }) => {
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return { error: NOT_FOUND };
+    }
+    set.status = 500;
+    return makeError(INTERNAL_ERROR, (error as Error).message);
   });
 
   return app;

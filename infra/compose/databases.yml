@@ -8,6 +8,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: benchmarks
+    command: postgres -c max_connections=200
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../databases/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

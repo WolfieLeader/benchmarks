@@ -13,8 +13,6 @@ import (
 	"benchmark-client/internal/summary"
 )
 
-// RunServerBenchmark executes a complete benchmark for a single server.
-// Returns the server result along with timed results for InfluxDB export.
 func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) (*summary.ServerResult, []client.TimedResult, []client.TimedFlowResult) {
 	result := &summary.ServerResult{
 		Name:      server.Name,
@@ -40,7 +38,6 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	}
 	result.ContainerID = string(containerId)
 
-	// Start resource sampling immediately after container creation
 	var sampler *container.ResourceSampler
 	if server.ResourcesEnabled {
 		sampler = container.NewResourceSampler(string(containerId))
@@ -58,7 +55,6 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 
 	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
 
-	// Reset databases
 	if err = database.ResetAll(ctx, serverURL, databases); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
@@ -66,10 +62,8 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	}
 	printer.Infof("Reset all databases")
 
-	// Mark benchmark start (after setup)
 	result.StartTime = time.Now()
 
-	// Run endpoint tests
 	suite := client.NewSuite(ctx, server)
 	defer suite.Close()
 
@@ -80,20 +74,16 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	// Run flow tests
 	flows := suite.RunFlows(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
 
-	// Get timed results for InfluxDB export
 	timedResults := suite.GetTimedResults()
 	timedFlows := suite.GetTimedFlows()
 
-	// Collect resource stats
 	stopSampler(sampler, result)
 
 	result.Complete(endpoints)
 	result.Flows = flows
 
-	// Run capacity test
 	if server.Capacity.Enabled && ctx.Err() == nil {
 		runCapacityTest(ctx, server, result)
 	}

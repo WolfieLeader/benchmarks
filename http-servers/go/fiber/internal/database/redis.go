@@ -3,15 +3,19 @@ package database
 import (
 	"context"
 	"strconv"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
 type RedisRepository struct {
-	client *redis.Client
-	url    string
-	prefix string
+	client  *redis.Client
+	url     string
+	prefix  string
+	once    sync.Once
+	initErr error
+	mu      sync.Mutex
 }
 
 func NewRedisRepository(connectionString string) *RedisRepository {
@@ -19,15 +23,15 @@ func NewRedisRepository(connectionString string) *RedisRepository {
 }
 
 func (r *RedisRepository) connect() error {
-	if r.client != nil {
-		return nil
-	}
-	opt, err := redis.ParseURL(r.url)
-	if err != nil {
-		return err
-	}
-	r.client = redis.NewClient(opt)
-	return nil
+	r.once.Do(func() {
+		opt, err := redis.ParseURL(r.url)
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		r.client = redis.NewClient(opt)
+	})
+	return r.initErr
 }
 
 func (r *RedisRepository) key(id string) string {
@@ -160,12 +164,21 @@ func (r *RedisRepository) DeleteAll() error {
 		return err
 	}
 
-	keys, err := r.client.Keys(ctx, r.prefix+"*").Result()
-	if err != nil {
-		return err
-	}
-	if len(keys) > 0 {
-		return r.client.Del(ctx, keys...).Err()
+	var cursor uint64
+	for {
+		keys, nextCursor, err := r.client.Scan(ctx, cursor, r.prefix+"*", 100).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			if err := r.client.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
 	}
 	return nil
 }
@@ -181,6 +194,8 @@ func (r *RedisRepository) HealthCheck() (bool, error) {
 }
 
 func (r *RedisRepository) Disconnect() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.client != nil {
 		err := r.client.Close()
 		r.client = nil

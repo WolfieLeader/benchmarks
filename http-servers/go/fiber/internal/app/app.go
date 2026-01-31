@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"fiber-server/internal/config"
+	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
 
 	"github.com/gofiber/fiber/v2"
@@ -24,16 +25,20 @@ func New() *App {
 
 	env := config.LoadEnv()
 
+	database.InitializeConnections(env)
+
 	if env.ENV != "prod" {
 		r.Use(logger.New())
 	}
 	r.Use(recover.New())
 
 	r.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"message": "Hello World"})
+		c.Set("Content-Type", "text/plain")
+		return c.SendString("OK")
 	})
 	r.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "healthy"})
+		status := database.GetAllHealthStatuses(env)
+		return c.JSON(status)
 	})
 
 	routes.RegisterParams(r.Group("/params"))

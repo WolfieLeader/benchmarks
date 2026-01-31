@@ -38,8 +38,7 @@ const (
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
-// LoadV2 loads a v2 format config file and resolves it
-func LoadV2(filename string) (*ConfigV2, []*ResolvedServer, error) {
+func Load(filename string) (*Config, []*ResolvedServer, error) {
 	data, err := os.ReadFile(filename) //nolint:gosec // config file path is controlled
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
@@ -50,7 +49,7 @@ func LoadV2(filename string) (*ConfigV2, []*ResolvedServer, error) {
 		return nil, nil, fmt.Errorf("unsupported config file format: %s", ext)
 	}
 
-	var cfg ConfigV2
+	var cfg Config
 	if err = json.Unmarshal(data, &cfg); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse JSON config: %w", err)
 	}
@@ -61,11 +60,11 @@ func LoadV2(filename string) (*ConfigV2, []*ResolvedServer, error) {
 	}
 	cfg.EndpointOrder = order
 
-	if err = applyDefaultsV2(&cfg); err != nil {
+	if err = applyDefaults(&cfg); err != nil {
 		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	resolved, err := resolveV2(&cfg)
+	resolved, err := resolve(&cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
 	}
@@ -152,12 +151,11 @@ func skipJSONValue(dec *json.Decoder) error {
 	return nil
 }
 
-func applyDefaultsV2(cfg *ConfigV2) error {
+func applyDefaults(cfg *Config) error {
 	if cfg == nil {
 		return errors.New("configuration is nil")
 	}
 
-	// Benchmark defaults
 	if strings.TrimSpace(cfg.Benchmark.BaseURL) == "" {
 		cfg.Benchmark.BaseURL = DefaultBaseURL
 	}
@@ -197,7 +195,6 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 		cfg.Benchmark.Warmup = DefaultWarmupRequests
 	}
 
-	// Container defaults
 	if strings.TrimSpace(cfg.Container.CPU) == "" {
 		cfg.Container.CPU = DefaultCPU
 	}
@@ -214,7 +211,6 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 	}
 	cfg.Container.Memory = normalizedMemory
 
-	// Capacity defaults
 	if cfg.Capacity.MinWorkers <= 0 {
 		cfg.Capacity.MinWorkers = DefaultCapacityMinWorkers
 	}
@@ -261,7 +257,6 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 	}
 	cfg.Capacity.MeasureDuration = measureDuration
 
-	// Influx defaults
 	if cfg.Influx.URL == "" {
 		cfg.Influx.URL = "http://localhost:8086"
 	}
@@ -275,7 +270,6 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 		cfg.Influx.Token = "benchmark-token"
 	}
 
-	// Validate servers
 	if len(cfg.Servers) == 0 {
 		return errors.New("no servers defined")
 	}
@@ -292,14 +286,13 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 		}
 	}
 
-	// Validate endpoints
 	if len(cfg.Endpoints) == 0 {
 		return errors.New("no endpoints defined")
 	}
 
 	for name := range cfg.Endpoints {
 		endpoint := cfg.Endpoints[name]
-		if err := applyEndpointDefaultsV2(name, &endpoint); err != nil {
+		if err := applyEndpointDefaults(name, &endpoint); err != nil {
 			return fmt.Errorf("endpoint %q: %w", name, err)
 		}
 		cfg.Endpoints[name] = endpoint
@@ -308,12 +301,11 @@ func applyDefaultsV2(cfg *ConfigV2) error {
 	return nil
 }
 
-func applyEndpointDefaultsV2(name string, e *EndpointConfigV2) error {
+func applyEndpointDefaults(name string, e *EndpointConfig) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("endpoint name is required")
 	}
 
-	// Parse route shorthand "METHOD /path" into separate fields
 	if route := strings.TrimSpace(e.Route); route != "" {
 		parts := strings.SplitN(route, " ", 2)
 		if len(parts) != 2 {
@@ -346,7 +338,6 @@ func applyEndpointDefaultsV2(name string, e *EndpointConfigV2) error {
 		return errors.New("expect.status must be between 100 and 599")
 	}
 
-	// Validate flow config if present
 	if e.Flow != nil {
 		if strings.TrimSpace(e.Flow.Id) == "" {
 			return errors.New("flow.id is required when flow is specified")

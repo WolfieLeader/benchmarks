@@ -120,26 +120,4 @@ export class DbController {
       throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
-  @Get(":database/health")
-  async health(@Param("database") database: string) {
-    const repository = resolveRepository(database);
-    if (!repository) {
-      throw new HttpException(makeError(NOT_FOUND, `unknown database type: ${database}`), HttpStatus.NOT_FOUND);
-    }
-
-    try {
-      const healthy = await repository.healthCheck();
-      if (!healthy) {
-        throw new HttpException(
-          makeError("database unavailable", "health check returned false"),
-          HttpStatus.SERVICE_UNAVAILABLE
-        );
-      }
-      return { status: "healthy" };
-    } catch (err) {
-      if (err instanceof HttpException) throw err;
-      throw new HttpException(makeError(INTERNAL_ERROR, err), HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
 }

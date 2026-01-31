@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func resolveV2(cfg *ConfigV2) ([]*ResolvedServer, error) {
+func resolve(cfg *Config) ([]*ResolvedServer, error) {
 	var allTestcases []*Testcase
 	order := cfg.EndpointOrder
 	if len(order) == 0 {
@@ -31,19 +31,16 @@ func resolveV2(cfg *ConfigV2) ([]*ResolvedServer, error) {
 		if !ok {
 			continue
 		}
-		// Skip standalone tests for endpoints that are part of a flow
-		// (they use placeholders that are only resolved during flow execution)
 		if endpoint.Flow != nil {
 			continue
 		}
-		testcases, err := resolveEndpointV2(cfg.Benchmark.BaseURL, cfg.Databases, endpointName, &endpoint)
+		testcases, err := resolveEndpoint(cfg.Benchmark.BaseURL, cfg.Databases, endpointName, &endpoint)
 		if err != nil {
 			return nil, err
 		}
 		allTestcases = append(allTestcases, testcases...)
 	}
 
-	// Resolve flows
 	flows, err := resolveFlows(cfg, order)
 	if err != nil {
 		return nil, err
@@ -74,9 +71,8 @@ func resolveV2(cfg *ConfigV2) ([]*ResolvedServer, error) {
 	return servers, nil
 }
 
-func resolveFlows(cfg *ConfigV2, order []string) ([]*ResolvedFlow, error) {
-	// Group endpoints by flow.id, preserving order
-	flowEndpoints := make(map[string][]string) // flow.id -> endpoint names in order
+func resolveFlows(cfg *Config, order []string) ([]*ResolvedFlow, error) {
+	flowEndpoints := make(map[string][]string)
 	flowVars := make(map[string]map[string]VarConfig)
 
 	for _, name := range order {
@@ -87,7 +83,6 @@ func resolveFlows(cfg *ConfigV2, order []string) ([]*ResolvedFlow, error) {
 		flowId := endpoint.Flow.Id
 		flowEndpoints[flowId] = append(flowEndpoints[flowId], name)
 
-		// Capture vars from first endpoint that has them
 		if endpoint.Flow.Vars != nil && flowVars[flowId] == nil {
 			flowVars[flowId] = endpoint.Flow.Vars
 		}
@@ -96,7 +91,6 @@ func resolveFlows(cfg *ConfigV2, order []string) ([]*ResolvedFlow, error) {
 	var flows []*ResolvedFlow
 
 	for flowId, endpointNames := range flowEndpoints {
-		// Check if any endpoint has per_database
 		var perDatabase bool
 		for _, name := range endpointNames {
 			if cfg.Endpoints[name].PerDatabase {
@@ -147,7 +141,7 @@ func resolveFlows(cfg *ConfigV2, order []string) ([]*ResolvedFlow, error) {
 	return flows, nil
 }
 
-func resolveEndpointV2(baseURL string, databases []string, endpointName string, endpoint *EndpointConfigV2) ([]*Testcase, error) {
+func resolveEndpoint(baseURL string, databases []string, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {
 	endpointFile, err := loadFile(endpoint.File)
 	if err != nil {
 		return nil, fmt.Errorf("endpoint %q file: %w", endpointName, err)
@@ -155,17 +149,14 @@ func resolveEndpointV2(baseURL string, databases []string, endpointName string, 
 
 	var testcases []*Testcase
 
-	// If per_database is true, expand for each database
 	if endpoint.PerDatabase && len(databases) > 0 {
 		for _, db := range databases {
-			// Create base testcase with database substitution
-			tc, tcErr := buildTestcaseV2(baseURL, endpointName, db, endpoint, nil, endpointFile, db)
+			tc, tcErr := buildTestcase(baseURL, endpointName, db, endpoint, nil, endpointFile, db)
 			if tcErr != nil {
 				return nil, tcErr
 			}
 			testcases = append(testcases, tc)
 
-			// Add variations for this database
 			for i := range endpoint.Variations {
 				variation := &endpoint.Variations[i]
 				file := endpointFile
@@ -177,7 +168,7 @@ func resolveEndpointV2(baseURL string, databases []string, endpointName string, 
 				}
 
 				variationName := fmt.Sprintf("variation_%d", i)
-				tc, tcErr = buildTestcaseV2(baseURL, endpointName, db+"/"+variationName, endpoint, variation, file, db)
+				tc, tcErr = buildTestcase(baseURL, endpointName, db+"/"+variationName, endpoint, variation, file, db)
 				if tcErr != nil {
 					return nil, fmt.Errorf("endpoint %q database %q variation %d: %w", endpointName, db, i, tcErr)
 				}
@@ -185,23 +176,20 @@ func resolveEndpointV2(baseURL string, databases []string, endpointName string, 
 			}
 		}
 	} else {
-		// No per_database expansion - create single base testcase
 		if len(endpoint.Variations) == 0 {
-			tc, tcErr := buildTestcaseV2(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+			tc, tcErr := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
 			if tcErr != nil {
 				return nil, tcErr
 			}
 			return []*Testcase{tc}, nil
 		}
 
-		// Create base testcase
-		tc, tcErr := buildTestcaseV2(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+		tc, tcErr := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
 		if tcErr != nil {
 			return nil, tcErr
 		}
 		testcases = append(testcases, tc)
 
-		// Add variations
 		for i := range endpoint.Variations {
 			variation := &endpoint.Variations[i]
 			file := endpointFile
@@ -213,7 +201,7 @@ func resolveEndpointV2(baseURL string, databases []string, endpointName string, 
 			}
 
 			variationName := fmt.Sprintf("variation_%d", i)
-			tc, err = buildTestcaseV2(baseURL, endpointName, variationName, endpoint, variation, file, "")
+			tc, err = buildTestcase(baseURL, endpointName, variationName, endpoint, variation, file, "")
 			if err != nil {
 				return nil, fmt.Errorf("endpoint %q variation %d: %w", endpointName, i, err)
 			}
@@ -224,7 +212,7 @@ func resolveEndpointV2(baseURL string, databases []string, endpointName string, 
 	return testcases, nil
 }
 
-func buildTestcaseV2(baseURL, endpointName, name string, endpoint *EndpointConfigV2, variation *VariationConfig, file *FileUpload, database string) (*Testcase, error) {
+func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig, variation *VariationConfig, file *FileUpload, database string) (*Testcase, error) {
 	path := endpoint.Path
 	method := strings.ToUpper(endpoint.Method)
 	headers := maps.Clone(endpoint.Headers)
@@ -236,7 +224,6 @@ func buildTestcaseV2(baseURL, endpointName, name string, endpoint *EndpointConfi
 	expectedBody := endpoint.Expect.Body
 	expectedText := endpoint.Expect.Text
 
-	// Apply variation overrides
 	if variation != nil {
 		if variation.Path != "" {
 			path = variation.Path
@@ -281,7 +268,6 @@ func buildTestcaseV2(baseURL, endpointName, name string, endpoint *EndpointConfi
 		}
 	}
 
-	// Replace {database} placeholder if database is provided
 	if database != "" {
 		path = strings.ReplaceAll(path, "{database}", database)
 	}
@@ -374,7 +360,6 @@ func loadFile(filename string) (*FileUpload, error) {
 		return nil, nil
 	}
 
-	// Prevent path traversal attacks
 	if strings.Contains(filename, "..") {
 		return nil, errors.New("invalid filename: path traversal not allowed")
 	}
@@ -382,7 +367,6 @@ func loadFile(filename string) (*FileUpload, error) {
 	assetsDir := filepath.Join("..", "assets")
 	path := filepath.Join(assetsDir, filename)
 
-	// Verify the resolved path is still within assets directory
 	absAssetsDir, err := filepath.Abs(assetsDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve assets directory: %w", err)
