@@ -27,9 +27,8 @@
 
   "influx": {
     "enabled": true,
-    "url": "http://localhost:8086",
-    "org": "benchmarks",
-    "bucket": "benchmarks",
+    "url": "http://localhost:8181",
+    "database": "benchmarks",
     "token": "benchmark-token"
   },
 

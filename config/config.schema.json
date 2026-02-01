@@ -54,16 +54,11 @@
         "url": {
           "type": "string",
           "description": "InfluxDB URL",
-          "default": "http://localhost:8086"
+          "default": "http://localhost:8181"
         },
-        "org": {
+        "database": {
           "type": "string",
-          "description": "InfluxDB organization",
-          "default": "benchmarks"
-        },
-        "bucket": {
-          "type": "string",
-          "description": "InfluxDB bucket",
+          "description": "InfluxDB database",
           "default": "benchmarks"
         },
         "token": {
@@ -164,10 +159,7 @@
         "min": { "type": "integer" },
         "max": { "type": "integer" },
         "optional": {
-          "oneOf": [
-            { "type": "boolean" },
-            { "type": "number", "minimum": 0, "maximum": 1 }
-          ]
+          "oneOf": [{ "type": "boolean" }, { "type": "number", "minimum": 0, "maximum": 1 }]
         }
       }
     }
