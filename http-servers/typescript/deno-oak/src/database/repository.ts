@@ -15,12 +15,7 @@ export interface UserRepository {
   disconnect(): Promise<void>;
 }
 
-export const databaseTypes = [
-  "postgres",
-  "mongodb",
-  "redis",
-  "cassandra",
-] as const;
+export const databaseTypes = ["postgres", "mongodb", "redis", "cassandra"] as const;
 export type DatabaseType = (typeof databaseTypes)[number];
 
 const repositories = new Map<DatabaseType, UserRepository>();
@@ -33,8 +28,8 @@ const repositoryFactories: Record<DatabaseType, () => UserRepository> = {
     new CassandraUserRepository({
       contactPoints: env.CASSANDRA_CONTACT_POINTS,
       localDataCenter: env.CASSANDRA_LOCAL_DATACENTER,
-      keyspace: env.CASSANDRA_KEYSPACE,
-    }),
+      keyspace: env.CASSANDRA_KEYSPACE
+    })
 };
 
 export function isDatabaseType(value: string): value is DatabaseType {
@@ -60,7 +55,7 @@ export async function initializeDatabases(): Promise<void> {
     databaseTypes.map(async (dbType) => {
       const repo = getRepository(dbType);
       await repo.healthCheck();
-    }),
+    })
   );
 }
 
@@ -71,13 +66,11 @@ export async function disconnectDatabases(): Promise<void> {
       if (repo) {
         await repo.disconnect();
       }
-    }),
+    })
   );
 }
 
-export async function getAllDatabaseStatuses(): Promise<
-  Record<DatabaseType, "healthy" | "unhealthy">
-> {
+export async function getAllDatabaseStatuses(): Promise<Record<DatabaseType, "healthy" | "unhealthy">> {
   const results = await Promise.all(
     databaseTypes.map(async (db) => {
       try {
@@ -87,10 +80,7 @@ export async function getAllDatabaseStatuses(): Promise<
       } catch {
         return [db, "unhealthy"] as const;
       }
-    }),
+    })
   );
-  return Object.fromEntries(results) as Record<
-    DatabaseType,
-    "healthy" | "unhealthy"
-  >;
+  return Object.fromEntries(results) as Record<DatabaseType, "healthy" | "unhealthy">;
 }

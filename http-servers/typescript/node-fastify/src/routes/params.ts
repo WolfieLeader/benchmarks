@@ -18,7 +18,7 @@ export async function paramsRoutes(app: FastifyInstance) {
 
     const limitStr = request.query.limit?.trim();
     const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-    const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+    const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
 
     return { search: q, limit };
   });

@@ -30,7 +30,7 @@ paramsRouter.get("/search", (req: Request, res: Response) => {
   const limitValue = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
   const limitStr = typeof limitValue === "string" ? limitValue : undefined;
   const limitNum = Number(limitStr);
-  const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
 
   res.json({ search: q, limit });
 });

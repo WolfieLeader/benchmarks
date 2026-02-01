@@ -1,12 +1,7 @@
 import { Redis } from "ioredis";
 import { v7 as uuidv7 } from "uuid";
 import type { UserRepository } from "./repository.ts";
-import {
-  buildUser,
-  type CreateUser,
-  type UpdateUser,
-  type User,
-} from "./types.ts";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types.ts";
 
 export class RedisUserRepository implements UserRepository {
   private client: Redis;
@@ -24,7 +19,7 @@ export class RedisUserRepository implements UserRepository {
     const id = uuidv7();
     const fields: Record<string, string> = {
       name: data.name,
-      email: data.email,
+      email: data.email
     };
     if (data.favoriteNumber !== undefined) {
       fields.favoriteNumber = String(data.favoriteNumber);
@@ -79,13 +74,7 @@ export class RedisUserRepository implements UserRepository {
   async deleteAll(): Promise<void> {
     let cursor = "0";
     do {
-      const [nextCursor, keys] = await this.client.scan(
-        cursor,
-        "MATCH",
-        `${this.prefix}*`,
-        "COUNT",
-        100,
-      );
+      const [nextCursor, keys] = await this.client.scan(cursor, "MATCH", `${this.prefix}*`, "COUNT", 100);
       cursor = nextCursor;
       if (keys.length > 0) {
         await this.client.del(...keys);

@@ -1,9 +1,9 @@
 import { Application, Router } from "@oak/oak";
-import { dbRoutes } from "./routes/db.ts";
-import { paramsRoutes } from "./routes/params.ts";
 import { env } from "./config/env.ts";
 import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors.ts";
-import { databaseTypes, getRepository } from "./database/repository.ts";
+import { getAllDatabaseStatuses } from "./database/repository.ts";
+import { dbRoutes } from "./routes/db.ts";
+import { paramsRoutes } from "./routes/params.ts";
 
 export function createApp() {
   const app = new Application();
@@ -25,9 +25,7 @@ export function createApp() {
       const start = Date.now();
       await next();
       const ms = Date.now() - start;
-      console.log(
-        `${ctx.request.method} ${ctx.request.url.pathname} ${ctx.response.status} ${ms}ms`,
-      );
+      console.log(`${ctx.request.method} ${ctx.request.url.pathname} ${ctx.response.status} ${ms}ms`);
     });
   }
 
@@ -37,12 +35,7 @@ export function createApp() {
   });
 
   router.get("/health", async (ctx) => {
-    const databases: Record<string, string> = {};
-    for (const dbType of databaseTypes) {
-      const repo = getRepository(dbType);
-      const healthy = await repo.healthCheck();
-      databases[dbType] = healthy ? "healthy" : "unhealthy";
-    }
+    const databases = await getAllDatabaseStatuses();
     ctx.response.body = { status: "healthy", databases };
   });
 

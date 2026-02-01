@@ -1,12 +1,7 @@
 import { Client } from "cassandra-driver";
 import { v7 as uuidv7 } from "uuid";
 import type { UserRepository } from "./repository.ts";
-import {
-  buildUser,
-  type CreateUser,
-  type UpdateUser,
-  type User,
-} from "./types.ts";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types.ts";
 
 export type CassandraConfig = {
   contactPoints: string[];
@@ -22,7 +17,7 @@ export class CassandraUserRepository implements UserRepository {
     this.client = new Client({
       contactPoints: config.contactPoints,
       localDataCenter: config.localDataCenter,
-      keyspace: config.keyspace,
+      keyspace: config.keyspace
     });
   }
 
@@ -39,20 +34,16 @@ export class CassandraUserRepository implements UserRepository {
     const query = hasFavorite
       ? "INSERT INTO users (id, name, email, favorite_number) VALUES (?, ?, ?, ?)"
       : "INSERT INTO users (id, name, email) VALUES (?, ?, ?)";
-    const params = hasFavorite
-      ? [id, data.name, data.email, data.favoriteNumber]
-      : [id, data.name, data.email];
+    const params = hasFavorite ? [id, data.name, data.email, data.favoriteNumber] : [id, data.name, data.email];
     await this.client.execute(query, params, { prepare: true });
     return buildUser(id, data);
   }
 
   async findById(id: string): Promise<User | null> {
     await this.connect();
-    const result = await this.client.execute(
-      "SELECT id, name, email, favorite_number FROM users WHERE id = ?",
-      [id],
-      { prepare: true },
-    );
+    const result = await this.client.execute("SELECT id, name, email, favorite_number FROM users WHERE id = ?", [id], {
+      prepare: true
+    });
     if (result.rowLength === 0) return null;
 
     const row = result.rows[0];
@@ -60,7 +51,7 @@ export class CassandraUserRepository implements UserRepository {
     const user: User = {
       id: row.id.toString(),
       name: row.name,
-      email: row.email,
+      email: row.email
     };
     if (row.favorite_number != null) user.favoriteNumber = row.favorite_number;
     return user;
@@ -94,11 +85,7 @@ export class CassandraUserRepository implements UserRepository {
     if (setClauses.length === 0) return existing;
 
     params.push(id);
-    await this.client.execute(
-      `UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`,
-      params,
-      { prepare: true },
-    );
+    await this.client.execute(`UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`, params, { prepare: true });
     return existing;
   }
 
@@ -108,7 +95,7 @@ export class CassandraUserRepository implements UserRepository {
     if (!existing) return false;
 
     await this.client.execute("DELETE FROM users WHERE id = ?", [id], {
-      prepare: true,
+      prepare: true
     });
     return true;
   }

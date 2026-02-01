@@ -1,11 +1,6 @@
 import { type Collection, MongoClient, ObjectId } from "mongodb";
 import type { UserRepository } from "./repository.ts";
-import {
-  buildUser,
-  type CreateUser,
-  type UpdateUser,
-  type User,
-} from "./types.ts";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types.ts";
 
 type UserDocument = {
   _id: ObjectId;
@@ -23,9 +18,7 @@ export class MongoUserRepository implements UserRepository {
   constructor(connectionString: string, dbName: string) {
     this.client = new MongoClient(connectionString);
     this.dbName = dbName;
-    this.collection = this.client
-      .db(this.dbName)
-      .collection<UserDocument>("users");
+    this.collection = this.client.db(this.dbName).collection<UserDocument>("users");
   }
 
   private async connect(): Promise<void> {
@@ -46,7 +39,7 @@ export class MongoUserRepository implements UserRepository {
     const user: User = {
       id: doc._id.toString(),
       name: doc.name,
-      email: doc.email,
+      email: doc.email
     };
     if (doc.favoriteNumber !== undefined) {
       user.favoriteNumber = doc.favoriteNumber;
@@ -93,7 +86,7 @@ export class MongoUserRepository implements UserRepository {
     const doc = await this.collection.findOneAndUpdate(
       { _id: objectId },
       { $set: updateFields },
-      { returnDocument: "after" },
+      { returnDocument: "after" }
     );
     return doc ? this.toUser(doc) : null;
   }

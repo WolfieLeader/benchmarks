@@ -6,7 +6,7 @@ export const zUser = z.object({
   id: z.string(),
   name: z.string(),
   email: z.email(),
-  favoriteNumber: zFavoriteNumber.optional(),
+  favoriteNumber: zFavoriteNumber.optional()
 });
 
 export type User = z.infer<typeof zUser>;
@@ -14,7 +14,7 @@ export type User = z.infer<typeof zUser>;
 export const zCreateUser = z.object({
   name: z.string().min(1),
   email: z.email(),
-  favoriteNumber: zFavoriteNumber.optional(),
+  favoriteNumber: zFavoriteNumber.optional()
 });
 
 export type CreateUser = z.infer<typeof zCreateUser>;
@@ -22,7 +22,7 @@ export type CreateUser = z.infer<typeof zCreateUser>;
 export const zUpdateUser = z.object({
   name: z.string().min(1).optional(),
   email: z.email().optional(),
-  favoriteNumber: zFavoriteNumber.optional(),
+  favoriteNumber: zFavoriteNumber.optional()
 });
 
 export type UpdateUser = z.infer<typeof zUpdateUser>;

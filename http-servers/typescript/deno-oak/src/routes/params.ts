@@ -22,7 +22,9 @@ paramsRoutes.get("/search", (ctx) => {
   const q = ctx.request.url.searchParams.get("q")?.trim() || "none";
   const limitStr = ctx.request.url.searchParams.get("limit")?.trim();
   const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-  const limit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".")
+    ? limitNum
+    : DEFAULT_LIMIT;
   ctx.response.body = { search: q, limit };
 });
 

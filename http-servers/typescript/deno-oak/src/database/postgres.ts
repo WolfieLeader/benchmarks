@@ -4,12 +4,7 @@ import pg from "pg";
 import { v7 as uuidv7 } from "uuid";
 import { users } from "./drizzle-schema.ts";
 import type { UserRepository } from "./repository.ts";
-import {
-  type CreateUser,
-  normalizeUser,
-  type UpdateUser,
-  type User,
-} from "./types.ts";
+import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./types.ts";
 
 export class PostgresUserRepository implements UserRepository {
   private pool: pg.Pool;
@@ -25,7 +20,7 @@ export class PostgresUserRepository implements UserRepository {
     const values: typeof users.$inferInsert = {
       id,
       name: data.name,
-      email: data.email,
+      email: data.email
     };
     if (data.favoriteNumber !== undefined) {
       values.favoriteNumber = data.favoriteNumber;
@@ -36,11 +31,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async findById(id: string): Promise<User | null> {
-    const [user] = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
+    const [user] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
     return user ? normalizeUser(user) : null;
   }
 
@@ -57,19 +48,12 @@ export class PostgresUserRepository implements UserRepository {
       return this.findById(id);
     }
 
-    const [user] = await this.db
-      .update(users)
-      .set(updates)
-      .where(eq(users.id, id))
-      .returning();
+    const [user] = await this.db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user ? normalizeUser(user) : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const [user] = await this.db
-      .delete(users)
-      .where(eq(users.id, id))
-      .returning();
+    const [user] = await this.db.delete(users).where(eq(users.id, id)).returning();
     return Boolean(user);
   }
 

@@ -33,7 +33,7 @@ export class ParamsService {
     const search = q?.trim() || "none";
     const limitStr = limit?.trim();
     const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-    const safeLimit = Number.isSafeInteger(limitNum) ? limitNum : DEFAULT_LIMIT;
+    const safeLimit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
 
     return { search, limit: safeLimit };
   }

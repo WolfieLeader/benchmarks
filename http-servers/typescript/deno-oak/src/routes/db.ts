@@ -1,31 +1,19 @@
 import type { RouterMiddleware } from "@oak/oak";
 import { Router } from "@oak/oak";
-import {
-  INTERNAL_ERROR,
-  INVALID_JSON_BODY,
-  makeError,
-  NOT_FOUND,
-} from "../consts/errors.ts";
-import {
-  resolveRepository,
-  type UserRepository,
-} from "../database/repository.ts";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors.ts";
+import { resolveRepository, type UserRepository } from "../database/repository.ts";
 import { zCreateUser, zUpdateUser } from "../database/types.ts";
 
 type DbState = { repository: UserRepository };
 
-const withRepository: RouterMiddleware<
-  "/:database/:path*",
-  { database: string; "path*": string },
-  DbState
-> = async (ctx, next) => {
+const withRepository: RouterMiddleware<"/:database/:path*", { database: string; "path*": string }, DbState> = async (
+  ctx,
+  next
+) => {
   const repository = resolveRepository(ctx.params.database);
   if (!repository) {
     ctx.response.status = 404;
-    ctx.response.body = makeError(
-      NOT_FOUND,
-      `unknown database type: ${ctx.params.database}`,
-    );
+    ctx.response.body = makeError(NOT_FOUND, `unknown database type: ${ctx.params.database}`);
     return;
   }
   ctx.state.repository = repository;
