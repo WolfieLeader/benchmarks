@@ -19,6 +19,7 @@ type PostgresRepository struct {
 	url     string
 	once    sync.Once
 	initErr error
+	mu      sync.Mutex
 }
 
 func NewPostgresRepository(connectionString string) *PostgresRepository {
@@ -191,6 +192,8 @@ func (r *PostgresRepository) HealthCheck() (bool, error) {
 }
 
 func (r *PostgresRepository) Disconnect() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.pool != nil {
 		r.pool.Close()
 		r.pool = nil

@@ -24,7 +24,7 @@ func withRepository(env *config.Env) func(http.Handler) http.Handler {
 			dbType := chi.URLParam(r, "database")
 			repo := database.ResolveRepository(dbType, env)
 			if repo == nil {
-				utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)
+				utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound, "unknown database type: "+dbType)
 				return
 			}
 			ctx := context.WithValue(r.Context(), repositoryKey{}, repo)
@@ -86,7 +86,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user == nil {
-		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)
+		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
@@ -114,7 +114,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user == nil {
-		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)
+		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
@@ -131,7 +131,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !deleted {
-		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)
+		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound, "user with id "+id+" not found")
 		return
 	}
 
