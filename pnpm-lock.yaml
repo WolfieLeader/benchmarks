@@ -11,9 +11,6 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.13
         version: 2.3.13
-      husky:
-        specifier: ^9.1.7
-        version: 9.1.7
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -73,11 +70,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  husky@9.1.7:
-    resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   prettier@3.8.1:
     resolution: {integrity: sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==}
     engines: {node: '>=14'}
@@ -119,7 +111,5 @@ snapshots:
 
   '@biomejs/cli-win32-x64@2.3.13':
     optional: true
-
-  husky@9.1.7: {}
 
   prettier@3.8.1: {}

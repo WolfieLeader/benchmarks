@@ -12,7 +12,7 @@
 	check-express check-fastify check-nestjs check-honojs check-elysia check-oak \
 	check-chi check-gin check-fiber check-fastapi check-benchmark \
 	db-up db-down sqlc sqlc-chi sqlc-gin sqlc-fiber \
-	grafana-up grafana-down grafana-reset grafana-logs
+	grafana-up grafana-down grafana-logs
 
 # ==============================================================================
 # Benchmark Runner
@@ -192,16 +192,12 @@ db-down:
 
 # --- Grafana Visualization Stack ---
 grafana-up:
+	docker compose -f infra/compose/grafana.yml down
 	docker compose -f infra/compose/grafana.yml up -d
 	@echo "Grafana: http://localhost:3000 (admin/benchmark)"
-	@echo "InfluxDB: http://localhost:8086 (admin/benchmark-admin)"
 
 grafana-down:
 	docker compose -f infra/compose/grafana.yml down
-
-grafana-reset:
-	docker compose -f infra/compose/grafana.yml down -v
-	docker compose -f infra/compose/grafana.yml up -d
 
 grafana-logs:
 	docker compose -f infra/compose/grafana.yml logs -f
