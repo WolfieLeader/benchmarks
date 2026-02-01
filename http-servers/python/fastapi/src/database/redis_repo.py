@@ -24,7 +24,8 @@ class RedisUserRepository:
 
     async def create(self, data: CreateUser) -> User:
         await self._connect()
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Redis client not connected")
 
         id = str(uuid.uuid7())
         fields: dict[str, str] = {"name": data.name, "email": data.email}
@@ -36,7 +37,8 @@ class RedisUserRepository:
 
     async def find_by_id(self, id: str) -> User | None:
         await self._connect()
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Redis client not connected")
 
         key = self._key(id)
         exists = await self._client.exists(key)
@@ -62,7 +64,8 @@ class RedisUserRepository:
 
     async def update(self, id: str, data: UpdateUser) -> User | None:
         await self._connect()
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Redis client not connected")
 
         key = self._key(id)
         exists = await self._client.exists(key)
@@ -84,14 +87,16 @@ class RedisUserRepository:
 
     async def delete(self, id: str) -> bool:
         await self._connect()
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Redis client not connected")
 
         deleted = await self._client.delete(self._key(id))
         return deleted > 0
 
     async def delete_all(self) -> None:
         await self._connect()
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Redis client not connected")
 
         cursor = 0
         while True:
@@ -104,7 +109,8 @@ class RedisUserRepository:
     async def health_check(self) -> bool:
         try:
             await self._connect()
-            assert self._client is not None
+            if self._client is None:
+                raise RuntimeError("Redis client not connected")
             await self._client.ping()
             return True
         except Exception:

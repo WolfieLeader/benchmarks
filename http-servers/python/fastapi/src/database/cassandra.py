@@ -17,7 +17,7 @@ class CassandraUserRepository:
         self._keyspace = keyspace
         self._cluster: Cluster | None = None
         self._session = None
-        self._executor = ThreadPoolExecutor(max_workers=4)
+        self._executor = ThreadPoolExecutor(max_workers=50)
 
     def _connect_sync(self) -> None:
         if self._session is not None:
