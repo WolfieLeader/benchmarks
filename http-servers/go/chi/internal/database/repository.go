@@ -86,12 +86,18 @@ func ResolveRepository(database string, env *config.Env) UserRepository {
 }
 
 func InitializeConnections(env *config.Env) {
+	var wg sync.WaitGroup
 	for _, dbType := range DatabaseTypes {
-		repo := GetRepository(dbType, env)
-		if repo != nil {
-			_, _ = repo.HealthCheck()
-		}
+		wg.Add(1)
+		go func(dt DatabaseType) {
+			defer wg.Done()
+			repo := GetRepository(dt, env)
+			if repo != nil {
+				_, _ = repo.HealthCheck()
+			}
+		}(dbType)
 	}
+	wg.Wait()
 }
 
 type HealthStatus struct {
@@ -109,7 +115,6 @@ func GetAllHealthStatuses(env *config.Env) HealthStatus {
 		repo := GetRepository(dbType, env)
 		if repo == nil {
 			result.Databases[string(dbType)] = "unhealthy"
-			result.Status = "unhealthy"
 			continue
 		}
 
@@ -118,7 +123,6 @@ func GetAllHealthStatuses(env *config.Env) HealthStatus {
 			result.Databases[string(dbType)] = "healthy"
 		} else {
 			result.Databases[string(dbType)] = "unhealthy"
-			result.Status = "unhealthy"
 		}
 	}
 

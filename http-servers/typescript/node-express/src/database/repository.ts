@@ -51,28 +51,29 @@ export function resolveRepository(database: string): UserRepository | null {
 }
 
 export async function initializeDatabases(): Promise<void> {
-  for (const dbType of databaseTypes) {
-    const repo = getRepository(dbType);
-    await repo.healthCheck();
-  }
+  await Promise.all(databaseTypes.map((db) => getRepository(db).healthCheck()));
 }
 
 export async function disconnectDatabases(): Promise<void> {
-  for (const repo of repositories.values()) {
-    await repo.disconnect();
-  }
+  await Promise.all(
+    databaseTypes.map(async (db) => {
+      const repo = repositories.get(db);
+      if (repo) await repo.disconnect();
+    })
+  );
 }
 
-export async function getAllDatabaseStatuses(): Promise<Record<string, string>> {
-  const statuses: Record<string, string> = {};
-  for (const dbType of databaseTypes) {
-    try {
-      const repo = getRepository(dbType);
-      const healthy = await repo.healthCheck();
-      statuses[dbType] = healthy ? "healthy" : "unhealthy";
-    } catch {
-      statuses[dbType] = "unhealthy";
-    }
-  }
-  return statuses;
+export async function getAllDatabaseStatuses(): Promise<Record<DatabaseType, "healthy" | "unhealthy">> {
+  const results = await Promise.all(
+    databaseTypes.map(async (db) => {
+      try {
+        const repo = getRepository(db);
+        const healthy = await repo.healthCheck();
+        return [db, healthy ? "healthy" : "unhealthy"] as const;
+      } catch {
+        return [db, "unhealthy"] as const;
+      }
+    })
+  );
+  return Object.fromEntries(results) as Record<DatabaseType, "healthy" | "unhealthy">;
 }
