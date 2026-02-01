@@ -31,7 +31,7 @@ Benchmark config is JSON-only and lives at `config/config.json`.
 ### Base Routes
 
 - `GET /` -> `OK` (Text)
-- `GET /health` -> `{ "message": "Hello, World!" }` (JSON)
+- `GET /health` -> `{ "status": "healthy", "databases": { "postgres": "healthy", ... } }` (JSON)
 
 ### Params Routes (`/params/*`)
 
@@ -42,6 +42,17 @@ Benchmark config is JSON-only and lives at `config/config.json`.
 - `GET /cookie`: Read cookie `foo` (trim, def `none`), set cookie `bar`.
 - `POST /form`: Support `urlencoded`/`multipart`. Return `{ "name": "<trim>", "age": <int> }` (def: `none`, 0).
 - `POST /file`: Multipart `file` (max 1MB, `text/plain` only). Return `{ "filename", "size", "content" }`.
+
+### Database Routes (`/db/:database/*`)
+
+Supported databases: `postgres`, `mongodb`, `redis`, `cassandra`.
+
+- `POST /db/:database/users`: Create user with `{ "name", "email", "favoriteNumber?" }`. Returns user with ID (201).
+- `GET /db/:database/users/:id`: Get user by ID. Returns user (200) or 404.
+- `PATCH /db/:database/users/:id`: Update user fields. Returns updated user (200) or 404.
+- `DELETE /db/:database/users/:id`: Delete user by ID. Returns `{ "success": true }` (200) or 404.
+- `DELETE /db/:database/users`: Delete all users. Returns `{ "success": true }` (200).
+- `DELETE /db/:database/reset`: Reset database. Returns `{ "status": "ok" }` (200).
 
 ## Error Responses
 
