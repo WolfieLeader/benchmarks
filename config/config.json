@@ -4,15 +4,15 @@
   "benchmark": {
     "base_url": "http://localhost:8080",
     "workers": 50,
-    "requests": 5000,
+    "requests": 10000,
     "timeout": "10s",
     "cooldown": "1s",
     "warmup": 50
   },
 
   "container": {
-    "cpu": "2.0",
-    "memory": "1gb"
+    "cpu": "4.0",
+    "memory": "2gb"
   },
 
   "capacity": {
@@ -29,7 +29,7 @@
     "url": "http://localhost:8181",
     "database": "benchmarks",
     "token": "benchmark-token",
-    "sample_rate": "10%"
+    "sample_rate": "25%"
   },
 
   "databases": ["postgres", "mongodb", "redis", "cassandra"],

@@ -9,25 +9,35 @@
   "panels": [
     {
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "description": "Servers ranked by median (p50) latency (bars, left axis) with average memory usage (white points, right axis).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "min": 0,
+          "max": 12000000,
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 100,
+            "axisLabel": "Latency",
+            "axisPlacement": "left",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 50,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineWidth": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
             "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
             "thresholdsStyle": { "mode": "off" }
           },
           "mappings": [],
@@ -39,12 +49,35 @@
         },
         "overrides": [
           {
+            "matcher": { "id": "byRegexp", "options": "^_memory_.*" },
+            "properties": [
+              { "id": "custom.drawStyle", "value": "points" },
+              { "id": "custom.pointSize", "value": 12 },
+              { "id": "custom.showPoints", "value": "always" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "Memory" },
+              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } },
+              { "id": "unit", "value": "bytes" },
+              { "id": "min", "value": 0 },
+              { "id": "max", "value": 350000000 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "rank" },
+            "properties": [
+              { "id": "unit", "value": "none" },
+              { "id": "custom.axisPlacement", "value": "hidden" },
+              { "id": "min", "value": 0 },
+              { "id": "max", "value": 11 }
+            ]
+          },
+          {
             "matcher": { "id": "byName", "options": "express" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#353535" } }]
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#AEAEAE" } }]
           },
           {
             "matcher": { "id": "byName", "options": "fastify" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F58220" } }]
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F5F5F5" } }]
           },
           {
             "matcher": { "id": "byName", "options": "nestjs" },
@@ -77,48 +110,167 @@
           {
             "matcher": { "id": "byName", "options": "fastapi" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#009688" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_express" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#686868" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_fastify" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#939393" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_nestjs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#86152F" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_honojs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#883A01" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_elysia" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#533794" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_oak" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#53290B" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_chi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#015826" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_gin" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#005682" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_fiber" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#00717F" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "_memory_fastapi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#005A52" } }]
           }
         ]
       },
       "gridPos": { "h": 16, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "displayMode": "basic",
-        "minVizHeight": 30,
-        "minVizWidth": 100,
-        "namePlacement": "left",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "showUnfilled": true,
-        "sizing": "auto",
-        "valueMode": "color"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xField": "rank"
       },
       "pluginVersion": "12.2.0",
       "transformations": [
         {
-          "id": "rowsToFields",
+          "id": "groupingToMatrix",
           "options": {
-            "mappings": [
-              { "fieldName": "server", "handlerKey": "field.name" },
-              { "fieldName": "latency", "handlerKey": "field.value" }
-            ]
+            "columnField": "series",
+            "rowField": "rank",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "rank\\series": "rank"
+            }
           }
         }
       ],
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS latency FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server ORDER BY latency",
+          "rawSql": "WITH latency_data AS (SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS latency FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), memory_data AS (SELECT server, AVG(memory_avg_bytes) AS memory FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), combined AS (SELECT l.server, l.latency, m.memory, ROW_NUMBER() OVER (ORDER BY l.latency) AS rank FROM latency_data l JOIN memory_data m ON l.server = m.server) SELECT rank, server AS series, latency AS value FROM combined UNION ALL SELECT rank, CONCAT('_memory_', server) AS series, memory AS value FROM combined ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
       ],
-      "title": "Server Latency Ranking (p50)",
-      "type": "bargauge"
+      "title": "Latency & Memory (by latency rank)",
+      "type": "trend"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "description": "Total CRUD operation latency (create+read+update+delete) per database",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "fillOpacity": 50 },
+          "min": 0,
+          "unit": "ns"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "postgres" },
+            "properties": [
+              { "id": "displayName", "value": "PostgreSQL" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#336791" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "mongodb" },
+            "properties": [
+              { "id": "displayName", "value": "MongoDB" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#4DB33D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "redis" },
+            "properties": [
+              { "id": "displayName", "value": "Redis" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#DC382D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "cassandra" },
+            "properties": [
+              { "id": "displayName", "value": "Cassandra" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#1287B1" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 16 },
+      "id": 2,
+      "options": {
+        "xField": "server",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "showValue": "always",
+        "text": {},
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "pluginVersion": "12.2.0",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "database",
+            "rowField": "server",
+            "valueField": "latency"
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "rawSql": "WITH ranked_servers AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server) SELECT f.server, f.database, AVG(f.total_duration_ns) AS latency FROM flow_latency f JOIN ranked_servers r ON f.server = r.server WHERE f.time >= now() - INTERVAL '24 hours' AND f.flow_id = 'crud' GROUP BY f.server, f.database, r.rank ORDER BY r.rank, f.database",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "CRUD Total Latency by Database",
+      "type": "barchart"
     }
   ],
   "refresh": "",
