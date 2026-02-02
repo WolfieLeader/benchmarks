@@ -4,11 +4,10 @@ datasources:
   - name: InfluxDB
     type: influxdb
     access: proxy
-    url: http://influxdb:8086
+    url: http://influxdb:8181
     jsonData:
-      version: Flux
-      organization: benchmarks
-      defaultBucket: benchmarks
-    secureJsonData:
-      token: benchmark-token
+      version: SQL
+      dbName: benchmarks
+      httpMode: POST
+      insecureGrpc: true
     isDefault: true

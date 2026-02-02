@@ -22,6 +22,11 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		Endpoints: make([]client.EndpointResult, 0),
 	}
 
+	if ctx.Err() != nil {
+		result.SetError(ctx.Err())
+		return result, nil, nil
+	}
+
 	options := container.StartOptions{
 		Image:       server.ImageName,
 		Port:        server.Port,
@@ -62,6 +67,12 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	}
 	printer.Infof("Reset all databases")
 
+	if ctx.Err() != nil {
+		stopSampler(sampler, result)
+		result.SetError(ctx.Err())
+		return result, nil, nil
+	}
+
 	result.StartTime = time.Now()
 
 	suite := client.NewSuite(ctx, server)
@@ -71,6 +82,12 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	if err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
+		return result, nil, nil
+	}
+
+	if ctx.Err() != nil {
+		stopSampler(sampler, result)
+		result.SetError(ctx.Err())
 		return result, nil, nil
 	}
 

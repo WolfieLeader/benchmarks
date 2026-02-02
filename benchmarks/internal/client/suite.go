@@ -91,7 +91,6 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 			}
 			first := testcases[0]
 
-			// Run warmup if enabled
 			if s.server.WarmupEnabled {
 				s.runWarmup(testcases)
 			}
@@ -358,6 +357,7 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		r := item.result
 		if r.Success {
 			successes++
+			totalDuration += r.TotalDuration
 			durations = append(durations, r.TotalDuration)
 			for i, d := range r.StepDurations {
 				stepDurations[i] = append(stepDurations[i], d)
@@ -382,7 +382,6 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 			lastError = r.Error
 			failedStep = r.FailedStep
 		}
-		totalDuration += r.TotalDuration
 	}
 
 	s.timedFlows = append(s.timedFlows, TimedFlowResult{
@@ -394,7 +393,7 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 
 	var avgDuration, p50, p95, p99 time.Duration
 	if successes > 0 {
-		avgDuration = totalDuration / time.Duration(successes+failures)
+		avgDuration = totalDuration / time.Duration(successes)
 		slices.Sort(durations)
 		p50 = Percentile(durations, 50)
 		p95 = Percentile(durations, 95)

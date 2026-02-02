@@ -25,7 +25,9 @@ export function createApp() {
       const start = Date.now();
       await next();
       const ms = Date.now() - start;
-      console.log(`${ctx.request.method} ${ctx.request.url.pathname} ${ctx.response.status} ${ms}ms`);
+      console.log(
+        `${ctx.request.method} ${ctx.request.url.pathname} ${ctx.response.status} ${ms}ms`
+      );
     });
   }
 

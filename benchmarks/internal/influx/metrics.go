@@ -1,21 +1,39 @@
 package influx
 
 import (
+	"math/rand"
 	"time"
+
+	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
 
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/container"
 )
 
+const writeBatchSize = 5000
+
+//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteEndpointLatencies(runId, server string, results []client.TimedResult) {
 	if c == nil {
 		return
 	}
 
 	baseTime := time.Now()
+	points := make([]*influxdb3.Point, 0, writeBatchSize)
+	pointIndex := 0
 	for _, r := range results {
-		for i, l := range r.Latencies {
-			c.WritePoint("request_latency",
+		if c.ctx != nil && c.ctx.Err() != nil {
+			return
+		}
+		for _, l := range r.Latencies {
+			if c.ctx != nil && c.ctx.Err() != nil {
+				return
+			}
+			if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+				continue
+			}
+			points = append(points, influxdb3.NewPoint(
+				"request_latency",
 				map[string]string{
 					"run_id":   runId,
 					"server":   server,
@@ -27,21 +45,40 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 					"endpoint_offset_ms": l.EndpointOffset.Milliseconds(),
 					"latency_ns":         l.Duration.Nanoseconds(),
 				},
-				baseTime.Add(time.Duration(i)*time.Microsecond),
-			)
+				baseTime.Add(time.Duration(pointIndex)*time.Microsecond),
+			))
+			pointIndex++
+			if len(points) >= writeBatchSize {
+				c.writePoints(points)
+				points = points[:0]
+			}
 		}
 	}
+	c.writePoints(points)
 }
 
+//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteFlowLatencies(runId, server string, results []client.TimedFlowResult) {
 	if c == nil {
 		return
 	}
 
 	baseTime := time.Now()
+	points := make([]*influxdb3.Point, 0, writeBatchSize)
+	pointIndex := 0
 	for _, r := range results {
-		for i, l := range r.Latencies {
-			c.WritePoint("flow_latency",
+		if c.ctx != nil && c.ctx.Err() != nil {
+			return
+		}
+		for _, l := range r.Latencies {
+			if c.ctx != nil && c.ctx.Err() != nil {
+				return
+			}
+			if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+				continue
+			}
+			points = append(points, influxdb3.NewPoint(
+				"flow_latency",
 				map[string]string{
 					"run_id":   runId,
 					"server":   server,
@@ -53,13 +90,25 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 					"flow_offset_ms":    l.EndpointOffset.Milliseconds(),
 					"total_duration_ns": l.Duration.Nanoseconds(),
 				},
-				baseTime.Add(time.Duration(i)*time.Microsecond),
-			)
+				baseTime.Add(time.Duration(pointIndex)*time.Microsecond),
+			))
+			pointIndex++
+			if len(points) >= writeBatchSize {
+				c.writePoints(points)
+				points = points[:0]
+			}
 		}
 
 		for stepName, latencies := range r.StepStats {
-			for i, l := range latencies {
-				c.WritePoint("flow_step_latency",
+			for _, l := range latencies {
+				if c.ctx != nil && c.ctx.Err() != nil {
+					return
+				}
+				if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+					continue
+				}
+				points = append(points, influxdb3.NewPoint(
+					"flow_step_latency",
 					map[string]string{
 						"run_id":   runId,
 						"server":   server,
@@ -71,13 +120,20 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 						"server_offset_ms": l.ServerOffset.Milliseconds(),
 						"latency_ns":       l.Duration.Nanoseconds(),
 					},
-					baseTime.Add(time.Duration(i)*time.Microsecond),
-				)
+					baseTime.Add(time.Duration(pointIndex)*time.Microsecond),
+				))
+				pointIndex++
+				if len(points) >= writeBatchSize {
+					c.writePoints(points)
+					points = points[:0]
+				}
 			}
 		}
 	}
+	c.writePoints(points)
 }
 
+//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteCapacityResult(runId, server string, result *client.CapacityResult) {
 	if c == nil || result == nil {
 		return
@@ -98,6 +154,7 @@ func (c *Client) WriteCapacityResult(runId, server string, result *client.Capaci
 	)
 }
 
+//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteResourceStats(runId, server string, stats *container.ResourceStats) {
 	if c == nil || stats == nil {
 		return

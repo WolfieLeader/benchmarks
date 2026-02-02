@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Options holds the user's selections for benchmark phases
 type Options struct {
 	Warmup    bool
 	Resources bool
@@ -18,14 +17,8 @@ type Options struct {
 	Servers   []string // empty means all servers
 }
 
-// DefaultOptions returns the recommended default settings
 func DefaultOptions() Options {
-	return Options{
-		Warmup:    true,
-		Resources: true,
-		Capacity:  false,
-		Servers:   nil, // all servers
-	}
+	return Options{Warmup: true, Resources: true, Capacity: false, Servers: nil}
 }
 
 var bannerLines = []string{
@@ -37,7 +30,6 @@ var bannerLines = []string{
 	"╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝",
 }
 
-// Gradient color stops (RGB) - Gemini-style indigo to pink
 var gradientStops = [][3]float64{
 	{79, 70, 229},   // indigo #4F46E5
 	{129, 92, 246},  // violet #8B5CF6
@@ -47,7 +39,6 @@ var gradientStops = [][3]float64{
 	{251, 113, 133}, // rose #FB7185
 }
 
-// lerpColor interpolates between two RGB colors
 func lerpColor(c1, c2 [3]float64, t float64) [3]float64 {
 	return [3]float64{
 		c1[0] + (c2[0]-c1[0])*t,
@@ -56,7 +47,6 @@ func lerpColor(c1, c2 [3]float64, t float64) [3]float64 {
 	}
 }
 
-// getGradientColor returns interpolated color at position t (0.0 to 1.0)
 func getGradientColor(t float64) [3]float64 {
 	if t <= 0 {
 		return gradientStops[0]
@@ -77,11 +67,9 @@ func getGradientColor(t float64) [3]float64 {
 	return lerpColor(gradientStops[idx], gradientStops[idx+1], localT)
 }
 
-// PrintBanner displays the ASCII art banner with smooth diagonal gradient
 func PrintBanner() {
 	fmt.Println()
 
-	// Calculate dimensions
 	height := len(bannerLines)
 	width := 0
 	for _, line := range bannerLines {
@@ -90,17 +78,14 @@ func PrintBanner() {
 		}
 	}
 
-	// Render each character with diagonal gradient
 	for y, line := range bannerLines {
 		runes := []rune(line)
 		var result strings.Builder
 
 		for x, r := range runes {
-			// Diagonal gradient: combine x and y position (50/50 = true 45° diagonal)
 			diagonal := (float64(x)/float64(width))*0.5 + (float64(y)/float64(height))*0.5
 			color := getGradientColor(diagonal)
 
-			// Apply color to character
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color(
 				fmt.Sprintf("#%02X%02X%02X", int(color[0]), int(color[1]), int(color[2])),
 			))
@@ -122,7 +107,6 @@ func PromptOptions(availableServers []string) (*Options, error) {
 		serverOptions[i] = huh.NewOption(s, s)
 	}
 
-	// Build form (servers first, then phases)
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -145,7 +129,7 @@ func PromptOptions(availableServers []string) (*Options, error) {
 				Description("Choose which benchmark phases to run").
 				Options(
 					huh.NewOption("Warmup (recommended)", "warmup").Selected(true),
-					huh.NewOption("Resource monitoring", "resources"),
+					huh.NewOption("Resource monitoring", "resources").Selected(true),
 					huh.NewOption("Capacity test (slow)", "capacity"),
 				).Value(&phases),
 		),
@@ -264,7 +248,6 @@ Examples:
   benchmark --quick --servers=chi,gin # Quick test on specific servers`)
 }
 
-// PrintSummary displays the selected options before running
 func PrintSummary(opts *Options, serverCount int) {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
@@ -282,12 +265,10 @@ func PrintSummary(opts *Options, serverCount int) {
 	fmt.Println(headerStyle.Render("Configuration"))
 	fmt.Println(strings.Repeat("─", 40))
 
-	// Phases
 	fmt.Printf("%s %s\n", labelStyle.Render("Warmup:"), formatStatus(opts.Warmup))
 	fmt.Printf("%s %s\n", labelStyle.Render("Resources:"), formatStatus(opts.Resources))
 	fmt.Printf("%s %s\n", labelStyle.Render("Capacity:"), formatStatus(opts.Capacity))
 
-	// Servers
 	if len(opts.Servers) > 0 {
 		fmt.Printf("%s %s\n", labelStyle.Render("Servers:"), valueStyle.Render(strings.Join(opts.Servers, ", ")))
 	} else {

@@ -38,6 +38,8 @@ func (m *ComposeManager) StartDatabases(ctx context.Context) error {
 }
 
 func (m *ComposeManager) StartGrafana(ctx context.Context) error {
+	// Clean up any existing containers first for a fresh start
+	_ = m.composeDown(ctx, m.grafanaPath, GrafanaProject)
 	return m.composeUp(ctx, m.grafanaPath, GrafanaProject)
 }
 

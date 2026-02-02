@@ -20,7 +20,7 @@ services:
       retries: 10
 
   mongodb:
-    image: mongo:8.2.3
+    image: mongo:8.2.4
     ports:
       - "27017:27017"
     environment:
@@ -53,6 +53,7 @@ services:
       - "9042:9042"
     environment:
       CASSANDRA_CLUSTER_NAME: bench
+      CASSANDRA_BROADCAST_RPC_ADDRESS: 127.0.0.1
     volumes:
       - cassandra-data:/var/lib/cassandra
     healthcheck:

@@ -41,9 +41,13 @@ export class CassandraUserRepository implements UserRepository {
 
   async findById(id: string): Promise<User | null> {
     await this.connect();
-    const result = await this.client.execute("SELECT id, name, email, favorite_number FROM users WHERE id = ?", [id], {
-      prepare: true
-    });
+    const result = await this.client.execute(
+      "SELECT id, name, email, favorite_number FROM users WHERE id = ?",
+      [id],
+      {
+        prepare: true
+      }
+    );
     if (result.rowLength === 0) return null;
 
     const row = result.rows[0];
@@ -85,7 +89,11 @@ export class CassandraUserRepository implements UserRepository {
     if (setClauses.length === 0) return existing;
 
     params.push(id);
-    await this.client.execute(`UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`, params, { prepare: true });
+    await this.client.execute(
+      `UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`,
+      params,
+      { prepare: true }
+    );
     return existing;
   }
 

@@ -139,8 +139,6 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	type rankedServer struct {
 		name        string
 		avg         int64
-		p50         int64
-		p95         int64
 		mem         float64
 		hasMem      bool
 		capWorkers  int
@@ -154,8 +152,6 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 			rs := rankedServer{
 				name: s.Name,
 				avg:  s.Stats.AvgNs,
-				p50:  s.Stats.P50Ns,
-				p95:  s.Stats.P95Ns,
 			}
 			if s.Resources != nil && s.Resources.Samples >= 1 {
 				rs.mem = s.Resources.Memory.AvgBytes
@@ -189,11 +185,11 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	printer.Blank()
 
 	if hasAnyCapacity {
-		fmt.Println("   #  Server              Avg      P50      P95      Mem  Capacity")
-		fmt.Println("  ──  ────────────────  ───────  ───────  ───────  ───────  ────────")
+		fmt.Println("   #  Server              Avg      Mem  Capacity")
+		fmt.Println("  ──  ────────────────  ───────  ───────  ────────")
 	} else {
-		fmt.Println("   #  Server              Avg      P50      P95      Mem")
-		fmt.Println("  ──  ────────────────  ───────  ───────  ───────  ───────")
+		fmt.Println("   #  Server              Avg      Mem")
+		fmt.Println("  ──  ────────────────  ───────  ───────")
 	}
 
 	for i, s := range ranked {
@@ -209,21 +205,17 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 			if s.hasCapacity {
 				capStr = fmt.Sprintf("%5d w", s.capWorkers)
 			}
-			fmt.Printf("  %s  %-16s  %s  %s  %s  %s  %s\n",
+			fmt.Printf("  %s  %-16s  %s  %s  %s\n",
 				rank,
 				s.name,
 				printer.FormatLatency(s.avg),
-				printer.FormatLatency(s.p50),
-				printer.FormatLatency(s.p95),
 				memStr,
 				capStr)
 		} else {
-			fmt.Printf("  %s  %-16s  %s  %s  %s  %s\n",
+			fmt.Printf("  %s  %-16s  %s  %s\n",
 				rank,
 				s.name,
 				printer.FormatLatency(s.avg),
-				printer.FormatLatency(s.p50),
-				printer.FormatLatency(s.p95),
 				memStr)
 		}
 	}

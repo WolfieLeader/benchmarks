@@ -1,10 +1,5 @@
 import { Router } from "@oak/oak";
-import {
-  DEFAULT_LIMIT,
-  MAX_FILE_BYTES,
-  NULL_BYTE,
-  SNIFF_LEN,
-} from "../consts/defaults.ts";
+import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults.ts";
 import {
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
@@ -13,7 +8,7 @@ import {
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
   makeError,
-  ONLY_TEXT_PLAIN,
+  ONLY_TEXT_PLAIN
 } from "../consts/errors.ts";
 
 export const paramsRoutes = new Router();
@@ -22,9 +17,7 @@ paramsRoutes.get("/search", (ctx) => {
   const q = ctx.request.url.searchParams.get("q")?.trim() || "none";
   const limitStr = ctx.request.url.searchParams.get("limit")?.trim();
   const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".")
-    ? limitNum
-    : DEFAULT_LIMIT;
+  const limit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
   ctx.response.body = { search: q, limit };
 });
 
@@ -67,7 +60,7 @@ paramsRoutes.get("/cookie", async (ctx) => {
   await ctx.cookies.set("bar", "12345", {
     maxAge: 10,
     httpOnly: true,
-    path: "/",
+    path: "/"
   });
   ctx.response.body = { cookie };
 });
@@ -82,7 +75,7 @@ paramsRoutes.post("/form", async (ctx) => {
     ctx.response.status = 400;
     ctx.response.body = makeError(
       INVALID_FORM_DATA,
-      "expected content-type: application/x-www-form-urlencoded or multipart/form-data",
+      "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
     );
     return;
   }
@@ -112,13 +105,9 @@ paramsRoutes.post("/form", async (ctx) => {
     return;
   }
 
-  const name = typeof form.name === "string" && form.name.trim() !== ""
-    ? form.name.trim()
-    : "none";
+  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
 
-  const ageStr = typeof form.age === "string" && form.age.trim() !== ""
-    ? form.age.trim()
-    : "0";
+  const ageStr = typeof form.age === "string" && form.age.trim() !== "" ? form.age.trim() : "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
@@ -132,7 +121,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 400;
     ctx.response.body = makeError(
       INVALID_MULTIPART,
-      "expected content-type: multipart/form-data",
+      "expected content-type: multipart/form-data"
     );
     return;
   }
@@ -157,7 +146,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 400;
     ctx.response.body = makeError(
       FILE_NOT_FOUND,
-      "no file field named 'file' in form data",
+      "no file field named 'file' in form data"
     );
     return;
   }
@@ -166,7 +155,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 415;
     ctx.response.body = makeError(
       ONLY_TEXT_PLAIN,
-      `received mimetype: ${file.type || "unknown"}`,
+      `received mimetype: ${file.type || "unknown"}`
     );
     return;
   }
@@ -175,7 +164,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 413;
     ctx.response.body = makeError(
       FILE_SIZE_EXCEEDS,
-      `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`,
+      `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`
     );
     return;
   }
@@ -187,7 +176,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 413;
     ctx.response.body = makeError(
       FILE_SIZE_EXCEEDS,
-      `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`,
+      `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`
     );
     return;
   }
@@ -197,7 +186,7 @@ paramsRoutes.post("/file", async (ctx) => {
     ctx.response.status = 415;
     ctx.response.body = makeError(
       FILE_NOT_TEXT,
-      "file contains null bytes in header",
+      "file contains null bytes in header"
     );
     return;
   }
@@ -220,6 +209,6 @@ paramsRoutes.post("/file", async (ctx) => {
   ctx.response.body = {
     filename: file.name,
     size: data.length,
-    content,
+    content
   };
 });

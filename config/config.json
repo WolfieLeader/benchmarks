@@ -26,25 +26,25 @@
   },
 
   "influx": {
-    "enabled": true,
     "url": "http://localhost:8181",
     "database": "benchmarks",
-    "token": "benchmark-token"
+    "token": "benchmark-token",
+    "sample_rate": "10%"
   },
 
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
 
   "servers": [
-    { "name": "node-express", "port": 3001 },
-    { "name": "node-nestjs", "port": 3002 },
-    { "name": "node-fastify", "port": 3003 },
-    { "name": "deno-oak", "port": 3004 },
-    { "name": "bun-honojs", "port": 3005 },
-    { "name": "bun-elysia", "port": 3006 },
-    { "name": "python-fastapi", "port": 4001 },
-    { "name": "go-chi", "port": 5001 },
-    { "name": "go-gin", "port": 5002 },
-    { "name": "go-fiber", "port": 5003 }
+    { "name": "express", "image": "node-express", "port": 3001 },
+    { "name": "nestjs", "image": "node-nestjs", "port": 3002 },
+    { "name": "fastify", "image": "node-fastify", "port": 3003 },
+    { "name": "oak", "image": "deno-oak", "port": 3004 },
+    { "name": "honojs", "image": "bun-honojs", "port": 3005 },
+    { "name": "elysia", "image": "bun-elysia", "port": 3006 },
+    { "name": "fastapi", "image": "python-fastapi", "port": 4001 },
+    { "name": "chi", "image": "go-chi", "port": 5001 },
+    { "name": "gin", "image": "go-gin", "port": 5002 },
+    { "name": "fiber", "image": "go-fiber", "port": 5003 }
   ],
 
   "endpoints": {

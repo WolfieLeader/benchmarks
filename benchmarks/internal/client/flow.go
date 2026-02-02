@@ -146,13 +146,21 @@ func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, e
 		return duration, fmt.Errorf("status %d, want %d: %s", resp.StatusCode, endpoint.ExpectedStatus, truncate(body, 200))
 	}
 
-	if len(endpoint.Capture) > 0 {
-		var respData map[string]any
+	var respData any
+	needsParse := len(endpoint.Capture) > 0 || endpoint.ExpectedBody != nil
+	if needsParse {
 		if err := json.Unmarshal(body, &respData); err != nil {
-			return duration, fmt.Errorf("failed to parse response for capture: %w", err)
+			return duration, fmt.Errorf("failed to parse response: %w", err)
+		}
+	}
+
+	if len(endpoint.Capture) > 0 {
+		respMap, ok := respData.(map[string]any)
+		if !ok {
+			return duration, fmt.Errorf("expected JSON object for capture, got %T", respData)
 		}
 		for varName, fieldName := range endpoint.Capture {
-			val, ok := respData[fieldName]
+			val, ok := respMap[fieldName]
 			if !ok {
 				return duration, fmt.Errorf("capture field %q not found in response", fieldName)
 			}
@@ -161,10 +169,6 @@ func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, e
 	}
 
 	if endpoint.ExpectedBody != nil {
-		var respData any
-		if err := json.Unmarshal(body, &respData); err != nil {
-			return duration, fmt.Errorf("failed to parse response for validation: %w", err)
-		}
 		expectedWithVars := replacePlaceholdersInBody(endpoint.ExpectedBody, vars, captured)
 		if err := validatePartialMatch(expectedWithVars, respData); err != nil {
 			return duration, fmt.Errorf("body validation failed: %w", err)

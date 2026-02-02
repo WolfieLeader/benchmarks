@@ -1,42 +1,29 @@
 services:
   influxdb:
-    image: influxdb:2.7
+    image: influxdb:3-core
     container_name: benchmark-influxdb
     ports:
-      - "8086:8086"
-    volumes:
-      - influxdb-data:/var/lib/influxdb2
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=benchmark-admin
-      - DOCKER_INFLUXDB_INIT_ORG=benchmarks
-      - DOCKER_INFLUXDB_INIT_BUCKET=benchmarks
-      - DOCKER_INFLUXDB_INIT_RETENTION=30d
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=benchmark-token
+      - "8181:8181"
+    command: ["serve", "--node-id", "local", "--object-store", "memory", "--without-auth"]
     healthcheck:
-      test: ["CMD", "influx", "ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   grafana:
-    image: grafana/grafana:10.2.0
+    image: grafana/grafana:12.2.0
     container_name: benchmark-grafana
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
       - ../../grafana/provisioning:/etc/grafana/provisioning:ro
       - ../../grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=benchmark
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=influxdata-flightsql-datasource
     depends_on:
       influxdb:
         condition: service_healthy
-
-volumes:
-  influxdb-data:
-  grafana-data:

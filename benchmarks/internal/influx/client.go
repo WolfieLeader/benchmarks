@@ -2,67 +2,96 @@ package influx
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"time"
 
-	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
-	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
 
 	"benchmark-client/internal/printer"
 )
 
 type Client struct {
-	client   influxdb2.Client
-	writeAPI api.WriteAPI
-	org      string
-	bucket   string
+	client     *influxdb3.Client
+	database   string
+	ctx        context.Context
+	timeout    time.Duration
+	sampleRate float64
 }
 
+type Config struct {
+	URL        string  `json:"url"`
+	Database   string  `json:"database"`
+	Token      string  `json:"token"`
+	SampleRate float64 `json:"sample_rate"`
+}
+
+const defaultWriteTimeout = 15 * time.Second
+
+//nolint:contextcheck // context is stored in Client for use in async write operations
 func NewClient(ctx context.Context, cfg Config) *Client {
-	if !cfg.Enabled {
-		return nil
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	client := influxdb2.NewClient(cfg.URL, cfg.Token)
-
+	// Check if InfluxDB is healthy via HTTP before creating client
+	healthURL := cfg.URL + "/health"
 	deadline := time.Now().Add(30 * time.Second)
+
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
-			client.Close()
 			return nil
 		}
 
-		healthCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		health, err := client.Health(healthCtx)
+		reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, healthURL, http.NoBody)
+		if err != nil {
+			cancel()
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		resp, err := http.DefaultClient.Do(req)
 		cancel()
 
-		if err == nil && health.Status == "pass" {
-			break
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
 		}
 
 		if time.Now().Add(2 * time.Second).After(deadline) {
 			printer.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
-			client.Close()
 			return nil
 		}
 
 		time.Sleep(2 * time.Second)
 	}
 
-	writeAPI := client.WriteAPI(cfg.Org, cfg.Bucket)
-
-	go func() {
-		for err := range writeAPI.Errors() {
-			printer.Warnf("InfluxDB write error: %v", err)
-		}
-	}()
+	client, err := influxdb3.New(influxdb3.ClientConfig{
+		Host:     cfg.URL,
+		Token:    cfg.Token,
+		Database: cfg.Database,
+	})
+	if err != nil {
+		printer.Warnf("Failed to create InfluxDB client: %v", err)
+		return nil
+	}
 
 	printer.Infof("InfluxDB connected: %s", cfg.URL)
 
+	sampleRate := cfg.SampleRate
+	if sampleRate <= 0 || sampleRate > 1 {
+		sampleRate = 0.1
+	}
+
 	return &Client{
-		client:   client,
-		writeAPI: writeAPI,
-		org:      cfg.Org,
-		bucket:   cfg.Bucket,
+		client:     client,
+		database:   cfg.Database,
+		ctx:        ctx,
+		timeout:    defaultWriteTimeout,
+		sampleRate: sampleRate,
 	}
 }
 
@@ -70,23 +99,46 @@ func (c *Client) Close() {
 	if c == nil {
 		return
 	}
-	c.writeAPI.Flush()
-	c.client.Close()
+	_ = c.client.Close()
 }
 
+//nolint:contextcheck // uses stored context from Client
 func (c *Client) WritePoint(measurement string, tags map[string]string, fields map[string]any, ts time.Time) {
 	if c == nil {
 		return
 	}
-	p := influxdb2.NewPoint(measurement, tags, fields, ts)
-	c.writeAPI.WritePoint(p)
+
+	p := influxdb3.NewPoint(measurement, tags, fields, ts)
+	c.writePoints([]*influxdb3.Point{p})
 }
 
-func (c *Client) Flush() {
-	if c == nil {
+//nolint:contextcheck // uses stored context from Client
+func (c *Client) writePoints(points []*influxdb3.Point) {
+	if c == nil || len(points) == 0 {
 		return
 	}
-	c.writeAPI.Flush()
+
+	if c.ctx != nil && c.ctx.Err() != nil {
+		return
+	}
+
+	ctx := c.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
+	if err := c.client.WritePoints(ctx, points); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+		printer.Warnf("InfluxDB write error (%d points): %v", len(points), err)
+	}
 }
 
 func RunID(t time.Time) string {

@@ -18,7 +18,9 @@ export class MongoUserRepository implements UserRepository {
   constructor(connectionString: string, dbName: string) {
     this.client = new MongoClient(connectionString);
     this.dbName = dbName;
-    this.collection = this.client.db(this.dbName).collection<UserDocument>("users");
+    this.collection = this.client.db(this.dbName).collection<UserDocument>(
+      "users"
+    );
   }
 
   private async connect(): Promise<void> {

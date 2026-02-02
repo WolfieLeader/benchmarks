@@ -75,9 +75,9 @@ type EndpointSummary struct {
 
 type StatsSummary struct {
 	AvgNs       int64   `json:"avg_ns"`
-	P50Ns       int64   `json:"p50_ns"`
-	P95Ns       int64   `json:"p95_ns"`
-	P99Ns       int64   `json:"p99_ns"`
+	P50Ns       int64   `json:"p50_ns,omitempty"`
+	P95Ns       int64   `json:"p95_ns,omitempty"`
+	P99Ns       int64   `json:"p99_ns,omitempty"`
 	MinNs       int64   `json:"min_ns"`
 	MaxNs       int64   `json:"max_ns"`
 	SuccessRate float64 `json:"success_rate"`
@@ -258,11 +258,11 @@ func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 	}
 
 	var (
-		totalAvg, totalP50, totalP95, totalP99 time.Duration
-		minLatency                             = time.Hour
-		maxLatency                             time.Duration
-		successCount                           int
-		endpointCount                          int
+		totalAvg      time.Duration
+		minLatency    = time.Hour
+		maxLatency    time.Duration
+		successCount  int
+		endpointCount int
 	)
 
 	for _, ep := range endpoints {
@@ -271,9 +271,6 @@ func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 		}
 		endpointCount++
 		totalAvg += ep.Stats.Avg
-		totalP50 += ep.Stats.P50
-		totalP95 += ep.Stats.P95
-		totalP99 += ep.Stats.P99
 		if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
 			minLatency = ep.Stats.Low
 		}
@@ -288,9 +285,6 @@ func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 	}
 
 	avg := totalAvg / time.Duration(endpointCount)
-	p50 := totalP50 / time.Duration(endpointCount)
-	p95 := totalP95 / time.Duration(endpointCount)
-	p99 := totalP99 / time.Duration(endpointCount)
 	if minLatency == time.Hour {
 		minLatency = 0
 	}
@@ -299,9 +293,6 @@ func aggregateEndpointStats(endpoints []client.EndpointResult, iterations int) *
 
 	return &StatsSummary{
 		AvgNs:       avg.Nanoseconds(),
-		P50Ns:       p50.Nanoseconds(),
-		P95Ns:       p95.Nanoseconds(),
-		P99Ns:       p99.Nanoseconds(),
 		MinNs:       minLatency.Nanoseconds(),
 		MaxNs:       maxLatency.Nanoseconds(),
 		SuccessRate: float64(successCount) / float64(totalRequests),

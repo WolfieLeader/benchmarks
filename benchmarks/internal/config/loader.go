@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -34,6 +33,8 @@ const (
 	DefaultCapacityP99Threshold = "50ms"
 	DefaultCapacityWarmup       = "2s"
 	DefaultCapacityMeasure      = "10s"
+
+	DefaultInfluxSampleRate = "10%"
 )
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -260,15 +261,21 @@ func applyDefaults(cfg *Config) error {
 	if cfg.Influx.URL == "" {
 		cfg.Influx.URL = "http://localhost:8086"
 	}
-	if cfg.Influx.Org == "" {
-		cfg.Influx.Org = "benchmarks"
-	}
-	if cfg.Influx.Bucket == "" {
-		cfg.Influx.Bucket = "benchmarks"
+	if cfg.Influx.Database == "" {
+		cfg.Influx.Database = "benchmarks"
 	}
 	if cfg.Influx.Token == "" {
 		cfg.Influx.Token = "benchmark-token"
 	}
+	defaultSampleRate, _ := parsePercent(DefaultInfluxSampleRate, DefaultInfluxSampleRate)
+	sampleRate, err := parsePercent(cfg.Influx.SampleRate, DefaultInfluxSampleRate)
+	if err != nil {
+		return fmt.Errorf("influx sample_rate: %w", err)
+	}
+	if sampleRate <= 0 || sampleRate > 100 {
+		sampleRate = defaultSampleRate
+	}
+	cfg.Influx.SampleRatePct = sampleRate / 100
 
 	if len(cfg.Servers) == 0 {
 		return errors.New("no servers defined")
@@ -277,6 +284,9 @@ func applyDefaults(cfg *Config) error {
 	for i, server := range cfg.Servers {
 		if strings.TrimSpace(server.Name) == "" {
 			return fmt.Errorf("server[%d]: name is required", i)
+		}
+		if strings.TrimSpace(server.Image) == "" {
+			return fmt.Errorf("server[%d]: image is required", i)
 		}
 		if server.Port == 0 {
 			cfg.Servers[i].Port = DefaultPort
@@ -353,94 +363,4 @@ func applyEndpointDefaults(name string, e *EndpointConfig) error {
 	}
 
 	return nil
-}
-
-func validateCpu(limit string) error {
-	limit = strings.TrimSpace(limit)
-	if limit == "" {
-		return errors.New("cpu_limit is empty")
-	}
-
-	if value, ok := strings.CutSuffix(limit, "%"); ok {
-		if value == "" {
-			return errors.New("cpu_limit must be a number or percentage")
-		}
-		parsed, err := strconv.ParseFloat(value, 64)
-		if err != nil || parsed <= 0 {
-			return errors.New("cpu_limit must be a number or percentage")
-		}
-		return nil
-	}
-
-	parsed, err := strconv.ParseFloat(limit, 64)
-	if err != nil || parsed <= 0 {
-		return errors.New("cpu_limit must be a number or percentage")
-	}
-
-	return nil
-}
-
-func normalizeMemoryLimit(limit string) (string, error) {
-	limit = strings.TrimSpace(limit)
-	if limit == "" {
-		return "", errors.New("memory_limit is empty")
-	}
-
-	lower := strings.ToLower(limit)
-	idx := len(lower)
-	for idx > 0 {
-		ch := lower[idx-1]
-		if ch >= 'a' && ch <= 'z' {
-			idx--
-			continue
-		}
-		break
-	}
-
-	value := strings.TrimSpace(lower[:idx])
-	unit := strings.TrimSpace(lower[idx:])
-	if value == "" {
-		return "", errors.New("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
-	}
-
-	parsed, err := strconv.ParseFloat(value, 64)
-	if err != nil || parsed <= 0 {
-		return "", errors.New("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
-	}
-
-	switch unit {
-	case "":
-		return value, nil
-	case "k", "kb":
-		return value + "kb", nil
-	case "m", "mb":
-		return value + "mb", nil
-	case "g", "gb":
-		return value + "gb", nil
-	default:
-		return "", errors.New("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
-	}
-}
-
-func parsePercent(value, defaultValue string) (float64, error) {
-	if strings.TrimSpace(value) == "" {
-		value = defaultValue
-	}
-	value = strings.TrimSpace(value)
-	if !strings.HasSuffix(value, "%") {
-		return 0, fmt.Errorf("must be a percentage (e.g. %q)", defaultValue)
-	}
-	numStr := strings.TrimSuffix(value, "%")
-	parsed, err := strconv.ParseFloat(strings.TrimSpace(numStr), 64)
-	if err != nil || parsed < 0 {
-		return 0, fmt.Errorf("invalid percentage %q", value)
-	}
-	return parsed, nil
-}
-
-func parseDuration(value, defaultValue string) (time.Duration, error) {
-	if strings.TrimSpace(value) == "" {
-		value = defaultValue
-	}
-	return time.ParseDuration(strings.TrimSpace(value))
 }

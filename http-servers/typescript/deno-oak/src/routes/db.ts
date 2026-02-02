@@ -6,14 +6,21 @@ import { zCreateUser, zUpdateUser } from "../database/types.ts";
 
 type DbState = { repository: UserRepository };
 
-const withRepository: RouterMiddleware<"/:database/:path*", { database: string; "path*": string }, DbState> = async (
+const withRepository: RouterMiddleware<
+  "/:database/:path*",
+  { database: string; "path*": string },
+  DbState
+> = async (
   ctx,
   next
 ) => {
   const repository = resolveRepository(ctx.params.database);
   if (!repository) {
     ctx.response.status = 404;
-    ctx.response.body = makeError(NOT_FOUND, `unknown database type: ${ctx.params.database}`);
+    ctx.response.body = makeError(
+      NOT_FOUND,
+      `unknown database type: ${ctx.params.database}`
+    );
     return;
   }
   ctx.state.repository = repository;

@@ -3,10 +3,13 @@ package orchestrator
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"benchmark-client/internal/config"
+	"benchmark-client/internal/container"
 	"benchmark-client/internal/database"
 	"benchmark-client/internal/influx"
 	"benchmark-client/internal/printer"
@@ -35,40 +38,35 @@ func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, results
 }
 
 func (o *Orchestrator) Run(ctx context.Context) error {
+	if missing := o.checkImages(ctx); len(missing) > 0 {
+		return fmt.Errorf("missing Docker images: %s\nRun 'make images' to build them", strings.Join(missing, ", "))
+	}
+
 	printer.Section("Infrastructure")
 
-	grafanaStarted := false
-	if o.cfg.Influx.Enabled {
-		printer.Infof("Starting Grafana stack...")
-		if err := o.compose.StartGrafana(ctx); err != nil {
-			return err
-		}
-		grafanaStarted = true
-		printer.Successf("Grafana stack started")
-
-		o.influx = influx.NewClient(ctx, influx.Config{
-			Enabled: o.cfg.Influx.Enabled,
-			URL:     o.cfg.Influx.URL,
-			Org:     o.cfg.Influx.Org,
-			Bucket:  o.cfg.Influx.Bucket,
-			Token:   o.cfg.Influx.Token,
-		})
+	printer.Infof("Starting Grafana stack...")
+	if err := o.compose.StartGrafana(ctx); err != nil {
+		return err
 	}
+	printer.Successf("Grafana stack started")
+
+	o.influx = influx.NewClient(ctx, influx.Config{
+		URL:        o.cfg.Influx.URL,
+		Database:   o.cfg.Influx.Database,
+		Token:      o.cfg.Influx.Token,
+		SampleRate: o.cfg.Influx.SampleRatePct,
+	})
 
 	printer.Infof("Starting database stack...")
 	if err := o.compose.StartDatabases(ctx); err != nil {
-		if grafanaStarted {
-			o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-		}
+		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
 	printer.Successf("Database stack started")
 
 	printer.Infof("Waiting for databases to be healthy...")
 	if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
-		if grafanaStarted {
-			o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-		}
+		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
 	printer.Successf("All databases ready")
@@ -103,7 +101,6 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 			if result.Resources != nil {
 				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources)
 			}
-			o.influx.Flush()
 			printer.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
 		}
 
@@ -133,22 +130,19 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 	metaResults, servers, path, err := o.writer.ExportMetaResults()
 	if err != nil {
-		if grafanaStarted {
-			o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-		}
+		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
 	printer.Infof("Meta results: %s", path)
 	summary.PrintFinalSummary(metaResults, servers)
 
 	if o.influx != nil {
-		o.influx.Flush()
 		o.influx.Close()
 	}
 
-	if grafanaStarted && !interrupted {
+	if !interrupted {
 		o.waitForUserThenStopGrafana(ctx)
-	} else if grafanaStarted {
+	} else {
 		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 	}
 
@@ -158,7 +152,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 	printer.Blank()
 	printer.Infof("Grafana is running at http://localhost:3000 (admin/benchmark)")
-	printer.Infof("Press Enter or Ctrl+C to stop Grafana and exit...")
+	printer.Infof("Press Enter or Ctrl+C to stop Grafana and databases and exit...")
 
 	done := make(chan struct{})
 	go func() {
@@ -172,7 +166,8 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 	case <-done:
 	}
 
-	o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+	o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+	o.stopGrafana(context.Background())   //nolint:contextcheck // cleanup must run even if ctx is canceled
 }
 
 func (o *Orchestrator) stopDatabases(ctx context.Context) {
@@ -187,4 +182,12 @@ func (o *Orchestrator) stopGrafana(ctx context.Context) {
 	if err := o.compose.StopGrafana(ctx); err != nil {
 		printer.Warnf("Failed to stop Grafana: %v", err)
 	}
+}
+
+func (o *Orchestrator) checkImages(ctx context.Context) []string {
+	imageNames := make([]string, len(o.servers))
+	for i, server := range o.servers {
+		imageNames[i] = server.ImageName
+	}
+	return container.CheckImages(ctx, imageNames)
 }

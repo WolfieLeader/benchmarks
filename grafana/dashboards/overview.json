@@ -1,262 +1,129 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": { "list": [] },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "color": { "mode": "palette-classic" },
+          "min": 0,
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "fillOpacity": 80,
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "lineWidth": 0,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "ns"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "express" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#353535" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fastify" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F58220" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "nestjs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#E0234E" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "honojs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#E36002" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "elysia" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B5CF6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "oak" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B4513" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "chi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#01933F" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "gin" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0090D8" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fiber" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#00BCD4" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fastapi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#009688" } }]
+          }
+        ]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "auto",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "10.2.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
-          },
-          "query": "from(bucket: \"benchmarks\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"request_latency\")\n  |> filter(fn: (r) => r._field == \"latency_ns\")\n  |> group(columns: [\"server\"])\n  |> mean()\n  |> group()",
-          "refId": "A"
-        }
-      ],
-      "title": "Average Latency by Server",
-      "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "auto",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "10.2.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
-          },
-          "query": "from(bucket: \"benchmarks\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"capacity_result\")\n  |> filter(fn: (r) => r._field == \"achieved_rps\")\n  |> last()\n  |> group()",
-          "refId": "A"
-        }
-      ],
-      "title": "Capacity (Achieved RPS)",
-      "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
-      "description": "Memory and CPU usage statistics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "displayMode": "basic",
+        "minVizHeight": 30,
+        "minVizWidth": 100,
+        "namePlacement": "left",
+        "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       },
-      "pluginVersion": "10.2.0",
-      "targets": [
+      "pluginVersion": "12.2.0",
+      "transformations": [
         {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
-          },
-          "query": "from(bucket: \"benchmarks\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"resource_stats\")\n  |> filter(fn: (r) => r._field == \"cpu_avg_percent\")\n  |> last()\n  |> group()",
-          "refId": "A"
+          "id": "rowsToFields",
+          "options": {
+            "mappings": [
+              { "fieldName": "server", "handlerKey": "field.name" },
+              { "fieldName": "latency", "handlerKey": "field.value" }
+            ]
+          }
         }
       ],
-      "title": "Average CPU Usage by Server",
-      "type": "stat"
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "rawSql": "SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS latency FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server ORDER BY latency",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "Server Latency Ranking (p50)",
+      "type": "bargauge"
     }
   ],
   "refresh": "",
   "schemaVersion": 38,
-  "tags": [
-    "benchmark"
-  ],
+  "tags": ["benchmark"],
   "templating": {
     "list": [
       {
@@ -274,10 +141,7 @@
       }
     ]
   },
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
+  "time": { "from": "now-24h", "to": "now" },
   "timepicker": {},
   "timezone": "",
   "title": "Benchmark Overview",

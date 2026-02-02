@@ -18,7 +18,9 @@ const zEnv = z.object({
       return num;
     })
     .default(3004),
-  POSTGRES_URL: z.string().trim().default("postgres://postgres:postgres@localhost:5432/benchmarks"),
+  POSTGRES_URL: z.string().trim().default(
+    "postgres://postgres:postgres@localhost:5432/benchmarks"
+  ),
   MONGODB_URL: z.string().trim().default("mongodb://localhost:27017"),
   MONGODB_DB: z.string().trim().default("benchmarks"),
   REDIS_URL: z.string().trim().default("redis://localhost:6379"),

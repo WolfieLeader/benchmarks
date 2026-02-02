@@ -50,7 +50,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 	for _, server := range cfg.Servers {
 		servers = append(servers, &ResolvedServer{
 			Name:                      server.Name,
-			ImageName:                 server.Name,
+			ImageName:                 server.Image,
 			Port:                      server.Port,
 			BaseURL:                   cfg.Benchmark.BaseURL,
 			Timeout:                   cfg.Benchmark.TimeoutDuration,

@@ -14,11 +14,11 @@ type Config struct {
 }
 
 type InfluxConfig struct {
-	Enabled bool   `json:"enabled"`
-	URL     string `json:"url"`
-	Org     string `json:"org"`
-	Bucket  string `json:"bucket"`
-	Token   string `json:"token"`
+	URL           string  `json:"url"`
+	Database      string  `json:"database"`
+	Token         string  `json:"token"`
+	SampleRate    string  `json:"sample_rate"`
+	SampleRatePct float64 `json:"-"`
 }
 
 type BenchmarkConfig struct {
@@ -59,8 +59,9 @@ type CapacityConfig struct {
 }
 
 type ServerConfig struct {
-	Name string `json:"name"`
-	Port int    `json:"port"`
+	Name  string `json:"name"`
+	Image string `json:"image"`
+	Port  int    `json:"port"`
 }
 
 type EndpointConfig struct {

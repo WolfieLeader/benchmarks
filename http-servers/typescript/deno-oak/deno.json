@@ -19,5 +19,22 @@
     "uuid": "npm:uuid@^13.0.0",
     "zod": "npm:zod@^4.3.6"
   },
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "auto",
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "singleQuote": false,
+    "proseWrap": "preserve",
+    "semiColons": true,
+    "trailingCommas": "never",
+    "newLineKind": "auto",
+    "spaceSurroundingProperties": true,
+    "jsx.bracketPosition": "sameLine"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
 }

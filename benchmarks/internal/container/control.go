@@ -11,6 +11,21 @@ import (
 	"time"
 )
 
+func ImageExists(ctx context.Context, imageName string) bool {
+	cmd := exec.CommandContext(ctx, "docker", "image", "inspect", imageName)
+	return cmd.Run() == nil
+}
+
+func CheckImages(ctx context.Context, imageNames []string) []string {
+	var missing []string
+	for _, name := range imageNames {
+		if !ImageExists(ctx, name) {
+			missing = append(missing, name)
+		}
+	}
+	return missing
+}
+
 const (
 	HealthCheckInterval       = 200 * time.Millisecond
 	HealthCheckRequestTimeout = 2 * time.Second
@@ -72,7 +87,8 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	stopCtx, stopCancel := context.WithTimeout(ctx, timeout)
 	defer stopCancel()
 
-	cmd := exec.CommandContext(stopCtx, "docker", "stop", string(containerId)) //nolint:gosec // containerId is controlled internal value
+	// Use -t 2 for a 2-second grace period instead of default 10 seconds
+	cmd := exec.CommandContext(stopCtx, "docker", "stop", "-t", "2", string(containerId)) //nolint:gosec // containerId is controlled internal value
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("docker stop %s failed: %w,\noutput: %s", containerId, err, out)
