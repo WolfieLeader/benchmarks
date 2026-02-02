@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
 	"benchmark-client/internal/database"
 	"benchmark-client/internal/influx"
-	"benchmark-client/internal/printer"
 	"benchmark-client/internal/summary"
 )
 
@@ -42,13 +42,13 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		return fmt.Errorf("missing Docker images: %s\nRun 'make images' to build them", strings.Join(missing, ", "))
 	}
 
-	printer.Section("Infrastructure")
+	cli.Section("Infrastructure")
 
-	printer.Infof("Starting Grafana stack...")
+	cli.Infof("Starting Grafana stack...")
 	if err := o.compose.StartGrafana(ctx); err != nil {
 		return err
 	}
-	printer.Successf("Grafana stack started")
+	cli.Successf("Grafana stack started")
 
 	o.influx = influx.NewClient(ctx, influx.Config{
 		URL:        o.cfg.Influx.URL,
@@ -57,39 +57,39 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		SampleRate: o.cfg.Influx.SampleRatePct,
 	})
 
-	printer.Infof("Starting database stack...")
+	cli.Infof("Starting database stack...")
 	if err := o.compose.StartDatabases(ctx); err != nil {
 		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
-	printer.Successf("Database stack started")
+	cli.Successf("Database stack started")
 
-	printer.Infof("Waiting for databases to be healthy...")
+	cli.Infof("Waiting for databases to be healthy...")
 	if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
 		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
-	printer.Successf("All databases ready")
+	cli.Successf("All databases ready")
 
 	interrupted := false
 	cooldown := o.cfg.Benchmark.CooldownDuration
 	for i, server := range o.servers {
 		if ctx.Err() != nil {
-			printer.Warnf("Interrupted, stopping...")
+			cli.Warnf("Interrupted, stopping...")
 			interrupted = true
 			break
 		}
 
-		printer.ServerHeader(server.Name)
+		cli.ServerHeader(server.Name)
 
 		result, timedResults, timedFlows := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
 
 		summary.PrintServerSummary(result)
 		path, err := o.writer.ExportServerResult(result)
 		if err == nil {
-			printer.Infof("Exported: %s", path)
+			cli.Infof("Exported: %s", path)
 		} else {
-			printer.Failf("Failed to export %s results: %v", server.Name, err)
+			cli.Failf("Failed to export %s results: %v", server.Name, err)
 		}
 
 		if o.influx != nil {
@@ -101,13 +101,13 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 			if result.Resources != nil {
 				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources)
 			}
-			printer.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
+			cli.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
 		}
 
 		result.Endpoints = nil
 
 		if ctx.Err() != nil {
-			printer.Warnf("Interrupted, stopping...")
+			cli.Warnf("Interrupted, stopping...")
 			interrupted = true
 			break
 		}
@@ -115,7 +115,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		if cooldown > 0 && i < len(o.servers)-1 {
 			select {
 			case <-ctx.Done():
-				printer.Warnf("Interrupted, stopping...")
+				cli.Warnf("Interrupted, stopping...")
 				interrupted = true
 			case <-time.After(cooldown):
 			}
@@ -133,7 +133,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
-	printer.Infof("Meta results: %s", path)
+	cli.Infof("Meta results: %s", path)
 	summary.PrintFinalSummary(metaResults, servers)
 
 	if o.influx != nil {
@@ -150,9 +150,9 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 }
 
 func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
-	printer.Blank()
-	printer.Infof("Grafana is running at http://localhost:3000 (admin/benchmark)")
-	printer.Infof("Press Enter or Ctrl+C to stop Grafana and databases and exit...")
+	cli.Blank()
+	cli.Infof("Grafana is running at http://localhost:3000 (admin/123456)")
+	cli.Infof("Press Enter or Ctrl+C to stop Grafana and databases and exit...")
 
 	done := make(chan struct{})
 	go func() {
@@ -171,16 +171,16 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 }
 
 func (o *Orchestrator) stopDatabases(ctx context.Context) {
-	printer.Infof("Stopping database stack...")
+	cli.Infof("Stopping database stack...")
 	if err := o.compose.StopDatabases(ctx); err != nil {
-		printer.Warnf("Failed to stop databases: %v", err)
+		cli.Warnf("Failed to stop databases: %v", err)
 	}
 }
 
 func (o *Orchestrator) stopGrafana(ctx context.Context) {
-	printer.Infof("Stopping Grafana stack...")
+	cli.Infof("Stopping Grafana stack...")
 	if err := o.compose.StopGrafana(ctx); err != nil {
-		printer.Warnf("Failed to stop Grafana: %v", err)
+		cli.Warnf("Failed to stop Grafana: %v", err)
 	}
 }
 

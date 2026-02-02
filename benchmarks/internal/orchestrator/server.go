@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"benchmark-client/internal/cli"
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
 	"benchmark-client/internal/database"
-	"benchmark-client/internal/printer"
 	"benchmark-client/internal/summary"
 )
 
@@ -58,14 +58,14 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	printer.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
+	cli.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
 
 	if err = database.ResetAll(ctx, serverURL, databases); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
 		return result, nil, nil
 	}
-	printer.Infof("Reset all databases")
+	cli.Infof("Reset all databases")
 
 	if ctx.Err() != nil {
 		stopSampler(sampler, result)
@@ -112,7 +112,7 @@ func stopContainer(containerId container.Id) {
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 	defer stopCancel()
 	if err := container.Stop(stopCtx, time.Minute, containerId); err != nil {
-		printer.Warnf("Failed to stop container %s: %v", containerId, err)
+		cli.Warnf("Failed to stop container %s: %v", containerId, err)
 	}
 }
 
@@ -126,14 +126,14 @@ func stopSampler(sampler *container.ResourceSampler, result *summary.ServerResul
 func runCapacityTest(ctx context.Context, server *config.ResolvedServer, result *summary.ServerResult) {
 	rootTC := findRootTestcase(server)
 	if rootTC == nil {
-		printer.Warnf("Skipping capacity test: no root endpoint testcase found")
+		cli.Warnf("Skipping capacity test: no root endpoint testcase found")
 		return
 	}
 
 	tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.Timeout)
 	capResult, err := tester.Run() //nolint:contextcheck // context is stored in CapacityTester struct
 	if err != nil {
-		printer.Failf("Capacity test error: %v", err)
+		cli.Failf("Capacity test error: %v", err)
 	} else {
 		result.Capacity = capResult
 	}

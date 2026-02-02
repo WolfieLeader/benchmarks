@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
-	"benchmark-client/internal/printer"
 )
 
 type CapacityTester struct {
@@ -46,9 +46,9 @@ func NewCapacityTester(ctx context.Context, cfg *config.CapacityConfig, rootTC *
 }
 
 func (ct *CapacityTester) Run() (*CapacityResult, error) {
-	printer.Linef("Capacity: finding max workers (range %d-%d, precision %s)", ct.config.MinWorkers, ct.config.MaxWorkers, ct.config.Precision)
-	printer.Blank()
-	printer.CapacityTableHeader()
+	cli.Linef("Capacity: finding max workers (range %d-%d, precision %s)", ct.config.MinWorkers, ct.config.MaxWorkers, ct.config.Precision)
+	cli.Blank()
+	cli.CapacityTableHeader()
 
 	low := ct.config.MinWorkers
 	high := ct.config.MaxWorkers
@@ -120,7 +120,7 @@ func (ct *CapacityTester) testWorkers(workers int, iterations *int) (iterationSt
 	if err != nil {
 		return stats, err
 	}
-	printer.CapacityTableRow(workers, stats.passed, stats.rps, float64(stats.p99.Milliseconds()), stats.successRate)
+	cli.CapacityTableRow(workers, stats.passed, stats.rps, float64(stats.p99.Milliseconds()), stats.successRate)
 	return stats, nil
 }
 

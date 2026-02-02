@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"benchmark-client/internal/printer"
+	"benchmark-client/internal/cli"
 )
 
 type RequestType int
@@ -81,19 +81,19 @@ func GetServerNames(servers []*ResolvedServer) []string {
 }
 
 func (cfg *Config) Print() {
-	printer.Section("Configuration")
+	cli.Section("Configuration")
 
-	printer.KeyValue("Base URL", cfg.Benchmark.BaseURL)
-	printer.KeyValuePairs(
+	cli.KeyValue("Base URL", cfg.Benchmark.BaseURL)
+	cli.KeyValuePairs(
 		"Servers", strconv.Itoa(len(cfg.Servers)),
 		"Endpoints", strconv.Itoa(len(cfg.Endpoints)),
 	)
-	printer.KeyValuePairs(
+	cli.KeyValuePairs(
 		"Workers", strconv.Itoa(cfg.Benchmark.Workers),
 		"Requests/Endpoint", strconv.Itoa(cfg.Benchmark.Requests),
 		"Timeout", cfg.Benchmark.Timeout,
 	)
-	printer.KeyValuePairs(
+	cli.KeyValuePairs(
 		"CPU Limit", cfg.Container.CPU,
 		"Memory Limit", cfg.Container.Memory,
 	)
@@ -110,22 +110,22 @@ func (cfg *Config) Print() {
 	if strings.TrimSpace(cfg.Benchmark.Cooldown) != "" {
 		cooldownStr = cfg.Benchmark.Cooldown
 	}
-	printer.KeyValuePairs("Warmup", warmupStr, "Resources", resourcesStr, "Cooldown", cooldownStr)
+	cli.KeyValuePairs("Warmup", warmupStr, "Resources", resourcesStr, "Cooldown", cooldownStr)
 
 	if cfg.Capacity.Enabled {
 		capacityStr := fmt.Sprintf("workers %d-%d, precision %s",
 			cfg.Capacity.MinWorkers, cfg.Capacity.MaxWorkers, cfg.Capacity.Precision)
-		printer.KeyValue("Capacity", capacityStr)
-		printer.KeyValuePairs(
+		cli.KeyValue("Capacity", capacityStr)
+		cli.KeyValuePairs(
 			"Success Rate", cfg.Capacity.SuccessRate,
 			"P99 Threshold", cfg.Capacity.P99Threshold,
 		)
-		printer.KeyValuePairs(
+		cli.KeyValuePairs(
 			"Warmup", cfg.Capacity.WarmupDuration.String(),
 			"Measure", cfg.Capacity.MeasureDuration.String(),
 		)
 	} else {
-		printer.KeyValue("Capacity", "disabled")
+		cli.KeyValue("Capacity", "disabled")
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/orchestrator"
-	"benchmark-client/internal/printer"
 )
 
 func main() {
@@ -22,23 +21,23 @@ func main() {
 
 	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
 	if err != nil {
-		printer.Failf("Failed to load configuration: %v", err)
+		cli.Failf("Failed to load configuration: %v", err)
 		return
 	}
 
 	opts, err := getRuntimeOptions(config.GetServerNames(resolvedServers))
 	if err != nil {
-		printer.Failf("Failed to get options: %v", err)
+		cli.Failf("Failed to get options: %v", err)
 		return
 	}
 
 	var invalidServers []string
 	resolvedServers, invalidServers = config.ApplyRuntimeOptions(cfg, resolvedServers, opts)
 	if len(invalidServers) > 0 {
-		printer.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
+		cli.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
 	}
 	if len(resolvedServers) == 0 {
-		printer.Failf("No valid servers selected")
+		cli.Failf("No valid servers selected")
 		return
 	}
 
@@ -49,7 +48,7 @@ func main() {
 	orch := orchestrator.New(cfg, resolvedServers, repoRoot, resultsDir)
 
 	if err := orch.Run(ctx); err != nil {
-		printer.Failf("Benchmark failed: %v", err)
+		cli.Failf("Benchmark failed: %v", err)
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
 
-	"benchmark-client/internal/printer"
+	"benchmark-client/internal/cli"
 )
 
 type Client struct {
@@ -62,7 +62,7 @@ func NewClient(ctx context.Context, cfg Config) *Client {
 		}
 
 		if time.Now().Add(2 * time.Second).After(deadline) {
-			printer.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
+			cli.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
 			return nil
 		}
 
@@ -75,11 +75,9 @@ func NewClient(ctx context.Context, cfg Config) *Client {
 		Database: cfg.Database,
 	})
 	if err != nil {
-		printer.Warnf("Failed to create InfluxDB client: %v", err)
+		cli.Warnf("Failed to create InfluxDB client: %v", err)
 		return nil
 	}
-
-	printer.Infof("InfluxDB connected: %s", cfg.URL)
 
 	sampleRate := cfg.SampleRate
 	if sampleRate <= 0 || sampleRate > 1 {
@@ -137,7 +135,7 @@ func (c *Client) writePoints(points []*influxdb3.Point) {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return
 		}
-		printer.Warnf("InfluxDB write error (%d points): %v", len(points), err)
+		cli.Warnf("InfluxDB write error (%d points): %v", len(points), err)
 	}
 }
 
