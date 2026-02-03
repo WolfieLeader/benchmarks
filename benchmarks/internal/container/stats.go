@@ -43,12 +43,13 @@ type CPUStats struct {
 type ResourceSampler struct {
 	containerID string
 
-	mu      sync.Mutex
-	memory  []uint64
-	cpu     []float64
-	running bool
-	stopCh  chan struct{}
-	doneCh  chan struct{}
+	mu        sync.Mutex
+	memory    []uint64
+	cpu       []float64
+	running   bool
+	stopCh    chan struct{}
+	doneCh    chan struct{}
+	closeOnce sync.Once
 }
 
 type cpuStatsBlock struct {
@@ -98,7 +99,7 @@ func (r *ResourceSampler) Stop() ResourceStats {
 	r.running = false
 	r.mu.Unlock()
 
-	close(r.stopCh)
+	r.closeOnce.Do(func() { close(r.stopCh) })
 	<-r.doneCh
 
 	return r.aggregate()

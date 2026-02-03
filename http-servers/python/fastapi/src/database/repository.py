@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Literal, Protocol
 
 from src.config.env import env
@@ -66,9 +67,11 @@ def resolve_repository(database: str) -> UserRepository | None:
 
 
 async def initialize_databases() -> None:
-    for db_type in DATABASE_TYPES:
+    async def init_db(db_type: DatabaseType) -> None:
         repo = get_repository(db_type)
         await repo.health_check()
+
+    await asyncio.gather(*[init_db(db_type) for db_type in DATABASE_TYPES])
 
 
 async def disconnect_databases() -> None:

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -63,18 +64,19 @@ def root():
 @app.get("/health")
 async def health():
     repositories = get_all_repositories()
-    db_statuses = {}
 
-    for db_type in DATABASE_TYPES:
-        repo = repositories.get(db_type)
+    async def check_db(db_type: str) -> tuple[str, str]:
+        repo = repositories.get(db_type)  # type: ignore[arg-type]
         if repo is None:
-            db_statuses[db_type] = "unhealthy"
-        else:
-            try:
-                healthy = await repo.health_check()
-                db_statuses[db_type] = "healthy" if healthy else "unhealthy"
-            except Exception:
-                db_statuses[db_type] = "unhealthy"
+            return db_type, "unhealthy"
+        try:
+            healthy = await repo.health_check()
+            return db_type, "healthy" if healthy else "unhealthy"
+        except Exception:
+            return db_type, "unhealthy"
+
+    results = await asyncio.gather(*[check_db(db_type) for db_type in DATABASE_TYPES])
+    db_statuses = dict(results)
 
     return {
         "status": "healthy",

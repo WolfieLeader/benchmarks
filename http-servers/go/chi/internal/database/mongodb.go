@@ -170,8 +170,10 @@ func (r *MongoRepository) HealthCheck(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	err := r.database.RunCommand(ctx, bson.M{"ping": 1}).Err()
-	return err == nil, err
+	if err := r.database.RunCommand(ctx, bson.M{"ping": 1}).Err(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *MongoRepository) Disconnect() error {

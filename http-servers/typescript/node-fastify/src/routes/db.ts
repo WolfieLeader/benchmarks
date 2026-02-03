@@ -16,7 +16,7 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
     const repository = resolveRepository(request.params.database);
     if (!repository) {
       reply.code(404);
-      return reply.send(makeError(NOT_FOUND, `unknown database type: ${request.params.database}`));
+      return makeError(NOT_FOUND, `unknown database type: ${request.params.database}`);
     }
     request.repository = repository;
   });
