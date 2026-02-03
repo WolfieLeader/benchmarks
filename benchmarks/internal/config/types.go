@@ -5,7 +5,6 @@ import "time"
 type Config struct {
 	Benchmark     BenchmarkConfig           `json:"benchmark"`
 	Container     ContainerConfig           `json:"container"`
-	Capacity      CapacityConfig            `json:"capacity"`
 	Influx        InfluxConfig              `json:"influx"`
 	Databases     []string                  `json:"databases"`
 	Servers       []ServerConfig            `json:"servers"`
@@ -22,47 +21,24 @@ type InfluxConfig struct {
 }
 
 type BenchmarkConfig struct {
-	BaseURL             string `json:"base_url"`
-	Concurrency         int    `json:"concurrency"`
-	RequestsPerEndpoint int    `json:"requests_per_endpoint"`
-	RequestTimeoutRaw   string `json:"request_timeout"`
-	ServerCooldownRaw   string `json:"server_cooldown,omitempty"`
-	WarmupDurationRaw   string `json:"warmup_duration,omitempty"`
-	WarmupPauseRaw      string `json:"warmup_pause,omitempty"`
+	BaseURL                string `json:"base_url"`
+	Concurrency            int    `json:"concurrency"`
+	DurationPerEndpointRaw string `json:"duration_per_endpoint"`
+	RequestTimeoutRaw      string `json:"request_timeout"`
+	ServerCooldownRaw      string `json:"server_cooldown,omitempty"`
+	WarmupDurationRaw      string `json:"warmup_duration,omitempty"`
+	WarmupPauseRaw         string `json:"warmup_pause,omitempty"`
 
-	RequestTimeout time.Duration `json:"-"`
-	ServerCooldown time.Duration `json:"-"`
-	WarmupDuration time.Duration `json:"-"`
-	WarmupPause    time.Duration `json:"-"`
-
-	WarmupEnabled    bool `json:"-"`
-	ResourcesEnabled bool `json:"-"`
+	DurationPerEndpoint time.Duration `json:"-"`
+	RequestTimeout      time.Duration `json:"-"`
+	ServerCooldown      time.Duration `json:"-"`
+	WarmupDuration      time.Duration `json:"-"`
+	WarmupPause         time.Duration `json:"-"`
 }
 
 type ContainerConfig struct {
 	CPULimit    float64 `json:"cpu_limit"`
 	MemoryLimit string  `json:"memory_limit"`
-}
-
-type CapacityConfig struct {
-	Enabled             bool   `json:"-"`
-	MinConcurrency      int    `json:"min_concurrency"`
-	MaxConcurrency      int    `json:"max_concurrency"`
-	SearchPrecision     string `json:"search_precision"`
-	MinSuccessRate      string `json:"min_success_rate"`
-	P99LatencyThreshold string `json:"p99_latency_threshold"`
-	PreRunPauseRaw      string `json:"pre_run_pause"`
-	WarmupDurationRaw   string `json:"warmup_duration"`
-	MeasureDurationRaw  string `json:"measure_duration"`
-	IterationPauseRaw   string `json:"iteration_pause"`
-
-	SearchPrecisionPct     float64       `json:"-"`
-	MinSuccessRatePct      float64       `json:"-"`
-	P99LatencyThresholdDur time.Duration `json:"-"`
-	PreRunPause            time.Duration `json:"-"`
-	WarmupDuration         time.Duration `json:"-"`
-	MeasureDuration        time.Duration `json:"-"`
-	IterationPause         time.Duration `json:"-"`
 }
 
 type ServerConfig struct {
@@ -83,7 +59,7 @@ type EndpointConfig struct {
 	Expect      ExpectConfig      `json:"expect"`
 	PerDatabase bool              `json:"per_database,omitempty"`
 	Variations  []VariationConfig `json:"variations,omitempty"`
-	Flow        *FlowConfig       `json:"flow,omitempty"`
+	Sequence    *SequenceConfig   `json:"sequence,omitempty"`
 }
 
 type ExpectConfig struct {
@@ -103,7 +79,7 @@ type VariationConfig struct {
 	Expect   *ExpectConfig     `json:"expect,omitempty"`
 }
 
-type FlowConfig struct {
+type SequenceConfig struct {
 	Id      string               `json:"id"`
 	Capture map[string]string    `json:"capture,omitempty"` // {"id": "id"} = capture response.id as {id}
 	Vars    map[string]VarConfig `json:"vars,omitempty"`    // variable definitions (only on first endpoint)
@@ -116,14 +92,14 @@ type VarConfig struct {
 	Optional any    `json:"optional,omitempty"` // true, false, or float 0.0-1.0
 }
 
-type ResolvedFlow struct {
+type ResolvedSequence struct {
 	Id        string
 	Database  string // empty if not per_database
 	Vars      map[string]VarConfig
-	Endpoints []*ResolvedFlowEndpoint
+	Endpoints []*ResolvedSequenceEndpoint
 }
 
-type ResolvedFlowEndpoint struct {
+type ResolvedSequenceEndpoint struct {
 	Name           string
 	Method         string
 	Path           string // with {database} replaced, but {id} etc preserved

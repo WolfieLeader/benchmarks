@@ -32,7 +32,7 @@ func main() {
 	}
 
 	var invalidServers []string
-	resolvedServers, invalidServers = config.ApplyRuntimeOptions(cfg, resolvedServers, opts)
+	resolvedServers, invalidServers = config.ApplyRuntimeOptions(resolvedServers, opts)
 	if len(invalidServers) > 0 {
 		cli.Warnf("Unknown servers ignored: %s", strings.Join(invalidServers, ", "))
 	}
@@ -63,10 +63,7 @@ func getRuntimeOptions(availableServers []string) (*config.RuntimeOptions, error
 
 	if cliOpts != nil {
 		return &config.RuntimeOptions{
-			Warmup:    cliOpts.Warmup,
-			Resources: cliOpts.Resources,
-			Capacity:  cliOpts.Capacity,
-			Servers:   cliOpts.Servers,
+			Servers: cliOpts.Servers,
 		}, nil
 	}
 
@@ -76,12 +73,7 @@ func getRuntimeOptions(availableServers []string) (*config.RuntimeOptions, error
 		return nil, err
 	}
 
-	cli.PrintSummary(opts, len(availableServers))
-
 	return &config.RuntimeOptions{
-		Warmup:    opts.Warmup,
-		Resources: opts.Resources,
-		Capacity:  opts.Capacity,
-		Servers:   opts.Servers,
+		Servers: opts.Servers,
 	}, nil
 }

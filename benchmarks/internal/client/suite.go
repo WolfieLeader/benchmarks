@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
 )
 
@@ -19,7 +21,7 @@ type Suite struct {
 	server          *config.ResolvedServer
 	serverStartTime time.Time
 	timedResults    []TimedResult
-	timedFlows      []TimedFlowResult
+	timedSequences  []TimedSequenceResult
 }
 
 func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
@@ -61,14 +63,22 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 	results := make([]EndpointResult, 0, len(endpointTestcases))
 	used := make(map[string]struct{}, len(endpointTestcases))
 	for _, endpointName := range s.server.EndpointOrder {
+		if s.ctx.Err() != nil {
+			break
+		}
 		testcases, ok := endpointTestcases[endpointName]
 		if !ok || len(testcases) == 0 {
 			continue
 		}
 		first := testcases[0]
 
-		if s.server.WarmupEnabled {
+		cli.Infof("Testing %s %s...", first.Method, first.Path)
+
+		if s.server.WarmupDuration > 0 {
 			s.runWarmup(testcases)
+			if s.ctx.Err() != nil {
+				break
+			}
 			if s.server.WarmupPause > 0 {
 				time.Sleep(s.server.WarmupPause)
 			}
@@ -78,7 +88,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		used[endpointName] = struct{}{}
 	}
 
-	if len(used) != len(endpointTestcases) {
+	if len(used) != len(endpointTestcases) && s.ctx.Err() == nil {
 		leftovers := make([]string, 0, len(endpointTestcases)-len(used))
 		for endpointName := range endpointTestcases {
 			if _, ok := used[endpointName]; ok {
@@ -88,14 +98,22 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		}
 		slices.Sort(leftovers)
 		for _, endpointName := range leftovers {
+			if s.ctx.Err() != nil {
+				break
+			}
 			testcases := endpointTestcases[endpointName]
 			if len(testcases) == 0 {
 				continue
 			}
 			first := testcases[0]
 
-			if s.server.WarmupEnabled {
+			cli.Infof("Testing %s %s...", first.Method, first.Path)
+
+			if s.server.WarmupDuration > 0 {
 				s.runWarmup(testcases)
+				if s.ctx.Err() != nil {
+					break
+				}
 				if s.server.WarmupPause > 0 {
 					time.Sleep(s.server.WarmupPause)
 				}
@@ -105,7 +123,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		}
 	}
 
-	return results, nil
+	return results, nil //nolint:nilerr // context cancellation returns partial results, not an error
 }
 
 func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testcase) EndpointResult {
@@ -137,18 +155,22 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 }
 
 func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedLatencies []TimedLatency, failureCount int, lastError string) {
-	workers := min(s.server.Concurrency, s.server.RequestsPerEndpoint)
-	iterations := s.server.RequestsPerEndpoint
+	workers := s.server.Concurrency
 	endpointStartTime := time.Now()
+
+	ctx, cancel := context.WithTimeout(s.ctx, s.server.DurationPerEndpoint)
+	defer cancel()
 
 	workCh := make(chan *config.Testcase)
 	go func() {
 		defer close(workCh)
-		for i := range iterations {
+		idx := 0
+		for ctx.Err() == nil {
 			select {
-			case <-s.ctx.Done():
+			case <-ctx.Done():
 				return
-			case workCh <- testcases[i%len(testcases)]:
+			case workCh <- testcases[idx%len(testcases)]:
+				idx++
 			}
 		}
 	}()
@@ -170,7 +192,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 				requestStart := time.Now()
 				serverOffset := requestStart.Sub(s.serverStartTime)
 				endpointOffset := requestStart.Sub(endpointStartTime)
-				latency, err := s.executeTestcase(s.ctx, tc)
+				latency, err := s.executeTestcase(ctx, tc)
 				resultsCh <- result{
 					latency:        latency,
 					serverOffset:   serverOffset,
@@ -187,11 +209,15 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 	}()
 
 	var count int
-	latencies := make([]time.Duration, 0, iterations)
-	timedLatencies = make([]TimedLatency, 0, iterations)
+	latencies := make([]time.Duration, 0, 10000)
+	timedLatencies = make([]TimedLatency, 0, 10000)
 
 	for r := range resultsCh {
 		if r.err != nil {
+			// Don't count context cancellation as failure - expected at duration end
+			if errors.Is(r.err, context.DeadlineExceeded) || errors.Is(r.err, context.Canceled) {
+				continue
+			}
 			failureCount++
 			lastError = r.err.Error()
 			continue
@@ -206,7 +232,8 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 		})
 	}
 
-	stats = CalculateStats(latencies, count, iterations)
+	totalRequests := count + failureCount
+	stats = CalculateStats(latencies, count, totalRequests)
 	return stats, timedLatencies, failureCount, lastError
 }
 
@@ -243,24 +270,24 @@ func (s *Suite) executeTestcase(ctx context.Context, tc *config.Testcase) (time.
 	return latency, nil
 }
 
-type FlowStats struct {
-	FlowId      string          `json:"flow_id"`
-	Database    string          `json:"database,omitempty"`
-	TotalRuns   int             `json:"total_runs"`
-	Successes   int             `json:"successes"`
-	Failures    int             `json:"failures"`
-	SuccessRate float64         `json:"success_rate"`
-	AvgDuration time.Duration   `json:"avg_duration"`
-	P50Duration time.Duration   `json:"p50_duration"`
-	P95Duration time.Duration   `json:"p95_duration"`
-	P99Duration time.Duration   `json:"p99_duration"`
-	LastError   string          `json:"last_error,omitempty"`
-	FailedStep  int             `json:"failed_step,omitempty"`
-	StepCount   int             `json:"step_count"`
-	Steps       []FlowStepStats `json:"steps,omitempty"`
+type SequenceStats struct {
+	SequenceId  string              `json:"sequence_id"`
+	Database    string              `json:"database,omitempty"`
+	TotalRuns   int                 `json:"total_runs"`
+	Successes   int                 `json:"successes"`
+	Failures    int                 `json:"failures"`
+	SuccessRate float64             `json:"success_rate"`
+	AvgDuration time.Duration       `json:"avg_duration"`
+	P50Duration time.Duration       `json:"p50_duration"`
+	P95Duration time.Duration       `json:"p95_duration"`
+	P99Duration time.Duration       `json:"p99_duration"`
+	LastError   string              `json:"last_error,omitempty"`
+	FailedStep  int                 `json:"failed_step,omitempty"`
+	StepCount   int                 `json:"step_count"`
+	Steps       []SequenceStepStats `json:"steps,omitempty"`
 }
 
-type FlowStepStats struct {
+type SequenceStepStats struct {
 	Name   string        `json:"name"`
 	Method string        `json:"method"`
 	Path   string        `json:"path"`
@@ -270,34 +297,36 @@ type FlowStepStats struct {
 	P99    time.Duration `json:"p99"`
 }
 
-func (s *Suite) RunFlows(hostPort int) []FlowStats {
-	if len(s.server.Flows) == 0 {
+func (s *Suite) RunSequences(hostPort int) []SequenceStats {
+	if len(s.server.Sequences) == 0 {
 		return nil
 	}
 
-	s.timedFlows = nil
+	s.timedSequences = nil
 	baseURL := fmt.Sprintf("http://localhost:%d", hostPort)
-	results := make([]FlowStats, 0, len(s.server.Flows))
+	results := make([]SequenceStats, 0, len(s.server.Sequences))
 
-	for _, flow := range s.server.Flows {
-		stats := s.runFlow(baseURL, flow)
+	for _, seq := range s.server.Sequences {
+		stats := s.runSequence(baseURL, seq)
 		results = append(results, stats)
 	}
 
 	return results
 }
 
-type timedFlowResultItem struct {
-	result       FlowResult
-	serverOffset time.Duration
-	flowOffset   time.Duration
+type timedSequenceResultItem struct {
+	result         SequenceResult
+	serverOffset   time.Duration
+	sequenceOffset time.Duration
 }
 
-func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
-	workers := min(s.server.Concurrency, s.server.RequestsPerEndpoint)
-	iterations := s.server.RequestsPerEndpoint
-	stepCount := len(flow.Endpoints)
-	flowStartTime := time.Now()
+func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) SequenceStats {
+	workers := s.server.Concurrency
+	stepCount := len(seq.Endpoints)
+	sequenceStartTime := time.Now()
+
+	ctx, cancel := context.WithTimeout(s.ctx, s.server.DurationPerEndpoint)
+	defer cancel()
 
 	type workItem struct {
 		workerID int
@@ -307,16 +336,18 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 	workCh := make(chan workItem)
 	go func() {
 		defer close(workCh)
-		for i := range iterations {
+		idx := 0
+		for ctx.Err() == nil {
 			select {
-			case <-s.ctx.Done():
+			case <-ctx.Done():
 				return
-			case workCh <- workItem{workerID: i % workers, cycleNum: i}:
+			case workCh <- workItem{workerID: idx % workers, cycleNum: idx}:
+				idx++
 			}
 		}
 	}()
 
-	resultsCh := make(chan timedFlowResultItem, workers)
+	resultsCh := make(chan timedSequenceResultItem, workers)
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
@@ -326,12 +357,12 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 			for item := range workCh {
 				requestStart := time.Now()
 				serverOffset := requestStart.Sub(s.serverStartTime)
-				flowOffset := requestStart.Sub(flowStartTime)
-				result := RunFlow(s.ctx, s.httpClient, baseURL, flow, item.workerID, item.cycleNum, s.server.RequestTimeout)
-				resultsCh <- timedFlowResultItem{
-					result:       result,
-					serverOffset: serverOffset,
-					flowOffset:   flowOffset,
+				sequenceOffset := requestStart.Sub(sequenceStartTime)
+				result := RunSequence(ctx, s.httpClient, baseURL, seq, item.workerID, item.cycleNum, s.server.RequestTimeout)
+				resultsCh <- timedSequenceResultItem{
+					result:         result,
+					serverOffset:   serverOffset,
+					sequenceOffset: sequenceOffset,
 				}
 			}
 		}()
@@ -346,17 +377,17 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 	var totalDuration time.Duration
 	var lastError string
 	var failedStep int
-	durations := make([]time.Duration, 0, iterations)
+	durations := make([]time.Duration, 0, 10000)
 
 	stepDurations := make([][]time.Duration, stepCount)
 	for i := range stepDurations {
-		stepDurations[i] = make([]time.Duration, 0, iterations)
+		stepDurations[i] = make([]time.Duration, 0, 10000)
 	}
 
-	timedLatencies := make([]TimedLatency, 0, iterations)
+	timedLatencies := make([]TimedLatency, 0, 10000)
 	stepTimedLatencies := make(map[string][]TimedLatency)
-	for _, ep := range flow.Endpoints {
-		stepTimedLatencies[ep.Name] = make([]TimedLatency, 0, iterations)
+	for _, ep := range seq.Endpoints {
+		stepTimedLatencies[ep.Name] = make([]TimedLatency, 0, 10000)
 	}
 
 	for item := range resultsCh {
@@ -370,31 +401,35 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 			}
 			timedLatencies = append(timedLatencies, TimedLatency{
 				ServerOffset:   item.serverOffset,
-				EndpointOffset: item.flowOffset,
+				EndpointOffset: item.sequenceOffset,
 				Duration:       r.TotalDuration,
 			})
 			var stepOffset time.Duration
 			for i, d := range r.StepDurations {
-				stepName := flow.Endpoints[i].Name
+				stepName := seq.Endpoints[i].Name
 				stepTimedLatencies[stepName] = append(stepTimedLatencies[stepName], TimedLatency{
 					ServerOffset:   item.serverOffset + stepOffset,
-					EndpointOffset: item.flowOffset + stepOffset,
+					EndpointOffset: item.sequenceOffset + stepOffset,
 					Duration:       d,
 				})
 				stepOffset += d
 			}
 		} else {
+			// Don't count context cancellation as failure - expected at duration end
+			if r.ContextCanceled {
+				continue
+			}
 			failures++
 			lastError = r.Error
 			failedStep = r.FailedStep
 		}
 	}
 
-	s.timedFlows = append(s.timedFlows, TimedFlowResult{
-		FlowId:    flow.Id,
-		Database:  flow.Database,
-		Latencies: timedLatencies,
-		StepStats: stepTimedLatencies,
+	s.timedSequences = append(s.timedSequences, TimedSequenceResult{
+		SequenceId: seq.Id,
+		Database:   seq.Database,
+		Latencies:  timedLatencies,
+		StepStats:  stepTimedLatencies,
 	})
 
 	var avgDuration, p50, p95, p99 time.Duration
@@ -412,9 +447,9 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		successRate = float64(successes) / float64(total)
 	}
 
-	steps := make([]FlowStepStats, stepCount)
-	for i, ep := range flow.Endpoints {
-		steps[i] = FlowStepStats{
+	steps := make([]SequenceStepStats, stepCount)
+	for i, ep := range seq.Endpoints {
+		steps[i] = SequenceStepStats{
 			Name:   ep.Name,
 			Method: ep.Method,
 			Path:   ep.Path,
@@ -432,9 +467,9 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 		}
 	}
 
-	return FlowStats{
-		FlowId:      flow.Id,
-		Database:    flow.Database,
+	return SequenceStats{
+		SequenceId:  seq.Id,
+		Database:    seq.Database,
 		TotalRuns:   total,
 		Successes:   successes,
 		Failures:    failures,
@@ -489,6 +524,6 @@ func (s *Suite) GetTimedResults() []TimedResult {
 	return s.timedResults
 }
 
-func (s *Suite) GetTimedFlows() []TimedFlowResult {
-	return s.timedFlows
+func (s *Suite) GetTimedSequences() []TimedSequenceResult {
+	return s.timedSequences
 }

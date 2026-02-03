@@ -31,7 +31,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		if !ok {
 			continue
 		}
-		if endpoint.Flow != nil {
+		if endpoint.Sequence != nil {
 			continue
 		}
 		testcases, err := resolveEndpoint(cfg.Benchmark.BaseURL, cfg.Databases, endpointName, &endpoint)
@@ -41,7 +41,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		allTestcases = append(allTestcases, testcases...)
 	}
 
-	flows := resolveFlows(cfg, order)
+	sequences := resolveSequences(cfg, order)
 
 	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
 	for _, server := range cfg.Servers {
@@ -54,43 +54,40 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 			CPULimit:            cfg.Container.CPULimit,
 			MemoryLimit:         cfg.Container.MemoryLimit,
 			Concurrency:         cfg.Benchmark.Concurrency,
-			RequestsPerEndpoint: cfg.Benchmark.RequestsPerEndpoint,
+			DurationPerEndpoint: cfg.Benchmark.DurationPerEndpoint,
 			Testcases:           allTestcases,
 			EndpointOrder:       order,
-			WarmupEnabled:       cfg.Benchmark.WarmupEnabled,
 			WarmupDuration:      cfg.Benchmark.WarmupDuration,
 			WarmupPause:         cfg.Benchmark.WarmupPause,
-			ResourcesEnabled:    cfg.Benchmark.ResourcesEnabled,
-			Capacity:            cfg.Capacity,
-			Flows:               flows,
+			Sequences:           sequences,
 		})
 	}
 
 	return servers, nil
 }
 
-func resolveFlows(cfg *Config, order []string) []*ResolvedFlow {
-	flowEndpoints := make(map[string][]string)
-	flowVars := make(map[string]map[string]VarConfig)
+func resolveSequences(cfg *Config, order []string) []*ResolvedSequence {
+	seqEndpoints := make(map[string][]string)
+	seqVars := make(map[string]map[string]VarConfig)
 
 	for _, name := range order {
 		endpoint, ok := cfg.Endpoints[name]
-		if !ok || endpoint.Flow == nil {
+		if !ok || endpoint.Sequence == nil {
 			continue
 		}
-		flowId := endpoint.Flow.Id
-		flowEndpoints[flowId] = append(flowEndpoints[flowId], name)
+		seqId := endpoint.Sequence.Id
+		seqEndpoints[seqId] = append(seqEndpoints[seqId], name)
 
-		if endpoint.Flow.Vars != nil && flowVars[flowId] == nil {
-			flowVars[flowId] = endpoint.Flow.Vars
+		if endpoint.Sequence.Vars != nil && seqVars[seqId] == nil {
+			seqVars[seqId] = endpoint.Sequence.Vars
 		}
 	}
 
 	maxDbs := 1
 	maxDbs = max(maxDbs, len(cfg.Databases))
-	flows := make([]*ResolvedFlow, 0, len(flowEndpoints)*maxDbs)
+	sequences := make([]*ResolvedSequence, 0, len(seqEndpoints)*maxDbs)
 
-	for flowId, endpointNames := range flowEndpoints {
+	for seqId, endpointNames := range seqEndpoints {
 		var perDatabase bool
 		for _, name := range endpointNames {
 			if cfg.Endpoints[name].PerDatabase {
@@ -105,11 +102,11 @@ func resolveFlows(cfg *Config, order []string) []*ResolvedFlow {
 		}
 
 		for _, db := range databases {
-			flow := &ResolvedFlow{
-				Id:        flowId,
+			seq := &ResolvedSequence{
+				Id:        seqId,
 				Database:  db,
-				Vars:      flowVars[flowId],
-				Endpoints: make([]*ResolvedFlowEndpoint, 0, len(endpointNames)),
+				Vars:      seqVars[seqId],
+				Endpoints: make([]*ResolvedSequenceEndpoint, 0, len(endpointNames)),
 			}
 
 			for _, name := range endpointNames {
@@ -119,7 +116,7 @@ func resolveFlows(cfg *Config, order []string) []*ResolvedFlow {
 					path = strings.ReplaceAll(path, "{database}", db)
 				}
 
-				resolved := &ResolvedFlowEndpoint{
+				resolved := &ResolvedSequenceEndpoint{
 					Name:           name,
 					Method:         ep.Method,
 					Path:           path,
@@ -128,17 +125,17 @@ func resolveFlows(cfg *Config, order []string) []*ResolvedFlow {
 					ExpectedStatus: ep.Expect.Status,
 					ExpectedBody:   ep.Expect.Body,
 				}
-				if ep.Flow != nil {
-					resolved.Capture = ep.Flow.Capture
+				if ep.Sequence != nil {
+					resolved.Capture = ep.Sequence.Capture
 				}
-				flow.Endpoints = append(flow.Endpoints, resolved)
+				seq.Endpoints = append(seq.Endpoints, resolved)
 			}
 
-			flows = append(flows, flow)
+			sequences = append(sequences, seq)
 		}
 	}
 
-	return flows
+	return sequences
 }
 
 func resolveEndpoint(baseURL string, databases []string, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {

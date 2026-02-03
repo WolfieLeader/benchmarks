@@ -13,7 +13,7 @@ import (
 	"benchmark-client/internal/summary"
 )
 
-func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) (*summary.ServerResult, []client.TimedResult, []client.TimedFlowResult) {
+func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) (*summary.ServerResult, []client.TimedResult, []client.TimedSequenceResult) {
 	result := &summary.ServerResult{
 		Name:      server.Name,
 		ImageName: server.ImageName,
@@ -43,11 +43,8 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	}
 	result.ContainerID = string(containerId)
 
-	var sampler *container.ResourceSampler
-	if server.ResourcesEnabled {
-		sampler = container.NewResourceSampler(string(containerId))
-		sampler.Start(ctx)
-	}
+	sampler := container.NewResourceSampler(string(containerId))
+	sampler.Start(ctx)
 
 	defer stopContainer(containerId) //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
 
@@ -91,28 +88,17 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	flows := suite.RunFlows(options.HostPort)
+	sequences := suite.RunSequences(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
 
 	timedResults := suite.GetTimedResults()
-	timedFlows := suite.GetTimedFlows()
+	timedSequences := suite.GetTimedSequences()
 
 	stopSampler(sampler, result)
 
 	result.Complete(endpoints)
-	result.Flows = flows
+	result.Sequences = sequences
 
-	if server.Capacity.Enabled && ctx.Err() == nil {
-		if server.Capacity.PreRunPause > 0 {
-			select {
-			case <-ctx.Done():
-				return result, timedResults, timedFlows
-			case <-time.After(server.Capacity.PreRunPause):
-			}
-		}
-		runCapacityTest(ctx, server, result)
-	}
-
-	return result, timedResults, timedFlows
+	return result, timedResults, timedSequences
 }
 
 func stopContainer(containerId container.Id) {
@@ -128,29 +114,4 @@ func stopSampler(sampler *container.ResourceSampler, result *summary.ServerResul
 		stats := sampler.Stop()
 		result.Resources = &stats
 	}
-}
-
-func runCapacityTest(ctx context.Context, server *config.ResolvedServer, result *summary.ServerResult) {
-	rootTC := findRootTestcase(server)
-	if rootTC == nil {
-		cli.Warnf("Skipping capacity test: no root endpoint testcase found")
-		return
-	}
-
-	tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.RequestTimeout)
-	capResult, err := tester.Run() //nolint:contextcheck // context is stored in CapacityTester struct
-	if err != nil {
-		cli.Failf("Capacity test error: %v", err)
-	} else {
-		result.Capacity = capResult
-	}
-}
-
-func findRootTestcase(server *config.ResolvedServer) *config.Testcase {
-	for _, tc := range server.Testcases {
-		if tc.EndpointName == "root" {
-			return tc
-		}
-	}
-	return nil
 }

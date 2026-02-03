@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -16,33 +17,34 @@ import (
 	"benchmark-client/internal/config"
 )
 
-type FlowResult struct {
-	FlowId        string
-	Database      string
-	TotalDuration time.Duration
-	StepDurations []time.Duration
-	Success       bool
-	FailedStep    int
-	Error         string
+type SequenceResult struct {
+	SequenceId      string
+	Database        string
+	TotalDuration   time.Duration
+	StepDurations   []time.Duration
+	Success         bool
+	FailedStep      int
+	Error           string
+	ContextCanceled bool
 }
 
-func RunFlow(ctx context.Context, client *http.Client, baseURL string, flow *config.ResolvedFlow, workerID, cycleNum int, timeout time.Duration) FlowResult {
-	result := FlowResult{
-		FlowId:        flow.Id,
-		Database:      flow.Database,
-		StepDurations: make([]time.Duration, len(flow.Endpoints)),
+func RunSequence(ctx context.Context, client *http.Client, baseURL string, seq *config.ResolvedSequence, workerID, cycleNum int, timeout time.Duration) SequenceResult {
+	result := SequenceResult{
+		SequenceId:    seq.Id,
+		Database:      seq.Database,
+		StepDurations: make([]time.Duration, len(seq.Endpoints)),
 		FailedStep:    -1,
 		Success:       true,
 	}
 
-	vars := generateVars(flow.Vars, workerID, cycleNum)
+	vars := generateVars(seq.Vars, workerID, cycleNum)
 	captured := make(map[string]string)
 
 	var totalDuration time.Duration
 
-	for i, endpoint := range flow.Endpoints {
+	for i, endpoint := range seq.Endpoints {
 		stepCtx, cancel := context.WithTimeout(ctx, timeout)
-		stepDuration, err := executeFlowStep(stepCtx, client, baseURL, endpoint, vars, captured)
+		stepDuration, err := executeSequenceStep(stepCtx, client, baseURL, endpoint, vars, captured)
 		cancel()
 
 		result.StepDurations[i] = stepDuration
@@ -53,6 +55,9 @@ func RunFlow(ctx context.Context, client *http.Client, baseURL string, flow *con
 			result.FailedStep = i
 			result.Error = err.Error()
 			result.TotalDuration = totalDuration
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				result.ContextCanceled = true
+			}
 			return result
 		}
 	}
@@ -98,7 +103,7 @@ func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) m
 	return vars
 }
 
-func executeFlowStep(ctx context.Context, client *http.Client, baseURL string, endpoint *config.ResolvedFlowEndpoint, vars map[string]any, captured map[string]string) (time.Duration, error) {
+func executeSequenceStep(ctx context.Context, client *http.Client, baseURL string, endpoint *config.ResolvedSequenceEndpoint, vars map[string]any, captured map[string]string) (time.Duration, error) {
 	path := replacePlaceholdersInString(endpoint.Path, vars, captured)
 	url := baseURL + path
 

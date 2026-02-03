@@ -48,15 +48,15 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 			))
 			pointIndex++
 			if len(points) >= writeBatchSize {
-				c.writePoints(points)
+				c.writePointsAsync(points)
 				points = points[:0]
 			}
 		}
 	}
-	c.writePoints(points)
+	c.writePointsAsync(points)
 }
 
-func (c *Client) WriteFlowLatencies(runId, server string, results []client.TimedFlowResult) {
+func (c *Client) WriteSequenceLatencies(runId, server string, results []client.TimedSequenceResult) {
 	if c == nil {
 		return
 	}
@@ -76,23 +76,23 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 				continue
 			}
 			points = append(points, influxdb3.NewPoint(
-				"flow_latency",
+				"sequence_latency",
 				map[string]string{
-					"run_id":   runId,
-					"server":   server,
-					"flow_id":  r.FlowId,
-					"database": r.Database,
+					"run_id":      runId,
+					"server":      server,
+					"sequence_id": r.SequenceId,
+					"database":    r.Database,
 				},
 				map[string]any{
-					"server_offset_ms":  l.ServerOffset.Milliseconds(),
-					"flow_offset_ms":    l.EndpointOffset.Milliseconds(),
-					"total_duration_ns": l.Duration.Nanoseconds(),
+					"server_offset_ms":   l.ServerOffset.Milliseconds(),
+					"sequence_offset_ms": l.EndpointOffset.Milliseconds(),
+					"total_duration_ns":  l.Duration.Nanoseconds(),
 				},
 				baseTime.Add(time.Duration(pointIndex)*time.Microsecond),
 			))
 			pointIndex++
 			if len(points) >= writeBatchSize {
-				c.writePoints(points)
+				c.writePointsAsync(points)
 				points = points[:0]
 			}
 		}
@@ -106,13 +106,13 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 					continue
 				}
 				points = append(points, influxdb3.NewPoint(
-					"flow_step_latency",
+					"sequence_step_latency",
 					map[string]string{
-						"run_id":   runId,
-						"server":   server,
-						"flow_id":  r.FlowId,
-						"database": r.Database,
-						"step":     stepName,
+						"run_id":      runId,
+						"server":      server,
+						"sequence_id": r.SequenceId,
+						"database":    r.Database,
+						"step":        stepName,
 					},
 					map[string]any{
 						"server_offset_ms": l.ServerOffset.Milliseconds(),
@@ -122,33 +122,13 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 				))
 				pointIndex++
 				if len(points) >= writeBatchSize {
-					c.writePoints(points)
+					c.writePointsAsync(points)
 					points = points[:0]
 				}
 			}
 		}
 	}
-	c.writePoints(points)
-}
-
-func (c *Client) WriteCapacityResult(runId, server string, result *client.CapacityResult) {
-	if c == nil || result == nil {
-		return
-	}
-
-	c.WritePoint("capacity_result",
-		map[string]string{
-			"run_id": runId,
-			"server": server,
-		},
-		map[string]any{
-			"max_workers":  result.MaxWorkersPassed,
-			"achieved_rps": result.AchievedRPS,
-			"p99_ms":       result.P99Ms,
-			"success_rate": result.SuccessRate,
-		},
-		time.Now(),
-	)
+	c.writePointsAsync(points)
 }
 
 func (c *Client) WriteResourceStats(runId, server string, stats *container.ResourceStats) {

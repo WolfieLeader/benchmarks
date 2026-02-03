@@ -15,27 +15,16 @@ import (
 
 var DefaultConfig = Config{
 	Benchmark: BenchmarkConfig{
-		BaseURL:             "http://localhost:8080",
-		Concurrency:         50,
-		RequestsPerEndpoint: 1000,
-		RequestTimeoutRaw:   "10s",
-		WarmupDurationRaw:   "1s",
-		WarmupPauseRaw:      "100ms",
+		BaseURL:                "http://localhost:8080",
+		Concurrency:            50,
+		DurationPerEndpointRaw: "10s",
+		RequestTimeoutRaw:      "10s",
+		WarmupDurationRaw:      "1s",
+		WarmupPauseRaw:         "100ms",
 	},
 	Container: ContainerConfig{
 		CPULimit:    1.0,
 		MemoryLimit: "512mb",
-	},
-	Capacity: CapacityConfig{
-		MinConcurrency:      1,
-		MaxConcurrency:      512,
-		SearchPrecision:     "5%",
-		MinSuccessRate:      "95%",
-		P99LatencyThreshold: "50ms",
-		PreRunPauseRaw:      "1s",
-		WarmupDurationRaw:   "2s",
-		MeasureDurationRaw:  "10s",
-		IterationPauseRaw:   "1s",
 	},
 	Influx: InfluxConfig{
 		URL:        "http://localhost:8086",
@@ -183,9 +172,17 @@ func applyDefaults(cfg *Config) error {
 		cfg.Benchmark.Concurrency = DefaultConfig.Benchmark.Concurrency
 	}
 
-	if cfg.Benchmark.RequestsPerEndpoint <= 0 {
-		cfg.Benchmark.RequestsPerEndpoint = DefaultConfig.Benchmark.RequestsPerEndpoint
+	durationPerEndpoint, err := parseDuration(cfg.Benchmark.DurationPerEndpointRaw, DefaultConfig.Benchmark.DurationPerEndpointRaw)
+	if err != nil {
+		return fmt.Errorf("benchmark duration_per_endpoint: %w", err)
 	}
+	if durationPerEndpoint <= 0 {
+		return errors.New("benchmark duration_per_endpoint must be > 0")
+	}
+	if strings.TrimSpace(cfg.Benchmark.DurationPerEndpointRaw) == "" {
+		cfg.Benchmark.DurationPerEndpointRaw = DefaultConfig.Benchmark.DurationPerEndpointRaw
+	}
+	cfg.Benchmark.DurationPerEndpoint = durationPerEndpoint
 
 	if strings.TrimSpace(cfg.Benchmark.RequestTimeoutRaw) == "" {
 		cfg.Benchmark.RequestTimeoutRaw = DefaultConfig.Benchmark.RequestTimeoutRaw
@@ -244,10 +241,6 @@ func applyDefaults(cfg *Config) error {
 	}
 	cfg.Container.MemoryLimit = normalizedMemory
 
-	if capacityErr := applyCapacityDefaults(cfg); capacityErr != nil {
-		return capacityErr
-	}
-
 	if cfg.Influx.URL == "" {
 		cfg.Influx.URL = DefaultConfig.Influx.URL
 	}
@@ -301,86 +294,6 @@ func applyDefaults(cfg *Config) error {
 	return nil
 }
 
-func applyCapacityDefaults(cfg *Config) error {
-	if cfg.Capacity.MinConcurrency <= 0 {
-		cfg.Capacity.MinConcurrency = DefaultConfig.Capacity.MinConcurrency
-	}
-	if cfg.Capacity.MaxConcurrency <= 0 {
-		cfg.Capacity.MaxConcurrency = DefaultConfig.Capacity.MaxConcurrency
-	}
-	if cfg.Capacity.MaxConcurrency < cfg.Capacity.MinConcurrency {
-		return fmt.Errorf("capacity max_concurrency (%d) must be >= min_concurrency (%d)", cfg.Capacity.MaxConcurrency, cfg.Capacity.MinConcurrency)
-	}
-
-	precision, err := parsePercent(cfg.Capacity.SearchPrecision, DefaultConfig.Capacity.SearchPrecision)
-	if err != nil {
-		return fmt.Errorf("capacity search_precision: %w", err)
-	}
-	if precision <= 0 || precision > 50 {
-		return errors.New("capacity search_precision must be > 0% and <= 50%")
-	}
-	cfg.Capacity.SearchPrecisionPct = precision
-
-	successRate, err := parsePercent(cfg.Capacity.MinSuccessRate, DefaultConfig.Capacity.MinSuccessRate)
-	if err != nil {
-		return fmt.Errorf("capacity min_success_rate: %w", err)
-	}
-	if successRate > 100 {
-		return errors.New("capacity min_success_rate must be <= 100%")
-	}
-	cfg.Capacity.MinSuccessRatePct = successRate / 100
-
-	p99Threshold, err := parseDuration(cfg.Capacity.P99LatencyThreshold, DefaultConfig.Capacity.P99LatencyThreshold)
-	if err != nil {
-		return fmt.Errorf("capacity p99_latency_threshold: %w", err)
-	}
-	cfg.Capacity.P99LatencyThresholdDur = p99Threshold
-
-	preRunPause, err := parseDuration(cfg.Capacity.PreRunPauseRaw, DefaultConfig.Capacity.PreRunPauseRaw)
-	if err != nil {
-		return fmt.Errorf("capacity pre_run_pause: %w", err)
-	}
-	if preRunPause < 0 {
-		return errors.New("capacity pre_run_pause must be >= 0")
-	}
-	if strings.TrimSpace(cfg.Capacity.PreRunPauseRaw) == "" {
-		cfg.Capacity.PreRunPauseRaw = DefaultConfig.Capacity.PreRunPauseRaw
-	}
-	cfg.Capacity.PreRunPause = preRunPause
-
-	capacityWarmup, err := parseDuration(cfg.Capacity.WarmupDurationRaw, DefaultConfig.Capacity.WarmupDurationRaw)
-	if err != nil {
-		return fmt.Errorf("capacity warmup_duration: %w", err)
-	}
-	cfg.Capacity.WarmupDuration = capacityWarmup
-	if strings.TrimSpace(cfg.Capacity.WarmupDurationRaw) == "" {
-		cfg.Capacity.WarmupDurationRaw = DefaultConfig.Capacity.WarmupDurationRaw
-	}
-
-	measureDuration, err := parseDuration(cfg.Capacity.MeasureDurationRaw, DefaultConfig.Capacity.MeasureDurationRaw)
-	if err != nil {
-		return fmt.Errorf("capacity measure_duration: %w", err)
-	}
-	cfg.Capacity.MeasureDuration = measureDuration
-	if strings.TrimSpace(cfg.Capacity.MeasureDurationRaw) == "" {
-		cfg.Capacity.MeasureDurationRaw = DefaultConfig.Capacity.MeasureDurationRaw
-	}
-
-	iterationPause, err := parseDuration(cfg.Capacity.IterationPauseRaw, DefaultConfig.Capacity.IterationPauseRaw)
-	if err != nil {
-		return fmt.Errorf("capacity iteration_pause: %w", err)
-	}
-	if iterationPause < 0 {
-		return errors.New("capacity iteration_pause must be >= 0")
-	}
-	if strings.TrimSpace(cfg.Capacity.IterationPauseRaw) == "" {
-		cfg.Capacity.IterationPauseRaw = DefaultConfig.Capacity.IterationPauseRaw
-	}
-	cfg.Capacity.IterationPause = iterationPause
-
-	return nil
-}
-
 func applyEndpointDefaults(name string, e *EndpointConfig) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("endpoint name is required")
@@ -418,16 +331,16 @@ func applyEndpointDefaults(name string, e *EndpointConfig) error {
 		return errors.New("expect.status must be between 100 and 599")
 	}
 
-	if e.Flow != nil {
-		if strings.TrimSpace(e.Flow.Id) == "" {
-			return errors.New("flow.id is required when flow is specified")
+	if e.Sequence != nil {
+		if strings.TrimSpace(e.Sequence.Id) == "" {
+			return errors.New("sequence.id is required when sequence is specified")
 		}
-		for varName, varCfg := range e.Flow.Vars {
+		for varName, varCfg := range e.Sequence.Vars {
 			if varCfg.Type != "email" && varCfg.Type != "int" {
-				return fmt.Errorf("flow.vars.%s: type must be \"email\" or \"int\"", varName)
+				return fmt.Errorf("sequence.vars.%s: type must be \"email\" or \"int\"", varName)
 			}
 			if varCfg.Type == "int" && varCfg.Max < varCfg.Min {
-				return fmt.Errorf("flow.vars.%s: max must be >= min", varName)
+				return fmt.Errorf("sequence.vars.%s: max must be >= min", varName)
 			}
 		}
 	}

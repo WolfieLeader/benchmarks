@@ -6,6 +6,7 @@ import (
 )
 
 type Stats struct {
+	Count       int           `json:"count"`
 	Avg         time.Duration `json:"avg"`
 	High        time.Duration `json:"high"`
 	Low         time.Duration `json:"low"`
@@ -42,6 +43,7 @@ func CalculateStats(latencies []time.Duration, successCount, totalCount int) *St
 	}
 
 	return &Stats{
+		Count:       successCount,
 		Avg:         total / time.Duration(len(latencies)),
 		Low:         low,
 		High:        high,

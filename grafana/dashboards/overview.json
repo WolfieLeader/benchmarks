@@ -173,7 +173,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
       "id": 2,
       "options": {
         "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -232,7 +232,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
       "id": 3,
       "options": {
         "xField": "server",
@@ -253,7 +253,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH ranked_servers AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server) SELECT f.server, f.database, AVG(f.total_duration_ns) AS latency FROM flow_latency f JOIN ranked_servers r ON f.server = r.server WHERE f.time >= now() - INTERVAL '24 hours' AND f.flow_id = 'crud' GROUP BY f.server, f.database, r.rank ORDER BY r.rank, f.database",
+          "rawSql": "WITH ranked_servers AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server) SELECT s.server, s.database, AVG(s.total_duration_ns) AS latency FROM sequence_latency s JOIN ranked_servers r ON s.server = r.server WHERE s.time >= now() - INTERVAL '24 hours' AND s.sequence_id = 'crud' GROUP BY s.server, s.database, r.rank ORDER BY r.rank, s.database",
           "refId": "A",
           "format": "table"
         }
@@ -394,7 +394,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "id": 4,
       "options": {
         "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -415,195 +415,6 @@
         }
       ],
       "title": "Latency Ranking: ${endpoint}",
-      "type": "trend"
-    },
-    {
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-      "description": "Max concurrency (bars) and achieved RPS (points) from capacity testing, ordered by latency rank.",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "min": 0,
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Concurrency",
-            "axisPlacement": "left",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "bars",
-            "fillOpacity": 50,
-            "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": { "type": "linear" },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byRegexp", "options": "^rps_.*" },
-            "properties": [
-              { "id": "custom.drawStyle", "value": "points" },
-              { "id": "custom.pointSize", "value": 12 },
-              { "id": "custom.showPoints", "value": "always" },
-              { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.axisLabel", "value": "RPS" },
-              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } },
-              { "id": "unit", "value": "reqps" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rank" },
-            "properties": [
-              { "id": "unit", "value": "none" },
-              { "id": "custom.axisPlacement", "value": "hidden" },
-              { "id": "min", "value": 0 },
-              { "id": "max", "value": 11 }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_express" },
-            "properties": [
-              { "id": "displayName", "value": "express" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#AEAEAE" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_fastify" },
-            "properties": [
-              { "id": "displayName", "value": "fastify" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#F5F5F5" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_nestjs" },
-            "properties": [
-              { "id": "displayName", "value": "nestjs" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#E0234E" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_honojs" },
-            "properties": [
-              { "id": "displayName", "value": "honojs" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#E36002" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_elysia" },
-            "properties": [
-              { "id": "displayName", "value": "elysia" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B5CF6" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_oak" },
-            "properties": [
-              { "id": "displayName", "value": "oak" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B4513" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_chi" },
-            "properties": [
-              { "id": "displayName", "value": "chi" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#01933F" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_gin" },
-            "properties": [
-              { "id": "displayName", "value": "gin" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#0090D8" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_fiber" },
-            "properties": [
-              { "id": "displayName", "value": "fiber" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#00BCD4" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "workers_fastapi" },
-            "properties": [
-              { "id": "displayName", "value": "fastapi" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#009688" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_express" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#686868" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_fastify" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#939393" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_nestjs" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#86152F" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_honojs" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#883A01" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_elysia" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#533794" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_oak" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#53290B" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_chi" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#015826" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_gin" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#005682" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_fiber" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#00717F" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "rps_fastapi" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#005A52" } }]
-          }
-        ]
-      },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
-      "id": 5,
-      "options": {
-        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" },
-        "xField": "rank"
-      },
-      "pluginVersion": "12.2.0",
-      "transformations": [
-        { "id": "groupingToMatrix", "options": { "columnField": "series", "rowField": "rank", "valueField": "value" } },
-        { "id": "organize", "options": { "renameByName": { "rank\\series": "rank" } } }
-      ],
-      "targets": [
-        {
-          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH latency_rank AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), capacity_data AS (SELECT server, max_workers, achieved_rps FROM capacity_result WHERE time >= now() - INTERVAL '24 hours'), combined AS (SELECT c.server, c.max_workers, c.achieved_rps, l.rank FROM capacity_data c JOIN latency_rank l ON c.server = l.server) SELECT rank, CONCAT('workers_', server) AS series, max_workers AS value FROM combined UNION ALL SELECT rank, CONCAT('rps_', server) AS series, achieved_rps AS value FROM combined ORDER BY rank, series",
-          "refId": "A",
-          "format": "table"
-        }
-      ],
-      "title": "Capacity Test Results",
       "type": "trend"
     }
   ],

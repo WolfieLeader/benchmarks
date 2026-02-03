@@ -35,15 +35,6 @@ func PrintServerSummary(result *ServerResult) {
 
 	cli.Blank()
 
-	if result.Capacity != nil {
-		cli.Linef("Capacity: %d max workers │ %.0f rps │ %.2fms p99 │ %.1f%% success",
-			result.Capacity.MaxWorkersPassed,
-			result.Capacity.AchievedRPS,
-			result.Capacity.P99Ms,
-			result.Capacity.SuccessRate*100)
-		cli.Blank()
-	}
-
 	fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "Method", "Path", "Status", "Avg")
 	fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "──────", "────────────────────────────────", "──────", "───────")
 
@@ -74,35 +65,35 @@ func PrintServerSummary(result *ServerResult) {
 	}
 	cli.Blank()
 
-	// Print flow results if any
-	if len(result.Flows) > 0 {
+	// Print sequence results if any
+	if len(result.Sequences) > 0 {
 		cli.Blank()
-		cli.Linef("Flows")
+		cli.Linef("Sequences")
 		fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "Method", "Path", "Status", "Avg")
 		fmt.Printf("  %-6s  %-32s  %-6s  %s\n", "──────", "────────────────────────────────", "──────", "───────")
 
-		for i := range result.Flows {
-			flow := &result.Flows[i]
-			flowName := flow.FlowId
-			if flow.Database != "" {
-				flowName = fmt.Sprintf("%s/%s", flow.FlowId, flow.Database)
+		for i := range result.Sequences {
+			seq := &result.Sequences[i]
+			seqName := seq.SequenceId
+			if seq.Database != "" {
+				seqName = fmt.Sprintf("%s/%s", seq.SequenceId, seq.Database)
 			}
 			statusSymbol := cli.SymbolPass
 			status := "OK"
-			if flow.SuccessRate < 1.0 {
+			if seq.SuccessRate < 1.0 {
 				statusSymbol = cli.SymbolFail
-				status = fmt.Sprintf("%.0f%%", flow.SuccessRate*100)
+				status = fmt.Sprintf("%.0f%%", seq.SuccessRate*100)
 			}
 			fmt.Printf("  %-6s  %-32s  %s %-4s  %s\n",
-				"FLOW",
-				cli.TruncatePath(flowName, 32),
+				"SEQ",
+				cli.TruncatePath(seqName, 32),
 				statusSymbol,
 				status,
-				cli.FormatLatency(flow.AvgDuration))
+				cli.FormatLatency(seq.AvgDuration))
 
 			// Print per-step stats
-			for j := range flow.Steps {
-				step := &flow.Steps[j]
+			for j := range seq.Steps {
+				step := &seq.Steps[j]
 				path := cli.TruncatePath(step.Path, 26)
 				fmt.Printf("    %-6s  %-26s          %s\n",
 					step.Method,
@@ -110,8 +101,8 @@ func PrintServerSummary(result *ServerResult) {
 					cli.FormatLatency(step.Avg))
 			}
 
-			if flow.LastError != "" {
-				cli.Linef("       └─ last error (step %d): %s", flow.FailedStep, cli.Truncate(flow.LastError, 50))
+			if seq.LastError != "" {
+				cli.Linef("       └─ last error (step %d): %s", seq.FailedStep, cli.Truncate(seq.LastError, 50))
 			}
 		}
 		cli.Blank()
@@ -137,16 +128,13 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	cli.Blank()
 
 	type rankedServer struct {
-		name        string
-		avg         int64
-		mem         float64
-		hasMem      bool
-		capWorkers  int
-		hasCapacity bool
+		name   string
+		avg    int64
+		mem    float64
+		hasMem bool
 	}
 
 	ranked := make([]rankedServer, 0)
-	hasAnyCapacity := false
 	for _, s := range servers {
 		if s.Error == "" && s.Stats != nil {
 			rs := rankedServer{
@@ -156,11 +144,6 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 			if s.Resources != nil && s.Resources.Samples >= 1 {
 				rs.mem = s.Resources.Memory.AvgBytes
 				rs.hasMem = true
-			}
-			if s.Capacity != nil {
-				rs.capWorkers = s.Capacity.MaxWorkersPassed
-				rs.hasCapacity = true
-				hasAnyCapacity = true
 			}
 			ranked = append(ranked, rs)
 		}
@@ -184,13 +167,8 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	cli.Linef("Rankings (by avg latency)")
 	cli.Blank()
 
-	if hasAnyCapacity {
-		fmt.Println("   #  Server              Avg      Mem  Capacity")
-		fmt.Println("  ──  ────────────────  ───────  ───────  ────────")
-	} else {
-		fmt.Println("   #  Server              Avg      Mem")
-		fmt.Println("  ──  ────────────────  ───────  ───────")
-	}
+	fmt.Println("   #  Server              Avg      Mem")
+	fmt.Println("  ──  ────────────────  ───────  ───────")
 
 	for i, s := range ranked {
 		memStr := "      -"
@@ -199,68 +177,54 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		}
 
 		rank := fmt.Sprintf("%2d", i+1)
-
-		if hasAnyCapacity {
-			capStr := "       -"
-			if s.hasCapacity {
-				capStr = fmt.Sprintf("%5d w", s.capWorkers)
-			}
-			fmt.Printf("  %s  %-16s  %s  %s  %s\n",
-				rank,
-				s.name,
-				cli.FormatLatency(s.avg),
-				memStr,
-				capStr)
-		} else {
-			fmt.Printf("  %s  %-16s  %s  %s\n",
-				rank,
-				s.name,
-				cli.FormatLatency(s.avg),
-				memStr)
-		}
+		fmt.Printf("  %s  %-16s  %s  %s\n",
+			rank,
+			s.name,
+			cli.FormatLatency(s.avg),
+			memStr)
 	}
 	cli.Blank()
 
-	// Print flow rankings by server+database combination
-	printFlowRankings(servers)
+	// Print sequence rankings by server+database combination
+	printSequenceRankings(servers)
 }
 
-func printFlowRankings(servers []ServerSummary) {
-	type rankedFlow struct {
+func printSequenceRankings(servers []ServerSummary) {
+	type rankedSequence struct {
 		name        string
-		flowId      string
+		sequenceId  string
 		avgDuration int64
 		successRate float64
 	}
 
-	flows := make([]rankedFlow, 0)
+	sequences := make([]rankedSequence, 0)
 	for i := range servers {
 		s := &servers[i]
-		if s.Error != "" || len(s.Flows) == 0 {
+		if s.Error != "" || len(s.Sequences) == 0 {
 			continue
 		}
-		for j := range s.Flows {
-			f := &s.Flows[j]
+		for j := range s.Sequences {
+			seq := &s.Sequences[j]
 			name := s.Name
-			if f.Database != "" {
-				name = fmt.Sprintf("%s-%s", s.Name, f.Database)
+			if seq.Database != "" {
+				name = fmt.Sprintf("%s-%s", s.Name, seq.Database)
 			}
-			flows = append(flows, rankedFlow{
+			sequences = append(sequences, rankedSequence{
 				name:        name,
-				flowId:      f.FlowId,
-				avgDuration: f.AvgDuration.Nanoseconds(),
-				successRate: f.SuccessRate,
+				sequenceId:  seq.SequenceId,
+				avgDuration: seq.AvgDuration.Nanoseconds(),
+				successRate: seq.SuccessRate,
 			})
 		}
 	}
 
-	if len(flows) == 0 {
+	if len(sequences) == 0 {
 		return
 	}
 
-	// Sort by success rate (failed flows last), then by avg duration
-	slices.SortFunc(flows, func(a, b rankedFlow) int {
-		// Failed flows (0% success) go to the bottom
+	// Sort by success rate (failed sequences last), then by avg duration
+	slices.SortFunc(sequences, func(a, b rankedSequence) int {
+		// Failed sequences (0% success) go to the bottom
 		aFailed := a.successRate == 0
 		bFailed := b.successRate == 0
 		if aFailed != bFailed {
@@ -279,23 +243,23 @@ func printFlowRankings(servers []ServerSummary) {
 		return 0
 	})
 
-	cli.Linef("Flow Rankings (by avg duration)")
+	cli.Linef("Sequence Rankings (by avg duration)")
 	cli.Blank()
 
-	fmt.Println("   #  Server+Database          Flow      Avg     Success")
+	fmt.Println("   #  Server+Database          Seq       Avg     Success")
 	fmt.Println("  ──  ──────────────────────  ──────  ───────  ─────────")
 
-	for i, f := range flows {
+	for i, seq := range sequences {
 		rank := fmt.Sprintf("%2d", i+1)
 		successStr := "100%"
-		if f.successRate < 1.0 {
-			successStr = fmt.Sprintf("%.0f%%", f.successRate*100)
+		if seq.successRate < 1.0 {
+			successStr = fmt.Sprintf("%.0f%%", seq.successRate*100)
 		}
 		fmt.Printf("  %s  %-22s  %-6s  %s  %7s\n",
 			rank,
-			cli.Truncate(f.name, 22),
-			f.flowId,
-			cli.FormatLatency(f.avgDuration),
+			cli.Truncate(seq.name, 22),
+			seq.sequenceId,
+			cli.FormatLatency(seq.avgDuration),
 			successStr)
 	}
 	cli.Blank()

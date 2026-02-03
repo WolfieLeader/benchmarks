@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -11,14 +10,7 @@ import (
 )
 
 type Options struct {
-	Warmup    bool
-	Resources bool
-	Capacity  bool
-	Servers   []string // empty means all servers
-}
-
-func DefaultOptions() Options {
-	return Options{Warmup: true, Resources: true, Capacity: false, Servers: nil}
+	Servers []string // empty means all servers
 }
 
 var bannerLines = []string{
@@ -97,9 +89,8 @@ func PrintBanner() {
 }
 
 func PromptOptions(availableServers []string) (*Options, error) {
-	opts := DefaultOptions()
+	opts := Options{}
 
-	var phases []string
 	var serverMode string
 	var selectedServers []string
 	serverOptions := make([]huh.Option[string], len(availableServers))
@@ -123,25 +114,11 @@ func PromptOptions(availableServers []string) (*Options, error) {
 				Options(serverOptions...).
 				Value(&selectedServers),
 		).WithHideFunc(func() bool { return serverMode != "select" }),
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Select benchmark phases").
-				Description("Choose which benchmark phases to run").
-				Options(
-					huh.NewOption("Warmup (recommended)", "warmup").Selected(true),
-					huh.NewOption("Resource monitoring", "resources").Selected(true),
-					huh.NewOption("Capacity test (slow)", "capacity"),
-				).Value(&phases),
-		),
 	).WithTheme(huh.ThemeCatppuccin()).WithKeyMap(huh.NewDefaultKeyMap())
 
 	if err := form.Run(); err != nil {
 		return nil, err
 	}
-
-	opts.Warmup = slices.Contains(phases, "warmup")
-	opts.Resources = slices.Contains(phases, "resources")
-	opts.Capacity = slices.Contains(phases, "capacity")
 
 	if serverMode == "select" {
 		if len(selectedServers) == 0 {
@@ -160,40 +137,12 @@ func ParseFlags(args []string) (*Options, error) {
 		return nil, nil
 	}
 
-	opts := DefaultOptions()
+	opts := Options{}
 	hasExplicitFlags := false
 	var unknownFlags []string
 
 	for _, arg := range args {
 		switch {
-		case arg == "--all":
-			opts.Warmup = true
-			opts.Resources = true
-			opts.Capacity = true
-			hasExplicitFlags = true
-		case arg == "--warmup":
-			opts.Warmup = true
-			hasExplicitFlags = true
-		case arg == "--resources":
-			opts.Resources = true
-			hasExplicitFlags = true
-		case arg == "--capacity":
-			opts.Capacity = true
-			hasExplicitFlags = true
-		case arg == "--no-warmup":
-			opts.Warmup = false
-			hasExplicitFlags = true
-		case arg == "--no-resources":
-			opts.Resources = false
-			hasExplicitFlags = true
-		case arg == "--no-capacity":
-			opts.Capacity = false
-			hasExplicitFlags = true
-		case arg == "--quick":
-			opts.Warmup = false
-			opts.Resources = true
-			opts.Capacity = false
-			hasExplicitFlags = true
 		case strings.HasPrefix(arg, "--servers="):
 			serverList := strings.TrimPrefix(arg, "--servers=")
 			parts := strings.Split(serverList, ",")
@@ -227,14 +176,6 @@ func printHelp() {
 	fmt.Println(`Usage: benchmark [options]
 
 Options:
-  --all              Enable all benchmark phases (warmup, resources, capacity)
-  --warmup           Enable warmup phase
-  --resources        Enable resource monitoring
-  --capacity         Enable capacity testing
-  --no-warmup        Disable warmup phase
-  --no-resources     Disable resource monitoring
-  --no-capacity      Disable capacity testing
-  --quick            Quick mode: no warmup, resources only
   --servers=a,b,c    Only benchmark specific servers (comma-separated)
   --help, -h         Show this help message
 
@@ -243,38 +184,5 @@ Interactive mode:
 
 Examples:
   benchmark                           # Interactive mode
-  benchmark --all                     # Run all phases
-  benchmark --warmup --resources      # Warmup and resources only
-  benchmark --quick --servers=chi,gin # Quick test on specific servers`)
-}
-
-func PrintSummary(opts *Options, serverCount int) {
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
-	enabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	disabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-
-	formatStatus := func(enabled bool) string {
-		if enabled {
-			return enabledStyle.Render("enabled")
-		}
-		return disabledStyle.Render("disabled")
-	}
-
-	fmt.Println(headerStyle.Render("Configuration"))
-	fmt.Println(strings.Repeat("─", 40))
-
-	fmt.Printf("%s %s\n", labelStyle.Render("Warmup:"), formatStatus(opts.Warmup))
-	fmt.Printf("%s %s\n", labelStyle.Render("Resources:"), formatStatus(opts.Resources))
-	fmt.Printf("%s %s\n", labelStyle.Render("Capacity:"), formatStatus(opts.Capacity))
-
-	if len(opts.Servers) > 0 {
-		fmt.Printf("%s %s\n", labelStyle.Render("Servers:"), valueStyle.Render(strings.Join(opts.Servers, ", ")))
-	} else {
-		fmt.Printf("%s %s\n", labelStyle.Render("Servers:"), valueStyle.Render(fmt.Sprintf("all (%d)", serverCount)))
-	}
-
-	fmt.Println(strings.Repeat("─", 40))
-	fmt.Println()
+  benchmark --servers=chi,gin         # Benchmark specific servers`)
 }

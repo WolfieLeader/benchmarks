@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
@@ -17,6 +18,7 @@ type Client struct {
 	ctx        context.Context
 	timeout    time.Duration
 	sampleRate float64
+	wg         sync.WaitGroup
 }
 
 type Config struct {
@@ -135,6 +137,26 @@ func (c *Client) writePoints(points []*influxdb3.Point) {
 		}
 		cli.Warnf("InfluxDB write error (%d points): %v", len(points), err)
 	}
+}
+
+func (c *Client) writePointsAsync(points []*influxdb3.Point) {
+	if c == nil || len(points) == 0 {
+		return
+	}
+
+	pointsCopy := make([]*influxdb3.Point, len(points))
+	copy(pointsCopy, points)
+
+	c.wg.Go(func() {
+		c.writePoints(pointsCopy)
+	})
+}
+
+func (c *Client) Wait() {
+	if c == nil {
+		return
+	}
+	c.wg.Wait()
 }
 
 func RunID(t time.Time) string {

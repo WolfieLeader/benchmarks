@@ -82,7 +82,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 		cli.ServerHeader(server.Name)
 
-		result, timedResults, timedFlows := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
+		result, timedResults, timedSequences := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
 
 		summary.PrintServerSummary(result)
 		path, err := o.writer.ExportServerResult(result)
@@ -93,11 +93,8 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		}
 
 		if o.influx != nil {
-			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults) //nolint:contextcheck // uses stored context from Client
-			o.influx.WriteFlowLatencies(o.runId, server.Name, timedFlows)       //nolint:contextcheck // uses stored context from Client
-			if result.Capacity != nil {
-				o.influx.WriteCapacityResult(o.runId, server.Name, result.Capacity) //nolint:contextcheck // uses stored context from Client
-			}
+			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults)   //nolint:contextcheck // uses stored context from Client
+			o.influx.WriteSequenceLatencies(o.runId, server.Name, timedSequences) //nolint:contextcheck // uses stored context from Client
 			if result.Resources != nil {
 				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
 			}
@@ -137,6 +134,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	summary.PrintFinalSummary(metaResults, servers)
 
 	if o.influx != nil {
+		o.influx.Wait()
 		o.influx.Close()
 	}
 

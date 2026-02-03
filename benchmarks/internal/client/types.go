@@ -14,9 +14,9 @@ type TimedResult struct {
 	Latencies []TimedLatency
 }
 
-type TimedFlowResult struct {
-	FlowId    string
-	Database  string
-	Latencies []TimedLatency            // Total flow durations
-	StepStats map[string][]TimedLatency // Per-step latencies keyed by step name
+type TimedSequenceResult struct {
+	SequenceId string
+	Database   string
+	Latencies  []TimedLatency            // Total sequence durations
+	StepStats  map[string][]TimedLatency // Per-step latencies keyed by step name
 }
