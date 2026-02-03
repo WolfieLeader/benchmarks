@@ -2,8 +2,8 @@
   "name": "benchmarks-root",
   "private": true,
   "scripts": {
-    "format:md": "prettier --write \"**/*.md\"",
-    "lint:md": "prettier --check \"**/*.md\""
+    "format": "prettier --write \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
+    "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",

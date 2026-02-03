@@ -210,7 +210,7 @@ fmt target='all':
             fiber)     (cd {{go_dir}}/fiber && golangci-lint fmt ./...) ;;
             fastapi)   (cd {{py_dir}}/fastapi && uv run ruff format .) ;;
             benchmark) (cd benchmarks && golangci-lint fmt ./...) ;;
-            root)      pnpm run format:md ;;
+            root)      pnpm run format ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
     }
@@ -240,7 +240,7 @@ lint target='all':
             fiber)     (cd {{go_dir}}/fiber && golangci-lint run ./...) ;;
             fastapi)   (cd {{py_dir}}/fastapi && uv run ruff check .) ;;
             benchmark) (cd benchmarks && golangci-lint run ./...) ;;
-            root)      pnpm run lint:md ;;
+            root)      pnpm run lint ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
     }
