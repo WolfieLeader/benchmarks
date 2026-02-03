@@ -15,31 +15,43 @@
       "dupword",
       "durationcheck",
       "errcheck",
+      "errchkjson",
       "errname",
       "errorlint",
       "exptostd",
       "fatcontext",
       "forcetypeassert",
       "gocheckcompilerdirectives",
+      "gocognit",
+      "goconst",
       "gocritic",
+      "godox",
       "goprintffuncname",
       "gosec",
       "govet",
       "ineffassign",
       "intrange",
+      "lll",
       "mirror",
       "misspell",
       "modernize",
       "nakedret",
+      "nestif",
       "nilerr",
       "nilnesserr",
       "noctx",
+      "nolintlint",
       "nosprintfhostport",
       "perfsprint",
+      "prealloc",
+      "predeclared",
       "reassign",
       "recvcheck",
+      "rowserrcheck",
+      "sqlclosecheck",
       "staticcheck",
       "unconvert",
+      "unparam",
       "unused",
       "usestdlibvars",
       "wastedassign",
@@ -49,6 +61,13 @@
       "errcheck": {
         "check-type-assertions": true
       },
+      "gocognit": {
+        "min-complexity": 60
+      },
+      "goconst": {
+        "min-len": 2,
+        "min-occurrences": 3
+      },
       "gocritic": {
         "enabled-tags": ["diagnostic", "style", "performance"],
         "disabled-checks": ["paramTypeCombine"]
@@ -56,8 +75,15 @@
       "govet": {
         "enable": ["shadow"]
       },
+      "lll": {
+        "line-length": 200,
+        "tab-width": 1
+      },
       "misspell": {
         "locale": "US"
+      },
+      "nestif": {
+        "min-complexity": 25
       }
     }
   },
