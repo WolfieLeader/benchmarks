@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+const minReliableSamples = 3
+
 var dockerStatsClient = &http.Client{
 	Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -126,11 +128,7 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			return
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	decoder := json.NewDecoder(resp.Body)
 	for {
@@ -218,7 +216,7 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 		}
 	}
 
-	if result.Samples < 3 {
+	if result.Samples < minReliableSamples {
 		warnings = append(warnings, "low samples")
 	}
 
