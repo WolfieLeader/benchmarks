@@ -37,17 +37,17 @@ install target='all':
     set -euo pipefail
     install_one() {
         case "$1" in
-            honojs)    cd {{ts_dir}}/bun-honojs && bun install ;;
-            elysia)    cd {{ts_dir}}/bun-elysia && bun install ;;
-            oak)       cd {{ts_dir}}/deno-oak && deno install ;;
-            express)   cd {{ts_dir}}/node-express && pnpm install ;;
-            nestjs)    cd {{ts_dir}}/node-nestjs && pnpm install ;;
-            fastify)   cd {{ts_dir}}/node-fastify && pnpm install ;;
-            chi)       cd {{go_dir}}/chi && go mod tidy ;;
-            gin)       cd {{go_dir}}/gin && go mod tidy ;;
-            fiber)     cd {{go_dir}}/fiber && go mod tidy ;;
-            fastapi)   cd {{py_dir}}/fastapi && uv sync ;;
-            benchmark) cd benchmarks && go mod tidy ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun install) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun install) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno install) ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm install) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm install) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm install) ;;
+            chi)       (cd {{go_dir}}/chi && go mod tidy) ;;
+            gin)       (cd {{go_dir}}/gin && go mod tidy) ;;
+            fiber)     (cd {{go_dir}}/fiber && go mod tidy) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv sync) ;;
+            benchmark) (cd benchmarks && go mod tidy) ;;
             root)      pnpm install ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
@@ -67,17 +67,17 @@ update target='all':
     set -euo pipefail
     update_one() {
         case "$1" in
-            honojs)    cd {{ts_dir}}/bun-honojs && bun update --latest ;;
-            elysia)    cd {{ts_dir}}/bun-elysia && bun update --latest ;;
-            oak)       cd {{ts_dir}}/deno-oak && deno outdated --update ;;
-            express)   cd {{ts_dir}}/node-express && pnpm update --latest ;;
-            nestjs)    cd {{ts_dir}}/node-nestjs && pnpm update --latest ;;
-            fastify)   cd {{ts_dir}}/node-fastify && pnpm update --latest ;;
-            chi)       cd {{go_dir}}/chi && go get -u ./... && go mod tidy ;;
-            gin)       cd {{go_dir}}/gin && go get -u ./... && go mod tidy ;;
-            fiber)     cd {{go_dir}}/fiber && go get -u ./... && go mod tidy ;;
-            fastapi)   cd {{py_dir}}/fastapi && uv sync --upgrade ;;
-            benchmark) cd benchmarks && go get -u ./... && go mod tidy ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun update --latest) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun update --latest) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno outdated --update) ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm update --latest) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm update --latest) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm update --latest) ;;
+            chi)       (cd {{go_dir}}/chi && go get -u ./... && go mod tidy) ;;
+            gin)       (cd {{go_dir}}/gin && go get -u ./... && go mod tidy) ;;
+            fiber)     (cd {{go_dir}}/fiber && go get -u ./... && go mod tidy) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv sync --upgrade) ;;
+            benchmark) (cd benchmarks && go get -u ./... && go mod tidy) ;;
             root)      pnpm update --latest ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
@@ -169,17 +169,17 @@ typecheck target='all':
     set -euo pipefail
     check_one() {
         case "$1" in
-            express)   cd {{ts_dir}}/node-express && pnpm run typecheck ;;
-            fastify)   cd {{ts_dir}}/node-fastify && pnpm run typecheck ;;
-            nestjs)    cd {{ts_dir}}/node-nestjs && pnpm run typecheck ;;
-            honojs)    cd {{ts_dir}}/bun-honojs && bun run typecheck ;;
-            elysia)    cd {{ts_dir}}/bun-elysia && bun run typecheck ;;
-            oak)       cd {{ts_dir}}/deno-oak && deno task check ;;
-            chi)       cd {{go_dir}}/chi && go build -o bin/server ./cmd/main.go ;;
-            gin)       cd {{go_dir}}/gin && go build -o bin/server ./cmd/main.go ;;
-            fiber)     cd {{go_dir}}/fiber && go build -o bin/server ./cmd/main.go ;;
-            fastapi)   cd {{py_dir}}/fastapi && uv run pyright src ;;
-            benchmark) cd benchmarks && go build -o bin/benchmark ./cmd/main.go ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm run typecheck) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm run typecheck) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm run typecheck) ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun run typecheck) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun run typecheck) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno task check) ;;
+            chi)       (cd {{go_dir}}/chi && go build -o bin/server ./cmd/main.go) ;;
+            gin)       (cd {{go_dir}}/gin && go build -o bin/server ./cmd/main.go) ;;
+            fiber)     (cd {{go_dir}}/fiber && go build -o bin/server ./cmd/main.go) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv run pyright src) ;;
+            benchmark) (cd benchmarks && go build -o bin/benchmark ./cmd/main.go) ;;
             root)      echo "No typecheck for root" ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
@@ -199,17 +199,17 @@ fmt target='all':
     set -euo pipefail
     fmt_one() {
         case "$1" in
-            express)   cd {{ts_dir}}/node-express && pnpm run format ;;
-            fastify)   cd {{ts_dir}}/node-fastify && pnpm run format ;;
-            nestjs)    cd {{ts_dir}}/node-nestjs && pnpm run format ;;
-            honojs)    cd {{ts_dir}}/bun-honojs && bun run format ;;
-            elysia)    cd {{ts_dir}}/bun-elysia && bun run format ;;
-            oak)       cd {{ts_dir}}/deno-oak && deno task format ;;
-            chi)       cd {{go_dir}}/chi && golangci-lint fmt ./... ;;
-            gin)       cd {{go_dir}}/gin && golangci-lint fmt ./... ;;
-            fiber)     cd {{go_dir}}/fiber && golangci-lint fmt ./... ;;
-            fastapi)   cd {{py_dir}}/fastapi && uv run ruff format . ;;
-            benchmark) cd benchmarks && golangci-lint fmt ./... ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm run format) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm run format) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm run format) ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun run format) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun run format) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno task format) ;;
+            chi)       (cd {{go_dir}}/chi && golangci-lint fmt ./...) ;;
+            gin)       (cd {{go_dir}}/gin && golangci-lint fmt ./...) ;;
+            fiber)     (cd {{go_dir}}/fiber && golangci-lint fmt ./...) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv run ruff format .) ;;
+            benchmark) (cd benchmarks && golangci-lint fmt ./...) ;;
             root)      pnpm run format:md ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
@@ -229,17 +229,17 @@ lint target='all':
     set -euo pipefail
     lint_one() {
         case "$1" in
-            express)   cd {{ts_dir}}/node-express && pnpm run lint:fix ;;
-            fastify)   cd {{ts_dir}}/node-fastify && pnpm run lint:fix ;;
-            nestjs)    cd {{ts_dir}}/node-nestjs && pnpm run lint:fix ;;
-            honojs)    cd {{ts_dir}}/bun-honojs && bun run lint:fix ;;
-            elysia)    cd {{ts_dir}}/bun-elysia && bun run lint:fix ;;
-            oak)       cd {{ts_dir}}/deno-oak && deno task lint:fix ;;
-            chi)       cd {{go_dir}}/chi && golangci-lint run ./... ;;
-            gin)       cd {{go_dir}}/gin && golangci-lint run ./... ;;
-            fiber)     cd {{go_dir}}/fiber && golangci-lint run ./... ;;
-            fastapi)   cd {{py_dir}}/fastapi && uv run ruff check . ;;
-            benchmark) cd benchmarks && golangci-lint run ./... ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm run lint:fix) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm run lint:fix) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm run lint:fix) ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun run lint:fix) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun run lint:fix) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno task lint:fix) ;;
+            chi)       (cd {{go_dir}}/chi && golangci-lint run ./...) ;;
+            gin)       (cd {{go_dir}}/gin && golangci-lint run ./...) ;;
+            fiber)     (cd {{go_dir}}/fiber && golangci-lint run ./...) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv run ruff check .) ;;
+            benchmark) (cd benchmarks && golangci-lint run ./...) ;;
             root)      pnpm run lint:md ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
@@ -266,9 +266,9 @@ sqlc target='all':
     set -euo pipefail
     gen_one() {
         case "$1" in
-            chi)   cd {{go_dir}}/chi/internal/database/sqlc && sqlc generate ;;
-            gin)   cd {{go_dir}}/gin/internal/database/sqlc && sqlc generate ;;
-            fiber) cd {{go_dir}}/fiber/internal/database/sqlc && sqlc generate ;;
+            chi)   (cd {{go_dir}}/chi/internal/database/sqlc && sqlc generate) ;;
+            gin)   (cd {{go_dir}}/gin/internal/database/sqlc && sqlc generate) ;;
+            fiber) (cd {{go_dir}}/fiber/internal/database/sqlc && sqlc generate) ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
     }
