@@ -166,8 +166,7 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 	case <-done:
 	}
 
-	o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-	o.stopGrafana(context.Background())   //nolint:contextcheck // cleanup must run even if ctx is canceled
+	o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 }
 
 func (o *Orchestrator) stopDatabases(ctx context.Context) {
