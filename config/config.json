@@ -4,7 +4,7 @@
   "benchmark": {
     "base_url": "http://localhost:8080",
     "concurrency": 50,
-    "duration_per_endpoint": "10s",
+    "duration_per_endpoint": "3s",
     "request_timeout": "10s",
     "server_cooldown": "10s",
     "warmup_duration": "1s",
