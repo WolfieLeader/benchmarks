@@ -3,33 +3,36 @@
 
   "benchmark": {
     "base_url": "http://localhost:8080",
-    "workers": 50,
-    "requests": 10000,
-    "timeout": "10s",
-    "cooldown": "1s",
-    "warmup": 50
+    "concurrency": 50,
+    "requests_per_endpoint": 10000,
+    "request_timeout": "10s",
+    "server_cooldown": "2s",
+    "warmup_duration": "1s",
+    "warmup_pause": "100ms"
   },
 
   "container": {
-    "cpu": "4.0",
-    "memory": "2gb"
+    "cpu_limit": 4.0,
+    "memory_limit": "2gb"
   },
 
   "capacity": {
-    "min_workers": 1,
-    "max_workers": 4096,
-    "precision": "1%",
-    "success_rate": "95%",
-    "p99_threshold": "50ms",
-    "warmup": "2s",
-    "measure": "10s"
+    "min_concurrency": 1,
+    "max_concurrency": 8196,
+    "search_precision": "1%",
+    "min_success_rate": "95%",
+    "p99_latency_threshold": "250ms",
+    "pre_run_pause": "5s",
+    "warmup_duration": "1s",
+    "measure_duration": "10s",
+    "iteration_pause": "1s"
   },
 
   "influx": {
     "url": "http://localhost:8181",
     "database": "benchmarks",
     "token": "benchmark-token",
-    "sample_rate": "25%"
+    "sample_rate": "50%"
   },
 
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
