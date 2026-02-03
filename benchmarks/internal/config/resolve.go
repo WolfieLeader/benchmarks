@@ -364,22 +364,22 @@ func loadFile(filename string) (*FileUpload, error) {
 		return nil, errors.New("invalid filename: path traversal not allowed")
 	}
 
-	assetsDir := filepath.Join("..", "assets")
-	path := filepath.Join(assetsDir, filename)
+	testFilesDir := filepath.Join("..", "test-files")
+	path := filepath.Join(testFilesDir, filename)
 
-	absAssetsDir, err := filepath.Abs(assetsDir)
+	absTestFilesDir, err := filepath.Abs(testFilesDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve assets directory: %w", err)
+		return nil, fmt.Errorf("failed to resolve test-files directory: %w", err)
 	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve file path: %w", err)
 	}
-	if !strings.HasPrefix(absPath, absAssetsDir+string(filepath.Separator)) {
-		return nil, errors.New("invalid filename: path must be within assets directory")
+	if !strings.HasPrefix(absPath, absTestFilesDir+string(filepath.Separator)) {
+		return nil, errors.New("invalid filename: path must be within test-files directory")
 	}
 
-	content, err := os.ReadFile(absPath) //nolint:gosec // path is validated to be within assets directory
+	content, err := os.ReadFile(absPath) //nolint:gosec // path is validated to be within test-files directory
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
