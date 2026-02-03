@@ -59,7 +59,7 @@
               { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } },
               { "id": "unit", "value": "bytes" },
               { "id": "min", "value": 0 },
-              { "id": "max", "value": 350000000 }
+              { "id": "max", "value": 402653184 }
             ]
           },
           {
