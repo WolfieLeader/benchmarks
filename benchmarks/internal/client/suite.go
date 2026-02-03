@@ -69,6 +69,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 
 		if s.server.WarmupEnabled {
 			s.runWarmup(testcases)
+			time.Sleep(100 * time.Millisecond)
 		}
 
 		results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
@@ -93,6 +94,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 
 			if s.server.WarmupEnabled {
 				s.runWarmup(testcases)
+				time.Sleep(100 * time.Millisecond)
 			}
 
 			results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
