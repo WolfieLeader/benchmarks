@@ -6,7 +6,7 @@
     "concurrency": 50,
     "requests_per_endpoint": 10000,
     "request_timeout": "10s",
-    "server_cooldown": "2s",
+    "server_cooldown": "60s",
     "warmup_duration": "1s",
     "warmup_pause": "100ms"
   },
@@ -22,7 +22,7 @@
     "search_precision": "1%",
     "min_success_rate": "95%",
     "p99_latency_threshold": "250ms",
-    "pre_run_pause": "5s",
+    "pre_run_pause": "10s",
     "warmup_duration": "1s",
     "measure_duration": "10s",
     "iteration_pause": "1s"
