@@ -136,9 +136,17 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
-		return
+	fileContentType := fileHeader.Header.Get("Content-Type")
+	if fileContentType != "" {
+		if !strings.HasPrefix(strings.ToLower(fileContentType), "text/plain") {
+			utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+			return
+		}
+	} else {
+		if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
+			utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+			return
+		}
 	}
 
 	if slices.Contains(head, consts.NullByte) {

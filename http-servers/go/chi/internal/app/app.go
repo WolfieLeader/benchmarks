@@ -37,7 +37,7 @@ func New() *App {
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		status := database.GetAllHealthStatuses(env)
+		status := database.GetAllHealthStatuses(r.Context(), env)
 		utils.WriteResponse(w, http.StatusOK, status)
 	})
 

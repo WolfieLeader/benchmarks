@@ -67,7 +67,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := repo.Create(&data)
+	user, err := repo.Create(r.Context(), &data)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -80,7 +80,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	id := chi.URLParam(r, "id")
-	user, err := repo.FindById(id)
+	user, err := repo.FindById(r.Context(), id)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -108,7 +108,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	user, err := repo.Update(id, &data)
+	user, err := repo.Update(r.Context(), id, &data)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -125,7 +125,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	id := chi.URLParam(r, "id")
-	deleted, err := repo.Delete(id)
+	deleted, err := repo.Delete(r.Context(), id)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -141,7 +141,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 func deleteAllUsers(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(r.Context()); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
@@ -152,7 +152,7 @@ func deleteAllUsers(w http.ResponseWriter, r *http.Request) {
 func resetDatabase(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(r.Context()); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}

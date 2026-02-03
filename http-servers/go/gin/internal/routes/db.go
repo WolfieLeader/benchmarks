@@ -63,7 +63,7 @@ func createUser(c *gin.Context) {
 		return
 	}
 
-	user, err := repo.Create(&data)
+	user, err := repo.Create(c.Request.Context(), &data)
 	if err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -76,7 +76,7 @@ func getUser(c *gin.Context) {
 	repo := getRepository(c)
 
 	id := c.Param("id")
-	user, err := repo.FindById(id)
+	user, err := repo.FindById(c.Request.Context(), id)
 	if err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -104,7 +104,7 @@ func updateUser(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	user, err := repo.Update(id, &data)
+	user, err := repo.Update(c.Request.Context(), id, &data)
 	if err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -121,7 +121,7 @@ func deleteUser(c *gin.Context) {
 	repo := getRepository(c)
 
 	id := c.Param("id")
-	deleted, err := repo.Delete(id)
+	deleted, err := repo.Delete(c.Request.Context(), id)
 	if err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
@@ -137,7 +137,7 @@ func deleteUser(c *gin.Context) {
 func deleteAllUsers(c *gin.Context) {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(c.Request.Context()); err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}
@@ -148,7 +148,7 @@ func deleteAllUsers(c *gin.Context) {
 func resetDatabase(c *gin.Context) {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(c.Request.Context()); err != nil {
 		utils.WriteError(c, http.StatusInternalServerError, consts.ErrInternal, err.Error())
 		return
 	}

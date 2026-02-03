@@ -57,7 +57,7 @@ func createUser(c *fiber.Ctx) error {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
-	user, err := repo.Create(&data)
+	user, err := repo.Create(c.UserContext(), &data)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -69,7 +69,7 @@ func getUser(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
 	id := c.Params("id")
-	user, err := repo.FindById(id)
+	user, err := repo.FindById(c.UserContext(), id)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -93,7 +93,7 @@ func updateUser(c *fiber.Ctx) error {
 	}
 
 	id := c.Params("id")
-	user, err := repo.Update(id, &data)
+	user, err := repo.Update(c.UserContext(), id, &data)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -108,7 +108,7 @@ func deleteUser(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
 	id := c.Params("id")
-	deleted, err := repo.Delete(id)
+	deleted, err := repo.Delete(c.UserContext(), id)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -122,7 +122,7 @@ func deleteUser(c *fiber.Ctx) error {
 func deleteAllUsers(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(c.UserContext()); err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 
@@ -132,7 +132,7 @@ func deleteAllUsers(c *fiber.Ctx) error {
 func resetDatabase(c *fiber.Ctx) error {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(); err != nil {
+	if err := repo.DeleteAll(c.UserContext()); err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 

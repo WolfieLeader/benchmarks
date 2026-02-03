@@ -1,18 +1,19 @@
 package database
 
 import (
+	"context"
 	"sync"
 
 	"fiber-server/internal/config"
 )
 
 type UserRepository interface {
-	Create(data *CreateUser) (*User, error)
-	FindById(id string) (*User, error)
-	Update(id string, data *UpdateUser) (*User, error)
-	Delete(id string) (bool, error)
-	DeleteAll() error
-	HealthCheck() (bool, error)
+	Create(ctx context.Context, data *CreateUser) (*User, error)
+	FindById(ctx context.Context, id string) (*User, error)
+	Update(ctx context.Context, id string, data *UpdateUser) (*User, error)
+	Delete(ctx context.Context, id string) (bool, error)
+	DeleteAll(ctx context.Context) error
+	HealthCheck(ctx context.Context) (bool, error)
 	Disconnect() error
 }
 
@@ -93,7 +94,7 @@ func InitializeConnections(env *config.Env) {
 			defer wg.Done()
 			repo := GetRepository(dt, env)
 			if repo != nil {
-				_, _ = repo.HealthCheck()
+				_, _ = repo.HealthCheck(context.Background())
 			}
 		}(dbType)
 	}
@@ -105,7 +106,7 @@ type HealthStatus struct {
 	Databases map[string]string `json:"databases"`
 }
 
-func GetAllHealthStatuses(env *config.Env) HealthStatus {
+func GetAllHealthStatuses(ctx context.Context, env *config.Env) HealthStatus {
 	result := HealthStatus{
 		Status:    "healthy",
 		Databases: make(map[string]string),
@@ -118,7 +119,7 @@ func GetAllHealthStatuses(env *config.Env) HealthStatus {
 			continue
 		}
 
-		healthy, _ := repo.HealthCheck()
+		healthy, _ := repo.HealthCheck(ctx)
 		if healthy {
 			result.Databases[string(dbType)] = "healthy"
 		} else {

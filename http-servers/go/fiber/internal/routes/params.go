@@ -111,8 +111,15 @@ func handleFileParams(c *fiber.Ctx) error {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInternal, err.Error())
 	}
 
-	if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
-		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+	fileContentType := fileHeader.Header.Get("Content-Type")
+	if fileContentType != "" {
+		if !strings.HasPrefix(strings.ToLower(fileContentType), "text/plain") {
+			return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+		}
+	} else {
+		if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
+			return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+		}
 	}
 
 	if slices.Contains(head, consts.NullByte) {

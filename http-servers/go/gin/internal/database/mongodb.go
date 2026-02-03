@@ -62,8 +62,7 @@ func (r *MongoRepository) parseObjectId(id string) (bson.ObjectID, bool) {
 	return oid, true
 }
 
-func (r *MongoRepository) Create(data *CreateUser) (*User, error) {
-	ctx := context.Background()
+func (r *MongoRepository) Create(ctx context.Context, data *CreateUser) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -79,8 +78,7 @@ func (r *MongoRepository) Create(data *CreateUser) (*User, error) {
 	return BuildUser(id.Hex(), data), nil
 }
 
-func (r *MongoRepository) FindById(id string) (*User, error) {
-	ctx := context.Background()
+func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -102,8 +100,7 @@ func (r *MongoRepository) FindById(id string) (*User, error) {
 	return r.toUser(&doc), nil
 }
 
-func (r *MongoRepository) Update(id string, data *UpdateUser) (*User, error) {
-	ctx := context.Background()
+func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -125,7 +122,7 @@ func (r *MongoRepository) Update(id string, data *UpdateUser) (*User, error) {
 	}
 
 	if len(updateFields) == 0 {
-		return r.FindById(id)
+		return r.FindById(ctx, id)
 	}
 
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
@@ -141,8 +138,7 @@ func (r *MongoRepository) Update(id string, data *UpdateUser) (*User, error) {
 	return r.toUser(&doc), nil
 }
 
-func (r *MongoRepository) Delete(id string) (bool, error) {
-	ctx := context.Background()
+func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
 	if err := r.connect(ctx); err != nil {
 		return false, err
 	}
@@ -160,8 +156,7 @@ func (r *MongoRepository) Delete(id string) (bool, error) {
 	return result.DeletedCount > 0, nil
 }
 
-func (r *MongoRepository) DeleteAll() error {
-	ctx := context.Background()
+func (r *MongoRepository) DeleteAll(ctx context.Context) error {
 	if err := r.connect(ctx); err != nil {
 		return err
 	}
@@ -170,8 +165,7 @@ func (r *MongoRepository) DeleteAll() error {
 	return err
 }
 
-func (r *MongoRepository) HealthCheck() (bool, error) {
-	ctx := context.Background()
+func (r *MongoRepository) HealthCheck(ctx context.Context) (bool, error) {
 	if err := r.connect(ctx); err != nil {
 		return false, err
 	}

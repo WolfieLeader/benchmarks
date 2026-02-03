@@ -37,7 +37,7 @@ func New() *App {
 		return c.SendString("OK")
 	})
 	r.Get("/health", func(c *fiber.Ctx) error {
-		status := database.GetAllHealthStatuses(env)
+		status := database.GetAllHealthStatuses(c.UserContext(), env)
 		return c.JSON(status)
 	})
 

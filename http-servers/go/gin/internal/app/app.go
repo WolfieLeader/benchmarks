@@ -30,7 +30,7 @@ func New() *App {
 		c.String(200, "OK")
 	})
 	r.GET("/health", func(c *gin.Context) {
-		status := database.GetAllHealthStatuses(env)
+		status := database.GetAllHealthStatuses(c.Request.Context(), env)
 		c.JSON(200, status)
 	})
 	routes.RegisterParams(r.Group("/params"))

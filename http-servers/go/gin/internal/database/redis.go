@@ -38,8 +38,7 @@ func (r *RedisRepository) key(id string) string {
 	return r.prefix + id
 }
 
-func (r *RedisRepository) Create(data *CreateUser) (*User, error) {
-	ctx := context.Background()
+func (r *RedisRepository) Create(ctx context.Context, data *CreateUser) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
@@ -65,8 +64,7 @@ func (r *RedisRepository) Create(data *CreateUser) (*User, error) {
 	return BuildUser(idStr, data), nil
 }
 
-func (r *RedisRepository) FindById(id string) (*User, error) {
-	ctx := context.Background()
+func (r *RedisRepository) FindById(ctx context.Context, id string) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
@@ -110,8 +108,7 @@ func (r *RedisRepository) FindById(id string) (*User, error) {
 	return user, nil
 }
 
-func (r *RedisRepository) Update(id string, data *UpdateUser) (*User, error) {
-	ctx := context.Background()
+func (r *RedisRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
@@ -142,11 +139,10 @@ func (r *RedisRepository) Update(id string, data *UpdateUser) (*User, error) {
 		}
 	}
 
-	return r.FindById(id)
+	return r.FindById(ctx, id)
 }
 
-func (r *RedisRepository) Delete(id string) (bool, error) {
-	ctx := context.Background()
+func (r *RedisRepository) Delete(ctx context.Context, id string) (bool, error) {
 	if err := r.connect(); err != nil {
 		return false, err
 	}
@@ -158,8 +154,7 @@ func (r *RedisRepository) Delete(id string) (bool, error) {
 	return deleted > 0, nil
 }
 
-func (r *RedisRepository) DeleteAll() error {
-	ctx := context.Background()
+func (r *RedisRepository) DeleteAll(ctx context.Context) error {
 	if err := r.connect(); err != nil {
 		return err
 	}
@@ -183,8 +178,7 @@ func (r *RedisRepository) DeleteAll() error {
 	return nil
 }
 
-func (r *RedisRepository) HealthCheck() (bool, error) {
-	ctx := context.Background()
+func (r *RedisRepository) HealthCheck(ctx context.Context) (bool, error) {
 	if err := r.connect(); err != nil {
 		return false, err
 	}

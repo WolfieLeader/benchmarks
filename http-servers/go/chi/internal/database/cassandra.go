@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -45,7 +46,7 @@ func (r *CassandraRepository) connect() error {
 	return r.initErr
 }
 
-func (r *CassandraRepository) Create(data *CreateUser) (*User, error) {
+func (r *CassandraRepository) Create(ctx context.Context, data *CreateUser) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
@@ -66,14 +67,14 @@ func (r *CassandraRepository) Create(data *CreateUser) (*User, error) {
 		params = []any{idStr, data.Name, data.Email}
 	}
 
-	if err := r.session.Query(query, params...).Exec(); err != nil {
+	if err := r.session.Query(query, params...).WithContext(ctx).Exec(); err != nil {
 		return nil, err
 	}
 
 	return BuildUser(idStr, data), nil
 }
 
-func (r *CassandraRepository) FindById(id string) (*User, error) {
+func (r *CassandraRepository) FindById(ctx context.Context, id string) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func (r *CassandraRepository) FindById(id string) (*User, error) {
 	var userId, name, email string
 	var favoriteNumber *int
 
-	if err := r.session.Query(query, id).Scan(&userId, &name, &email, &favoriteNumber); err != nil {
+	if err := r.session.Query(query, id).WithContext(ctx).Scan(&userId, &name, &email, &favoriteNumber); err != nil {
 		if errors.Is(err, gocql.ErrNotFound) {
 			return nil, nil
 		}
@@ -93,12 +94,12 @@ func (r *CassandraRepository) FindById(id string) (*User, error) {
 	return user, nil
 }
 
-func (r *CassandraRepository) Update(id string, data *UpdateUser) (*User, error) {
+func (r *CassandraRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
 	if err := r.connect(); err != nil {
 		return nil, err
 	}
 
-	existing, err := r.FindById(id)
+	existing, err := r.FindById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -141,19 +142,19 @@ func (r *CassandraRepository) Update(id string, data *UpdateUser) (*User, error)
 	sb.WriteString(" WHERE id = ?")
 	query := sb.String()
 
-	if err := r.session.Query(query, params...).Exec(); err != nil {
+	if err := r.session.Query(query, params...).WithContext(ctx).Exec(); err != nil {
 		return nil, err
 	}
 
 	return existing, nil
 }
 
-func (r *CassandraRepository) Delete(id string) (bool, error) {
+func (r *CassandraRepository) Delete(ctx context.Context, id string) (bool, error) {
 	if err := r.connect(); err != nil {
 		return false, err
 	}
 
-	existing, err := r.FindById(id)
+	existing, err := r.FindById(ctx, id)
 	if err != nil {
 		return false, err
 	}
@@ -162,27 +163,27 @@ func (r *CassandraRepository) Delete(id string) (bool, error) {
 	}
 
 	query := `DELETE FROM users WHERE id = ?`
-	if err := r.session.Query(query, id).Exec(); err != nil {
+	if err := r.session.Query(query, id).WithContext(ctx).Exec(); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (r *CassandraRepository) DeleteAll() error {
+func (r *CassandraRepository) DeleteAll(ctx context.Context) error {
 	if err := r.connect(); err != nil {
 		return err
 	}
 
-	return r.session.Query(`TRUNCATE users`).Exec()
+	return r.session.Query(`TRUNCATE users`).WithContext(ctx).Exec()
 }
 
-func (r *CassandraRepository) HealthCheck() (bool, error) {
+func (r *CassandraRepository) HealthCheck(ctx context.Context) (bool, error) {
 	if err := r.connect(); err != nil {
 		return false, err
 	}
 
-	err := r.session.Query(`SELECT now() FROM system.local`).Exec()
+	err := r.session.Query(`SELECT now() FROM system.local`).WithContext(ctx).Exec()
 	return err == nil, err
 }
 

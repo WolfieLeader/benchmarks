@@ -80,8 +80,7 @@ func intToInt32Ptr(n *int) *int32 {
 	return &v
 }
 
-func (r *PostgresRepository) Create(data *CreateUser) (*User, error) {
-	ctx := context.Background()
+func (r *PostgresRepository) Create(ctx context.Context, data *CreateUser) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -103,8 +102,7 @@ func (r *PostgresRepository) Create(data *CreateUser) (*User, error) {
 	return toUser(user), nil
 }
 
-func (r *PostgresRepository) FindById(id string) (*User, error) {
-	ctx := context.Background()
+func (r *PostgresRepository) FindById(ctx context.Context, id string) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -124,14 +122,13 @@ func (r *PostgresRepository) FindById(id string) (*User, error) {
 	return toUser(user), nil
 }
 
-func (r *PostgresRepository) Update(id string, data *UpdateUser) (*User, error) {
-	ctx := context.Background()
+func (r *PostgresRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
 
 	if data.Name == nil && data.Email == nil && data.FavoriteNumber == nil {
-		return r.FindById(id)
+		return r.FindById(ctx, id)
 	}
 
 	pgId, err := stringToUUID(id)
@@ -154,8 +151,7 @@ func (r *PostgresRepository) Update(id string, data *UpdateUser) (*User, error) 
 	return toUser(user), nil
 }
 
-func (r *PostgresRepository) Delete(id string) (bool, error) {
-	ctx := context.Background()
+func (r *PostgresRepository) Delete(ctx context.Context, id string) (bool, error) {
 	if err := r.connect(ctx); err != nil {
 		return false, err
 	}
@@ -172,8 +168,7 @@ func (r *PostgresRepository) Delete(id string) (bool, error) {
 	return rows > 0, nil
 }
 
-func (r *PostgresRepository) DeleteAll() error {
-	ctx := context.Background()
+func (r *PostgresRepository) DeleteAll(ctx context.Context) error {
 	if err := r.connect(ctx); err != nil {
 		return err
 	}
@@ -181,8 +176,7 @@ func (r *PostgresRepository) DeleteAll() error {
 	return r.queries.DeleteAllUsers(ctx)
 }
 
-func (r *PostgresRepository) HealthCheck() (bool, error) {
-	ctx := context.Background()
+func (r *PostgresRepository) HealthCheck(ctx context.Context) (bool, error) {
 	if err := r.connect(ctx); err != nil {
 		return false, nil //nolint:nilerr // connection failure means unhealthy, not error
 	}
