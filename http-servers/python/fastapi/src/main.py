@@ -68,7 +68,7 @@ async def health():
     for db_type in DATABASE_TYPES:
         repo = repositories.get(db_type)
         if repo is None:
-            db_statuses[db_type] = "unavailable"
+            db_statuses[db_type] = "unhealthy"
         else:
             try:
                 healthy = await repo.health_check()
