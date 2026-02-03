@@ -91,7 +91,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	flows := suite.RunFlows(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
+	flows := suite.RunFlows(options.HostPort)
 
 	timedResults := suite.GetTimedResults()
 	timedFlows := suite.GetTimedFlows()
@@ -102,6 +102,13 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	result.Flows = flows
 
 	if server.Capacity.Enabled && ctx.Err() == nil {
+		if server.Capacity.PreRunPause > 0 {
+			select {
+			case <-ctx.Done():
+				return result, timedResults, timedFlows
+			case <-time.After(server.Capacity.PreRunPause):
+			}
+		}
 		runCapacityTest(ctx, server, result)
 	}
 
@@ -130,7 +137,7 @@ func runCapacityTest(ctx context.Context, server *config.ResolvedServer, result 
 		return
 	}
 
-	tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.Timeout)
+	tester := client.NewCapacityTester(ctx, &server.Capacity, rootTC, server.RequestTimeout)
 	capResult, err := tester.Run() //nolint:contextcheck // context is stored in CapacityTester struct
 	if err != nil {
 		cli.Failf("Capacity test error: %v", err)

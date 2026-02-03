@@ -41,37 +41,35 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		allTestcases = append(allTestcases, testcases...)
 	}
 
-	flows, err := resolveFlows(cfg, order)
-	if err != nil {
-		return nil, err
-	}
+	flows := resolveFlows(cfg, order)
 
 	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
 	for _, server := range cfg.Servers {
 		servers = append(servers, &ResolvedServer{
-			Name:                      server.Name,
-			ImageName:                 server.Image,
-			Port:                      server.Port,
-			BaseURL:                   cfg.Benchmark.BaseURL,
-			Timeout:                   cfg.Benchmark.TimeoutDuration,
-			CPULimit:                  cfg.Container.CPU,
-			MemoryLimit:               cfg.Container.Memory,
-			Workers:                   cfg.Benchmark.Workers,
-			RequestsPerEndpoint:       cfg.Benchmark.Requests,
-			Testcases:                 allTestcases,
-			EndpointOrder:             order,
-			WarmupRequestsPerTestcase: cfg.Benchmark.Warmup,
-			WarmupEnabled:             cfg.Benchmark.WarmupEnabled,
-			ResourcesEnabled:          cfg.Benchmark.ResourcesEnabled,
-			Capacity:                  cfg.Capacity,
-			Flows:                     flows,
+			Name:                server.Name,
+			ImageName:           server.Image,
+			Port:                server.Port,
+			BaseURL:             cfg.Benchmark.BaseURL,
+			RequestTimeout:      cfg.Benchmark.RequestTimeout,
+			CPULimit:            cfg.Container.CPULimit,
+			MemoryLimit:         cfg.Container.MemoryLimit,
+			Concurrency:         cfg.Benchmark.Concurrency,
+			RequestsPerEndpoint: cfg.Benchmark.RequestsPerEndpoint,
+			Testcases:           allTestcases,
+			EndpointOrder:       order,
+			WarmupEnabled:       cfg.Benchmark.WarmupEnabled,
+			WarmupDuration:      cfg.Benchmark.WarmupDuration,
+			WarmupPause:         cfg.Benchmark.WarmupPause,
+			ResourcesEnabled:    cfg.Benchmark.ResourcesEnabled,
+			Capacity:            cfg.Capacity,
+			Flows:               flows,
 		})
 	}
 
 	return servers, nil
 }
 
-func resolveFlows(cfg *Config, order []string) ([]*ResolvedFlow, error) {
+func resolveFlows(cfg *Config, order []string) []*ResolvedFlow {
 	flowEndpoints := make(map[string][]string)
 	flowVars := make(map[string]map[string]VarConfig)
 
@@ -88,7 +86,9 @@ func resolveFlows(cfg *Config, order []string) ([]*ResolvedFlow, error) {
 		}
 	}
 
-	var flows []*ResolvedFlow
+	maxDbs := 1
+	maxDbs = max(maxDbs, len(cfg.Databases))
+	flows := make([]*ResolvedFlow, 0, len(flowEndpoints)*maxDbs)
 
 	for flowId, endpointNames := range flowEndpoints {
 		var perDatabase bool
@@ -138,7 +138,7 @@ func resolveFlows(cfg *Config, order []string) ([]*ResolvedFlow, error) {
 		}
 	}
 
-	return flows, nil
+	return flows
 }
 
 func resolveEndpoint(baseURL string, databases []string, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {

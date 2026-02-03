@@ -46,19 +46,25 @@ func NewCapacityTester(ctx context.Context, cfg *config.CapacityConfig, rootTC *
 }
 
 func (ct *CapacityTester) Run() (*CapacityResult, error) {
-	cli.Linef("Capacity: finding max workers (range %d-%d, precision %s)", ct.config.MinWorkers, ct.config.MaxWorkers, ct.config.Precision)
+	cli.Linef("Capacity: finding max concurrency (range %d-%d, precision %s)", ct.config.MinConcurrency, ct.config.MaxConcurrency, ct.config.SearchPrecision)
 	cli.Blank()
 	cli.CapacityTableHeader()
 
-	low := ct.config.MinWorkers
-	high := ct.config.MaxWorkers
+	low := ct.config.MinConcurrency
+	high := ct.config.MaxConcurrency
 	searchRange := high - low
-	precisionWorkers := int(float64(searchRange) * ct.config.PrecisionPct / 100)
+	precisionWorkers := int(float64(searchRange) * ct.config.SearchPrecisionPct / 100)
 	precisionWorkers = max(precisionWorkers, 1)
 	iterations := 0
 	var bestStats iterationStats
+	var err error
+	var stats iterationStats
 
-	stats, err := ct.testWorkers(low, &iterations)
+	err = ct.pauseBetweenIterations(iterations)
+	if err != nil {
+		return nil, err
+	}
+	stats, err = ct.testWorkers(low, &iterations)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +77,10 @@ func (ct *CapacityTester) Run() (*CapacityResult, error) {
 	bestStats = stats
 
 	if low < high {
+		err = ct.pauseBetweenIterations(iterations)
+		if err != nil {
+			return nil, err
+		}
 		stats, err = ct.testWorkers(high, &iterations)
 		if err != nil {
 			return nil, err
@@ -89,7 +99,11 @@ func (ct *CapacityTester) Run() (*CapacityResult, error) {
 		}
 
 		mid := (low + high + 1) / 2
-		stats, err := ct.testWorkers(mid, &iterations)
+		err = ct.pauseBetweenIterations(iterations)
+		if err != nil {
+			return nil, err
+		}
+		stats, err = ct.testWorkers(mid, &iterations)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +136,19 @@ func (ct *CapacityTester) testWorkers(workers int, iterations *int) (iterationSt
 	}
 	cli.CapacityTableRow(workers, stats.passed, stats.rps, float64(stats.p99.Milliseconds()), stats.successRate)
 	return stats, nil
+}
+
+func (ct *CapacityTester) pauseBetweenIterations(iterations int) error {
+	if ct.config.IterationPause <= 0 || iterations == 0 {
+		return nil
+	}
+
+	select {
+	case <-ct.ctx.Done():
+		return ct.ctx.Err()
+	case <-time.After(ct.config.IterationPause):
+		return nil
+	}
 }
 
 func (ct *CapacityTester) runIteration(workers int) (iterationStats, error) {
@@ -209,8 +236,8 @@ func (ct *CapacityTester) measure(httpClient *http.Client, workers int, duration
 	}
 
 	p99Ms := float64(p99) / float64(time.Millisecond)
-	p99Threshold := float64(ct.config.P99ThresholdDur) / float64(time.Millisecond)
-	passed := successRate >= ct.config.SuccessRatePct && p99Ms <= p99Threshold
+	p99Threshold := float64(ct.config.P99LatencyThresholdDur) / float64(time.Millisecond)
+	passed := successRate >= ct.config.MinSuccessRatePct && p99Ms <= p99Threshold
 
 	return iterationStats{
 		passed:      passed,

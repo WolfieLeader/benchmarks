@@ -8,31 +8,6 @@ import (
 	"time"
 )
 
-func validateCpu(limit string) error {
-	limit = strings.TrimSpace(limit)
-	if limit == "" {
-		return errors.New("cpu_limit is empty")
-	}
-
-	if value, ok := strings.CutSuffix(limit, "%"); ok {
-		if value == "" {
-			return errors.New("cpu_limit must be a number or percentage")
-		}
-		parsed, err := strconv.ParseFloat(value, 64)
-		if err != nil || parsed <= 0 {
-			return errors.New("cpu_limit must be a number or percentage")
-		}
-		return nil
-	}
-
-	parsed, err := strconv.ParseFloat(limit, 64)
-	if err != nil || parsed <= 0 {
-		return errors.New("cpu_limit must be a number or percentage")
-	}
-
-	return nil
-}
-
 func normalizeMemoryLimit(limit string) (string, error) {
 	limit = strings.TrimSpace(limit)
 	if limit == "" {

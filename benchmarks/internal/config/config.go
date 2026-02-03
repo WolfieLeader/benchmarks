@@ -47,22 +47,23 @@ type Testcase struct {
 }
 
 type ResolvedServer struct {
-	Name                      string
-	ImageName                 string
-	Port                      int
-	BaseURL                   string
-	Timeout                   time.Duration
-	CPULimit                  string
-	MemoryLimit               string
-	Workers                   int
-	RequestsPerEndpoint       int
-	Testcases                 []*Testcase
-	EndpointOrder             []string
-	WarmupRequestsPerTestcase int
-	WarmupEnabled             bool
-	ResourcesEnabled          bool
-	Capacity                  CapacityConfig
-	Flows                     []*ResolvedFlow
+	Name                string
+	ImageName           string
+	Port                int
+	BaseURL             string
+	RequestTimeout      time.Duration
+	CPULimit            float64
+	MemoryLimit         string
+	Concurrency         int
+	RequestsPerEndpoint int
+	Testcases           []*Testcase
+	EndpointOrder       []string
+	WarmupEnabled       bool
+	WarmupDuration      time.Duration
+	WarmupPause         time.Duration
+	ResourcesEnabled    bool
+	Capacity            CapacityConfig
+	Flows               []*ResolvedFlow
 }
 
 type RuntimeOptions struct {
@@ -83,49 +84,57 @@ func GetServerNames(servers []*ResolvedServer) []string {
 func (cfg *Config) Print() {
 	cli.Section("Configuration")
 
+	const disabledStr = "disabled"
+
 	cli.KeyValue("Base URL", cfg.Benchmark.BaseURL)
 	cli.KeyValuePairs(
 		"Servers", strconv.Itoa(len(cfg.Servers)),
 		"Endpoints", strconv.Itoa(len(cfg.Endpoints)),
 	)
 	cli.KeyValuePairs(
-		"Workers", strconv.Itoa(cfg.Benchmark.Workers),
-		"Requests/Endpoint", strconv.Itoa(cfg.Benchmark.Requests),
-		"Timeout", cfg.Benchmark.Timeout,
+		"Concurrency", strconv.Itoa(cfg.Benchmark.Concurrency),
+		"Requests/Endpoint", strconv.Itoa(cfg.Benchmark.RequestsPerEndpoint),
+		"Request Timeout", cfg.Benchmark.RequestTimeout.String(),
 	)
 	cli.KeyValuePairs(
-		"CPU Limit", cfg.Container.CPU,
-		"Memory Limit", cfg.Container.Memory,
+		"CPU Limit", strconv.FormatFloat(cfg.Container.CPULimit, 'f', -1, 64),
+		"Memory Limit", cfg.Container.MemoryLimit,
 	)
 
-	warmupStr := "disabled"
+	warmupStr := disabledStr
 	if cfg.Benchmark.WarmupEnabled {
-		warmupStr = fmt.Sprintf("%d req/testcase", cfg.Benchmark.Warmup)
+		warmupStr = cfg.Benchmark.WarmupDuration.String()
 	}
-	resourcesStr := "disabled"
+	warmupPauseStr := disabledStr
+	if cfg.Benchmark.WarmupEnabled {
+		warmupPauseStr = cfg.Benchmark.WarmupPause.String()
+	}
+	resourcesStr := disabledStr
 	if cfg.Benchmark.ResourcesEnabled {
 		resourcesStr = "enabled"
 	}
-	cooldownStr := "disabled"
-	if strings.TrimSpace(cfg.Benchmark.Cooldown) != "" {
-		cooldownStr = cfg.Benchmark.Cooldown
+	cooldownStr := disabledStr
+	if strings.TrimSpace(cfg.Benchmark.ServerCooldownRaw) != "" {
+		cooldownStr = cfg.Benchmark.ServerCooldown.String()
 	}
-	cli.KeyValuePairs("Warmup", warmupStr, "Resources", resourcesStr, "Cooldown", cooldownStr)
+	cli.KeyValuePairs("Warmup", warmupStr, "Warmup Pause", warmupPauseStr, "Resources", resourcesStr, "Server Cooldown", cooldownStr)
 
 	if cfg.Capacity.Enabled {
-		capacityStr := fmt.Sprintf("workers %d-%d, precision %s",
-			cfg.Capacity.MinWorkers, cfg.Capacity.MaxWorkers, cfg.Capacity.Precision)
+		capacityStr := fmt.Sprintf("concurrency %d-%d, precision %s",
+			cfg.Capacity.MinConcurrency, cfg.Capacity.MaxConcurrency, cfg.Capacity.SearchPrecision)
 		cli.KeyValue("Capacity", capacityStr)
 		cli.KeyValuePairs(
-			"Success Rate", cfg.Capacity.SuccessRate,
-			"P99 Threshold", cfg.Capacity.P99Threshold,
+			"Min Success Rate", cfg.Capacity.MinSuccessRate,
+			"P99 Threshold", cfg.Capacity.P99LatencyThreshold,
 		)
 		cli.KeyValuePairs(
+			"Pre-Run Pause", cfg.Capacity.PreRunPause.String(),
 			"Warmup", cfg.Capacity.WarmupDuration.String(),
 			"Measure", cfg.Capacity.MeasureDuration.String(),
+			"Iteration Pause", cfg.Capacity.IterationPause.String(),
 		)
 	} else {
-		cli.KeyValue("Capacity", "disabled")
+		cli.KeyValue("Capacity", disabledStr)
 	}
 }
 

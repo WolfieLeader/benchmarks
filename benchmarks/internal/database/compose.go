@@ -125,7 +125,7 @@ func (m *ComposeManager) checkServicesHealth(ctx context.Context, requiredServic
 		"ps", "--format", "json",
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("docker compose ps failed: %w\noutput: %s", err, out)

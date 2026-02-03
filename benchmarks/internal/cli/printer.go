@@ -89,8 +89,8 @@ func Progress(current, label string, details string) {
 }
 
 func CapacityTableHeader() {
-	fmt.Printf("%sWorkers  Status       RPS  P99 (ms)  Success\n", Indent)
-	fmt.Printf("%s───────  ──────  ────────  ────────  ───────\n", Indent)
+	fmt.Printf("%sConcurrency  Status       RPS  P99 (ms)  Success\n", Indent)
+	fmt.Printf("%s───────────  ──────  ────────  ────────  ───────\n", Indent)
 }
 
 func CapacityTableRow(workers int, passed bool, rps float64, p99Ms float64, successRate float64) {
@@ -98,13 +98,13 @@ func CapacityTableRow(workers int, passed bool, rps float64, p99Ms float64, succ
 	if !passed {
 		status = SymbolFail + " FAIL"
 	}
-	fmt.Printf("%s%7d  %s  %8.0f  %8.2f  %6.2f%%\n",
+	fmt.Printf("%s%11d  %s  %8.0f  %8.2f  %6.2f%%\n",
 		Indent, workers, status, rps, p99Ms, successRate*100)
 }
 
 func TableHeader(columns ...string) {
-	var header []string
-	var separator []string
+	header := make([]string, 0, len(columns))
+	separator := make([]string, 0, len(columns))
 	for _, col := range columns {
 		header = append(header, col)
 		separator = append(separator, strings.Repeat("─", len(col)))

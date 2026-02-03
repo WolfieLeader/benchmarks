@@ -32,7 +32,7 @@ func NewMongoRepository(connectionString, dbName string) *MongoRepository {
 	return &MongoRepository{url: connectionString, dbName: dbName}
 }
 
-func (r *MongoRepository) connect(_ context.Context) error {
+func (r *MongoRepository) connect() error {
 	r.once.Do(func() {
 		client, err := mongo.Connect(options.Client().ApplyURI(r.url))
 		if err != nil {
@@ -63,7 +63,7 @@ func (r *MongoRepository) parseObjectId(id string) (bson.ObjectID, bool) {
 }
 
 func (r *MongoRepository) Create(ctx context.Context, data *CreateUser) (*User, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (r *MongoRepository) Create(ctx context.Context, data *CreateUser) (*User, 
 }
 
 func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error
 }
 
 func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +139,7 @@ func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUse
 }
 
 func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return false, err
 	}
 
@@ -157,7 +157,7 @@ func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
 }
 
 func (r *MongoRepository) DeleteAll(ctx context.Context) error {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return err
 	}
 
@@ -166,7 +166,7 @@ func (r *MongoRepository) DeleteAll(ctx context.Context) error {
 }
 
 func (r *MongoRepository) HealthCheck(ctx context.Context) (bool, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connect(); err != nil {
 		return false, err
 	}
 

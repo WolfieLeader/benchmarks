@@ -39,7 +39,7 @@ func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, results
 
 func (o *Orchestrator) Run(ctx context.Context) error {
 	if missing := o.checkImages(ctx); len(missing) > 0 {
-		return fmt.Errorf("missing Docker images: %s\nRun 'make images' to build them", strings.Join(missing, ", "))
+		return fmt.Errorf("missing Docker images: %s\nRun 'just images' to build them", strings.Join(missing, ", "))
 	}
 
 	cli.Section("Infrastructure")
@@ -72,7 +72,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	cli.Successf("All databases ready")
 
 	interrupted := false
-	cooldown := o.cfg.Benchmark.CooldownDuration
+	cooldown := o.cfg.Benchmark.ServerCooldown
 	for i, server := range o.servers {
 		if ctx.Err() != nil {
 			cli.Warnf("Interrupted, stopping...")
@@ -93,13 +93,13 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		}
 
 		if o.influx != nil {
-			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults)
-			o.influx.WriteFlowLatencies(o.runId, server.Name, timedFlows)
+			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults) //nolint:contextcheck // uses stored context from Client
+			o.influx.WriteFlowLatencies(o.runId, server.Name, timedFlows)       //nolint:contextcheck // uses stored context from Client
 			if result.Capacity != nil {
-				o.influx.WriteCapacityResult(o.runId, server.Name, result.Capacity)
+				o.influx.WriteCapacityResult(o.runId, server.Name, result.Capacity) //nolint:contextcheck // uses stored context from Client
 			}
 			if result.Resources != nil {
-				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources)
+				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
 			}
 			cli.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
 		}

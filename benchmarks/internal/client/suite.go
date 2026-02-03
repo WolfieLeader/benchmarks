@@ -23,7 +23,7 @@ type Suite struct {
 }
 
 func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
-	transport := NewHTTPTransport(server.Workers)
+	transport := NewHTTPTransport(server.Concurrency)
 
 	return &Suite{
 		ctx:        ctx,
@@ -69,7 +69,9 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 
 		if s.server.WarmupEnabled {
 			s.runWarmup(testcases)
-			time.Sleep(100 * time.Millisecond)
+			if s.server.WarmupPause > 0 {
+				time.Sleep(s.server.WarmupPause)
+			}
 		}
 
 		results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
@@ -94,7 +96,9 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 
 			if s.server.WarmupEnabled {
 				s.runWarmup(testcases)
-				time.Sleep(100 * time.Millisecond)
+				if s.server.WarmupPause > 0 {
+					time.Sleep(s.server.WarmupPause)
+				}
 			}
 
 			results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
@@ -133,7 +137,7 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 }
 
 func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedLatencies []TimedLatency, failureCount int, lastError string) {
-	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
+	workers := min(s.server.Concurrency, s.server.RequestsPerEndpoint)
 	iterations := s.server.RequestsPerEndpoint
 	endpointStartTime := time.Now()
 
@@ -166,7 +170,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 				requestStart := time.Now()
 				serverOffset := requestStart.Sub(s.serverStartTime)
 				endpointOffset := requestStart.Sub(endpointStartTime)
-				latency, err := s.executeTestcase(tc)
+				latency, err := s.executeTestcase(s.ctx, tc)
 				resultsCh <- result{
 					latency:        latency,
 					serverOffset:   serverOffset,
@@ -206,8 +210,8 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 	return stats, timedLatencies, failureCount, lastError
 }
 
-func (s *Suite) executeTestcase(tc *config.Testcase) (time.Duration, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.server.Timeout)
+func (s *Suite) executeTestcase(ctx context.Context, tc *config.Testcase) (time.Duration, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.server.RequestTimeout)
 	defer cancel()
 
 	req, err := BuildRequest(ctx, tc)
@@ -290,7 +294,7 @@ type timedFlowResultItem struct {
 }
 
 func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
-	workers := min(s.server.Workers, s.server.RequestsPerEndpoint)
+	workers := min(s.server.Concurrency, s.server.RequestsPerEndpoint)
 	iterations := s.server.RequestsPerEndpoint
 	stepCount := len(flow.Endpoints)
 	flowStartTime := time.Now()
@@ -323,7 +327,7 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 				requestStart := time.Now()
 				serverOffset := requestStart.Sub(s.serverStartTime)
 				flowOffset := requestStart.Sub(flowStartTime)
-				result := RunFlow(s.ctx, s.httpClient, baseURL, flow, item.workerID, item.cycleNum, s.server.Timeout)
+				result := RunFlow(s.ctx, s.httpClient, baseURL, flow, item.workerID, item.cycleNum, s.server.RequestTimeout)
 				resultsCh <- timedFlowResultItem{
 					result:       result,
 					serverOffset: serverOffset,
@@ -447,31 +451,37 @@ func (s *Suite) runFlow(baseURL string, flow *config.ResolvedFlow) FlowStats {
 }
 
 func (s *Suite) runWarmup(testcases []*config.Testcase) {
-	warmupRequests := s.server.WarmupRequestsPerTestcase * len(testcases)
-	workers := min(s.server.Workers, warmupRequests)
+	if len(testcases) == 0 {
+		return
+	}
+	if s.server.WarmupDuration <= 0 {
+		return
+	}
 
-	workCh := make(chan *config.Testcase)
-	go func() {
-		defer close(workCh)
-		for i := range warmupRequests {
-			select {
-			case <-s.ctx.Done():
-				return
-			case workCh <- testcases[i%len(testcases)]:
-			}
-		}
-	}()
+	ctx, cancel := context.WithTimeout(s.ctx, s.server.WarmupDuration)
+	defer cancel()
+
+	workers := min(s.server.Concurrency, len(testcases))
+	if workers <= 0 {
+		workers = 1
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	for range workers {
-		go func() {
+	for workerID := range workers {
+		go func(id int) {
 			defer wg.Done()
-			for tc := range workCh {
-				_, _ = s.executeTestcase(tc) // Discard result
+			idx := id % len(testcases)
+			for ctx.Err() == nil {
+				_, _ = s.executeTestcase(ctx, testcases[idx]) // Discard result
+				idx++
+				if idx >= len(testcases) {
+					idx = 0
+				}
 			}
-		}()
+		}(workerID)
 	}
+
 	wg.Wait()
 }
 

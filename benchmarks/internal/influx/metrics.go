@@ -12,7 +12,6 @@ import (
 
 const writeBatchSize = 5000
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteEndpointLatencies(runId, server string, results []client.TimedResult) {
 	if c == nil {
 		return
@@ -57,7 +56,6 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 	c.writePoints(points)
 }
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteFlowLatencies(runId, server string, results []client.TimedFlowResult) {
 	if c == nil {
 		return
@@ -133,7 +131,6 @@ func (c *Client) WriteFlowLatencies(runId, server string, results []client.Timed
 	c.writePoints(points)
 }
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteCapacityResult(runId, server string, result *client.CapacityResult) {
 	if c == nil || result == nil {
 		return
@@ -154,7 +151,6 @@ func (c *Client) WriteCapacityResult(runId, server string, result *client.Capaci
 	)
 }
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) WriteResourceStats(runId, server string, stats *container.ResourceStats) {
 	if c == nil || stats == nil {
 		return

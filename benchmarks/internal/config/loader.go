@@ -14,25 +14,28 @@ import (
 )
 
 const (
-	DefaultConfigFile     = "../config/config.json"
-	DefaultPort           = 8080
-	DefaultBaseURL        = "http://localhost:8080"
-	DefaultWorkers        = 50
-	DefaultIterations     = 1000
-	DefaultTimeout        = "10s"
-	DefaultMethod         = "GET"
-	DefaultStatus         = 200
-	DefaultCPU            = "1"
-	DefaultMemory         = "512mb"
-	DefaultWarmupRequests = 50
+	DefaultConfigFile          = "../config/config.json"
+	DefaultPort                = 8080
+	DefaultBaseURL             = "http://localhost:8080"
+	DefaultConcurrency         = 50
+	DefaultRequestsPerEndpoint = 1000
+	DefaultRequestTimeout      = "10s"
+	DefaultMethod              = "GET"
+	DefaultStatus              = 200
+	DefaultCPULimit            = 1.0
+	DefaultMemoryLimit         = "512mb"
+	DefaultWarmupDuration      = "1s"
+	DefaultWarmupPause         = "100ms"
 
-	DefaultCapacityMinWorkers   = 1
-	DefaultCapacityMaxWorkers   = 512
-	DefaultCapacityPrecision    = "5%"
-	DefaultCapacitySuccessRate  = "95%"
-	DefaultCapacityP99Threshold = "50ms"
-	DefaultCapacityWarmup       = "2s"
-	DefaultCapacityMeasure      = "10s"
+	DefaultCapacityMinConcurrency      = 1
+	DefaultCapacityMaxConcurrency      = 512
+	DefaultCapacitySearchPrecision     = "5%"
+	DefaultCapacityMinSuccessRate      = "95%"
+	DefaultCapacityP99LatencyThreshold = "50ms"
+	DefaultCapacityPreRunPause         = "1s"
+	DefaultCapacityWarmupDuration      = "2s"
+	DefaultCapacityMeasureDuration     = "10s"
+	DefaultCapacityIterationPause      = "1s"
 
 	DefaultInfluxSampleRate = "10%"
 )
@@ -164,99 +167,146 @@ func applyDefaults(cfg *Config) error {
 		return fmt.Errorf("benchmark base_url: %w", err)
 	}
 
-	if cfg.Benchmark.Workers <= 0 {
-		cfg.Benchmark.Workers = DefaultWorkers
+	if cfg.Benchmark.Concurrency <= 0 {
+		cfg.Benchmark.Concurrency = DefaultConcurrency
 	}
 
-	if cfg.Benchmark.Requests <= 0 {
-		cfg.Benchmark.Requests = DefaultIterations
+	if cfg.Benchmark.RequestsPerEndpoint <= 0 {
+		cfg.Benchmark.RequestsPerEndpoint = DefaultRequestsPerEndpoint
 	}
 
-	if strings.TrimSpace(cfg.Benchmark.Timeout) == "" {
-		cfg.Benchmark.Timeout = DefaultTimeout
+	if strings.TrimSpace(cfg.Benchmark.RequestTimeoutRaw) == "" {
+		cfg.Benchmark.RequestTimeoutRaw = DefaultRequestTimeout
 	}
-	timeout, err := time.ParseDuration(cfg.Benchmark.Timeout)
+	requestTimeout, err := time.ParseDuration(cfg.Benchmark.RequestTimeoutRaw)
 	if err != nil {
-		return fmt.Errorf("benchmark timeout: %w", err)
+		return fmt.Errorf("benchmark request_timeout: %w", err)
 	}
-	cfg.Benchmark.TimeoutDuration = timeout
+	cfg.Benchmark.RequestTimeout = requestTimeout
 
-	if strings.TrimSpace(cfg.Benchmark.Cooldown) != "" {
-		cooldown, cooldownErr := time.ParseDuration(cfg.Benchmark.Cooldown)
+	if strings.TrimSpace(cfg.Benchmark.ServerCooldownRaw) != "" {
+		cooldown, cooldownErr := time.ParseDuration(cfg.Benchmark.ServerCooldownRaw)
 		if cooldownErr != nil {
-			return fmt.Errorf("benchmark cooldown: %w", cooldownErr)
+			return fmt.Errorf("benchmark server_cooldown: %w", cooldownErr)
 		}
 		if cooldown < 0 {
-			return errors.New("benchmark cooldown must be >= 0")
+			return errors.New("benchmark server_cooldown must be >= 0")
 		}
-		cfg.Benchmark.CooldownDuration = cooldown
+		cfg.Benchmark.ServerCooldown = cooldown
 	}
 
-	if cfg.Benchmark.Warmup <= 0 {
-		cfg.Benchmark.Warmup = DefaultWarmupRequests
-	}
-
-	if strings.TrimSpace(cfg.Container.CPU) == "" {
-		cfg.Container.CPU = DefaultCPU
-	}
-	if cpuErr := validateCpu(cfg.Container.CPU); cpuErr != nil {
-		return fmt.Errorf("container cpu: %w", cpuErr)
-	}
-
-	if strings.TrimSpace(cfg.Container.Memory) == "" {
-		cfg.Container.Memory = DefaultMemory
-	}
-	normalizedMemory, err := normalizeMemoryLimit(cfg.Container.Memory)
+	warmupDuration, err := parseDuration(cfg.Benchmark.WarmupDurationRaw, DefaultWarmupDuration)
 	if err != nil {
-		return fmt.Errorf("container memory: %w", err)
+		return fmt.Errorf("benchmark warmup_duration: %w", err)
 	}
-	cfg.Container.Memory = normalizedMemory
+	if warmupDuration < 0 {
+		return errors.New("benchmark warmup_duration must be >= 0")
+	}
+	if strings.TrimSpace(cfg.Benchmark.WarmupDurationRaw) == "" {
+		cfg.Benchmark.WarmupDurationRaw = DefaultWarmupDuration
+	}
+	cfg.Benchmark.WarmupDuration = warmupDuration
 
-	if cfg.Capacity.MinWorkers <= 0 {
-		cfg.Capacity.MinWorkers = DefaultCapacityMinWorkers
-	}
-	if cfg.Capacity.MaxWorkers <= 0 {
-		cfg.Capacity.MaxWorkers = DefaultCapacityMaxWorkers
-	}
-	if cfg.Capacity.MaxWorkers < cfg.Capacity.MinWorkers {
-		return fmt.Errorf("capacity max_workers (%d) must be >= min_workers (%d)", cfg.Capacity.MaxWorkers, cfg.Capacity.MinWorkers)
-	}
-
-	precision, err := parsePercent(cfg.Capacity.Precision, DefaultCapacityPrecision)
+	warmupPause, err := parseDuration(cfg.Benchmark.WarmupPauseRaw, DefaultWarmupPause)
 	if err != nil {
-		return fmt.Errorf("capacity precision: %w", err)
+		return fmt.Errorf("benchmark warmup_pause: %w", err)
+	}
+	if warmupPause < 0 {
+		return errors.New("benchmark warmup_pause must be >= 0")
+	}
+	if strings.TrimSpace(cfg.Benchmark.WarmupPauseRaw) == "" {
+		cfg.Benchmark.WarmupPauseRaw = DefaultWarmupPause
+	}
+	cfg.Benchmark.WarmupPause = warmupPause
+
+	if cfg.Container.CPULimit <= 0 {
+		cfg.Container.CPULimit = DefaultCPULimit
+	}
+
+	if strings.TrimSpace(cfg.Container.MemoryLimit) == "" {
+		cfg.Container.MemoryLimit = DefaultMemoryLimit
+	}
+	normalizedMemory, err := normalizeMemoryLimit(cfg.Container.MemoryLimit)
+	if err != nil {
+		return fmt.Errorf("container memory_limit: %w", err)
+	}
+	cfg.Container.MemoryLimit = normalizedMemory
+
+	if cfg.Capacity.MinConcurrency <= 0 {
+		cfg.Capacity.MinConcurrency = DefaultCapacityMinConcurrency
+	}
+	if cfg.Capacity.MaxConcurrency <= 0 {
+		cfg.Capacity.MaxConcurrency = DefaultCapacityMaxConcurrency
+	}
+	if cfg.Capacity.MaxConcurrency < cfg.Capacity.MinConcurrency {
+		return fmt.Errorf("capacity max_concurrency (%d) must be >= min_concurrency (%d)", cfg.Capacity.MaxConcurrency, cfg.Capacity.MinConcurrency)
+	}
+
+	precision, err := parsePercent(cfg.Capacity.SearchPrecision, DefaultCapacitySearchPrecision)
+	if err != nil {
+		return fmt.Errorf("capacity search_precision: %w", err)
 	}
 	if precision > 50 {
-		return errors.New("capacity precision must be <= 50%")
+		return errors.New("capacity search_precision must be <= 50%")
 	}
-	cfg.Capacity.PrecisionPct = precision
+	cfg.Capacity.SearchPrecisionPct = precision
 
-	successRate, err := parsePercent(cfg.Capacity.SuccessRate, DefaultCapacitySuccessRate)
+	successRate, err := parsePercent(cfg.Capacity.MinSuccessRate, DefaultCapacityMinSuccessRate)
 	if err != nil {
-		return fmt.Errorf("capacity success_rate: %w", err)
+		return fmt.Errorf("capacity min_success_rate: %w", err)
 	}
 	if successRate > 100 {
-		return errors.New("capacity success_rate must be <= 100%")
+		return errors.New("capacity min_success_rate must be <= 100%")
 	}
-	cfg.Capacity.SuccessRatePct = successRate / 100
+	cfg.Capacity.MinSuccessRatePct = successRate / 100
 
-	p99Threshold, err := parseDuration(cfg.Capacity.P99Threshold, DefaultCapacityP99Threshold)
+	p99Threshold, err := parseDuration(cfg.Capacity.P99LatencyThreshold, DefaultCapacityP99LatencyThreshold)
 	if err != nil {
-		return fmt.Errorf("capacity p99_threshold: %w", err)
+		return fmt.Errorf("capacity p99_latency_threshold: %w", err)
 	}
-	cfg.Capacity.P99ThresholdDur = p99Threshold
+	cfg.Capacity.P99LatencyThresholdDur = p99Threshold
 
-	warmupDuration, err := parseDuration(cfg.Capacity.Warmup, DefaultCapacityWarmup)
+	preRunPause, err := parseDuration(cfg.Capacity.PreRunPauseRaw, DefaultCapacityPreRunPause)
 	if err != nil {
-		return fmt.Errorf("capacity warmup: %w", err)
+		return fmt.Errorf("capacity pre_run_pause: %w", err)
 	}
-	cfg.Capacity.WarmupDuration = warmupDuration
+	if preRunPause < 0 {
+		return errors.New("capacity pre_run_pause must be >= 0")
+	}
+	if strings.TrimSpace(cfg.Capacity.PreRunPauseRaw) == "" {
+		cfg.Capacity.PreRunPauseRaw = DefaultCapacityPreRunPause
+	}
+	cfg.Capacity.PreRunPause = preRunPause
 
-	measureDuration, err := parseDuration(cfg.Capacity.Measure, DefaultCapacityMeasure)
+	capacityWarmup, err := parseDuration(cfg.Capacity.WarmupDurationRaw, DefaultCapacityWarmupDuration)
 	if err != nil {
-		return fmt.Errorf("capacity measure: %w", err)
+		return fmt.Errorf("capacity warmup_duration: %w", err)
+	}
+	cfg.Capacity.WarmupDuration = capacityWarmup
+	if strings.TrimSpace(cfg.Capacity.WarmupDurationRaw) == "" {
+		cfg.Capacity.WarmupDurationRaw = DefaultCapacityWarmupDuration
+	}
+
+	measureDuration, err := parseDuration(cfg.Capacity.MeasureDurationRaw, DefaultCapacityMeasureDuration)
+	if err != nil {
+		return fmt.Errorf("capacity measure_duration: %w", err)
 	}
 	cfg.Capacity.MeasureDuration = measureDuration
+	if strings.TrimSpace(cfg.Capacity.MeasureDurationRaw) == "" {
+		cfg.Capacity.MeasureDurationRaw = DefaultCapacityMeasureDuration
+	}
+
+	iterationPause, err := parseDuration(cfg.Capacity.IterationPauseRaw, DefaultCapacityIterationPause)
+	if err != nil {
+		return fmt.Errorf("capacity iteration_pause: %w", err)
+	}
+	if iterationPause < 0 {
+		return errors.New("capacity iteration_pause must be >= 0")
+	}
+	if strings.TrimSpace(cfg.Capacity.IterationPauseRaw) == "" {
+		cfg.Capacity.IterationPauseRaw = DefaultCapacityIterationPause
+	}
+	cfg.Capacity.IterationPause = iterationPause
 
 	if cfg.Influx.URL == "" {
 		cfg.Influx.URL = "http://localhost:8086"

@@ -100,7 +100,6 @@ func (c *Client) Close() {
 	_ = c.client.Close()
 }
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) WritePoint(measurement string, tags map[string]string, fields map[string]any, ts time.Time) {
 	if c == nil {
 		return
@@ -110,7 +109,6 @@ func (c *Client) WritePoint(measurement string, tags map[string]string, fields m
 	c.writePoints([]*influxdb3.Point{p})
 }
 
-//nolint:contextcheck // uses stored context from Client
 func (c *Client) writePoints(points []*influxdb3.Point) {
 	if c == nil || len(points) == 0 {
 		return

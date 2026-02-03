@@ -41,7 +41,7 @@ type ResultMeta struct {
 
 type ResultConfig struct {
 	BaseURL             string `json:"base_url"`
-	Workers             int    `json:"workers"`
+	Concurrency         int    `json:"concurrency"`
 	RequestsPerEndpoint int    `json:"requests_per_endpoint"`
 }
 
@@ -98,7 +98,7 @@ func NewWriter(cfg *config.BenchmarkConfig, resultsDir string) *Writer {
 }
 
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
-	summary := serverSummaryFromResult(result, w.config.Requests)
+	summary := serverSummaryFromResult(result, w.config.RequestsPerEndpoint)
 
 	data, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
@@ -185,8 +185,8 @@ func (w *Writer) meta() ResultMeta {
 		Timestamp: w.startTime,
 		Config: ResultConfig{
 			BaseURL:             w.config.BaseURL,
-			Workers:             w.config.Workers,
-			RequestsPerEndpoint: w.config.Requests,
+			Concurrency:         w.config.Concurrency,
+			RequestsPerEndpoint: w.config.RequestsPerEndpoint,
 		},
 	}
 }

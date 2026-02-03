@@ -22,40 +22,47 @@ type InfluxConfig struct {
 }
 
 type BenchmarkConfig struct {
-	BaseURL  string `json:"base_url"`
-	Workers  int    `json:"workers"`
-	Requests int    `json:"requests"`
-	Timeout  string `json:"timeout"`
-	Cooldown string `json:"cooldown,omitempty"`
-	Warmup   int    `json:"warmup,omitempty"`
+	BaseURL             string `json:"base_url"`
+	Concurrency         int    `json:"concurrency"`
+	RequestsPerEndpoint int    `json:"requests_per_endpoint"`
+	RequestTimeoutRaw   string `json:"request_timeout"`
+	ServerCooldownRaw   string `json:"server_cooldown,omitempty"`
+	WarmupDurationRaw   string `json:"warmup_duration,omitempty"`
+	WarmupPauseRaw      string `json:"warmup_pause,omitempty"`
 
-	TimeoutDuration  time.Duration `json:"-"`
-	CooldownDuration time.Duration `json:"-"`
+	RequestTimeout time.Duration `json:"-"`
+	ServerCooldown time.Duration `json:"-"`
+	WarmupDuration time.Duration `json:"-"`
+	WarmupPause    time.Duration `json:"-"`
 
 	WarmupEnabled    bool `json:"-"`
 	ResourcesEnabled bool `json:"-"`
 }
 
 type ContainerConfig struct {
-	CPU    string `json:"cpu"`
-	Memory string `json:"memory"`
+	CPULimit    float64 `json:"cpu_limit"`
+	MemoryLimit string  `json:"memory_limit"`
 }
 
 type CapacityConfig struct {
-	Enabled      bool   `json:"-"`
-	MinWorkers   int    `json:"min_workers"`
-	MaxWorkers   int    `json:"max_workers"`
-	Precision    string `json:"precision"`
-	SuccessRate  string `json:"success_rate"`
-	P99Threshold string `json:"p99_threshold"`
-	Warmup       string `json:"warmup"`
-	Measure      string `json:"measure"`
+	Enabled             bool   `json:"-"`
+	MinConcurrency      int    `json:"min_concurrency"`
+	MaxConcurrency      int    `json:"max_concurrency"`
+	SearchPrecision     string `json:"search_precision"`
+	MinSuccessRate      string `json:"min_success_rate"`
+	P99LatencyThreshold string `json:"p99_latency_threshold"`
+	PreRunPauseRaw      string `json:"pre_run_pause"`
+	WarmupDurationRaw   string `json:"warmup_duration"`
+	MeasureDurationRaw  string `json:"measure_duration"`
+	IterationPauseRaw   string `json:"iteration_pause"`
 
-	PrecisionPct    float64       `json:"-"`
-	SuccessRatePct  float64       `json:"-"`
-	P99ThresholdDur time.Duration `json:"-"`
-	WarmupDuration  time.Duration `json:"-"`
-	MeasureDuration time.Duration `json:"-"`
+	SearchPrecisionPct     float64       `json:"-"`
+	MinSuccessRatePct      float64       `json:"-"`
+	P99LatencyThresholdDur time.Duration `json:"-"`
+	PreRunPause            time.Duration `json:"-"`
+	WarmupDuration         time.Duration `json:"-"`
+	MeasureDuration        time.Duration `json:"-"`
+	IterationPause         time.Duration `json:"-"`
 }
 
 type ServerConfig struct {

@@ -13,7 +13,9 @@ type ErrorResponse struct {
 func WriteResponse(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		return
+	}
 }
 
 func WriteError(w http.ResponseWriter, status int, message string, detail ...any) {
@@ -32,7 +34,9 @@ func WriteError(w http.ResponseWriter, status int, message string, detail ...any
 			}
 		}
 	}
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		return
+	}
 }
 
 const (
