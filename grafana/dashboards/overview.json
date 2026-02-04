@@ -188,7 +188,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH latency_rank AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), combined AS (SELECT l.server, COALESCE(r.memory, 0) AS memory, COALESCE(r.cpu, 0) AS cpu, l.rank FROM latency_rank l LEFT JOIN resource_data r ON r.server = l.server) SELECT rank, CONCAT('memory_', server) AS series, memory AS value FROM combined UNION ALL SELECT rank, CONCAT('cpu_', server) AS series, cpu AS value FROM combined ORDER BY rank, series",
+          "rawSql": "WITH latency_stats AS (SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS p50 FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' GROUP BY server), latency_rank AS (SELECT server, ROW_NUMBER() OVER (ORDER BY p50) AS rank FROM latency_stats), resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' GROUP BY server), combined AS (SELECT l.server, COALESCE(r.memory, 0) AS memory, COALESCE(r.cpu, 0) AS cpu, l.rank FROM latency_rank l LEFT JOIN resource_data r ON r.server = l.server) SELECT rank, CONCAT('memory_', server) AS series, memory AS value FROM combined UNION ALL SELECT rank, CONCAT('cpu_', server) AS series, cpu AS value FROM combined ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
@@ -253,7 +253,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH ranked_servers AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server) SELECT s.server, s.database, AVG(s.total_duration_ns) AS latency FROM sequence_latency s JOIN ranked_servers r ON s.server = r.server WHERE s.time >= now() - INTERVAL '24 hours' AND s.sequence_id = 'crud' GROUP BY s.server, s.database, r.rank ORDER BY r.rank, s.database",
+          "rawSql": "WITH latency_stats AS (SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS p50 FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' GROUP BY server), ranked_servers AS (SELECT server, ROW_NUMBER() OVER (ORDER BY p50) AS rank FROM latency_stats) SELECT s.server, s.database, AVG(s.total_duration_ns) AS latency FROM sequence_latency s JOIN ranked_servers r ON s.server = r.server WHERE s.time >= now() - INTERVAL '24 hours' AND s.run_id = '${run_id}' AND s.sequence_id = 'crud' GROUP BY s.server, s.database, r.rank ORDER BY r.rank, s.database",
           "refId": "A",
           "format": "table"
         }
@@ -394,7 +394,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
       "id": 4,
       "options": {
         "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -409,13 +409,101 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH latency_data AS (SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS p50, APPROX_PERCENTILE_CONT(latency_ns, 0.95) AS p95 FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND ('${endpoint}' = 'overall' OR endpoint = '${endpoint}') GROUP BY server), ranked AS (SELECT server, p50, p95, ROW_NUMBER() OVER (ORDER BY p50) AS rank FROM latency_data) SELECT rank, server AS series, p50 AS value FROM ranked UNION ALL SELECT rank, CONCAT('p95_', server) AS series, p95 AS value FROM ranked ORDER BY rank, series",
+          "rawSql": "WITH latency_data AS (SELECT server, APPROX_PERCENTILE_CONT(latency_ns, 0.5) AS p50, APPROX_PERCENTILE_CONT(latency_ns, 0.95) AS p95 FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') GROUP BY server), ranked AS (SELECT server, p50, p95, ROW_NUMBER() OVER (ORDER BY p50) AS rank FROM latency_data) SELECT rank, server AS series, p50 AS value FROM ranked UNION ALL SELECT rank, CONCAT('p95_', server) AS series, p95 AS value FROM ranked ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
       ],
       "title": "Latency Ranking: ${endpoint}",
       "type": "trend"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "description": "Total request count per server, ordered by highest count first",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "honojs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#E36002" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "elysia" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B5CF6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "express" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#AEAEAE" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fastify" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F5F5F5" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "nestjs" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#E0234E" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "oak" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8B4513" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "chi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#01933F" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fiber" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#00BCD4" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "gin" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0090D8" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fastapi" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#009688" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": false
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "rawSql": "SELECT server, COUNT(*) / ${sample_rate} AS total FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') GROUP BY server ORDER BY total DESC",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "Total Requests: ${endpoint}",
+      "transformations": [
+        {
+          "id": "rowsToFields",
+          "options": {
+            "mappings": [
+              { "fieldName": "server", "handlerKey": "field.name" },
+              { "fieldName": "total", "handlerKey": "field.value" }
+            ]
+          }
+        }
+      ],
+      "type": "stat"
     }
   ],
   "refresh": "",
@@ -425,11 +513,11 @@
     "list": [
       {
         "current": {},
-        "hide": 0,
+        "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "DS_INFLUXDB",
-        "options": [],
+        "options": [{ "selected": true, "text": "overall", "value": "overall" }],
         "query": "influxdb",
         "refresh": 1,
         "regex": "",
@@ -437,15 +525,47 @@
         "type": "datasource"
       },
       {
+        "current": {},
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "definition": "SELECT DISTINCT run_id FROM request_latency WHERE time >= now() - INTERVAL '24 hours' ORDER BY run_id DESC",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "run_id",
+        "options": [],
+        "query": "SELECT DISTINCT run_id FROM request_latency WHERE time >= now() - INTERVAL '24 hours' ORDER BY run_id DESC",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "definition": "SELECT COALESCE(MAX(sample_rate), 0.1) AS sample_rate FROM run_meta WHERE run_id = '${run_id}'",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "sample_rate",
+        "options": [],
+        "query": "SELECT COALESCE(MAX(sample_rate), 0.1) AS sample_rate FROM run_meta WHERE run_id = '${run_id}'",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
         "current": { "selected": true, "text": "overall", "value": "overall" },
         "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-        "definition": "SELECT 'overall' AS endpoint UNION SELECT DISTINCT endpoint FROM request_latency WHERE time >= now() - INTERVAL '24 hours'",
+        "definition": "SELECT 'overall' AS endpoint UNION SELECT DISTINCT endpoint FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}'",
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "endpoint",
         "options": [],
-        "query": "SELECT 'overall' AS endpoint UNION SELECT DISTINCT endpoint FROM request_latency WHERE time >= now() - INTERVAL '24 hours'",
+        "query": "SELECT 'overall' AS endpoint UNION SELECT DISTINCT endpoint FROM request_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}'",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
