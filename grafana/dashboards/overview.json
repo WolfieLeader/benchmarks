@@ -188,7 +188,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH latency_rank AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), combined AS (SELECT r.server, r.memory, r.cpu, l.rank FROM resource_data r JOIN latency_rank l ON r.server = l.server) SELECT rank, CONCAT('memory_', server) AS series, memory AS value FROM combined UNION ALL SELECT rank, CONCAT('cpu_', server) AS series, cpu AS value FROM combined ORDER BY rank, series",
+          "rawSql": "WITH latency_rank AS (SELECT server, ROW_NUMBER() OVER (ORDER BY APPROX_PERCENTILE_CONT(latency_ns, 0.5)) AS rank FROM request_latency WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' GROUP BY server), combined AS (SELECT l.server, COALESCE(r.memory, 0) AS memory, COALESCE(r.cpu, 0) AS cpu, l.rank FROM latency_rank l LEFT JOIN resource_data r ON r.server = l.server) SELECT rank, CONCAT('memory_', server) AS series, memory AS value FROM combined UNION ALL SELECT rank, CONCAT('cpu_', server) AS series, cpu AS value FROM combined ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
