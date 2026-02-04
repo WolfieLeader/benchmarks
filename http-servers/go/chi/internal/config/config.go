@@ -14,12 +14,12 @@ type Env struct {
 	ENV                    string
 	HOST                   string
 	PORT                   uint16
-	PostgresURL            string
-	MongoDBURL             string
-	MongoDBDatabase        string
-	RedisURL               string
+	PostgresUrl            string
+	MongoDbUrl             string
+	MongoDbDatabase        string
+	RedisUrl               string
 	CassandraContactPoints []string
-	CassandraLocalDC       string
+	CassandraLocalDc       string
 	CassandraKeyspace      string
 }
 
@@ -27,12 +27,12 @@ const (
 	defaultEnv                    = "dev"
 	defaultHost                   = "0.0.0.0"
 	defaultPort                   = 5001
-	defaultPostgresURL            = "postgres://postgres:postgres@localhost:5432/benchmarks"
-	defaultMongoDBURL             = "mongodb://localhost:27017"
-	defaultMongoDBDatabase        = "benchmarks"
-	defaultRedisURL               = "redis://localhost:6379"
+	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:5432/benchmarks"
+	defaultMongoDbUrl             = "mongodb://localhost:27017"
+	defaultMongoDbDatabase        = "benchmarks"
+	defaultRedisUrl               = "redis://localhost:6379"
 	defaultCassandraContactPoints = "localhost"
-	defaultCassandraLocalDC       = "datacenter1"
+	defaultCassandraLocalDc       = "datacenter1"
 	defaultCassandraKeyspace      = "benchmarks"
 )
 
@@ -45,12 +45,12 @@ func LoadEnv() *Env {
 		ENV:                    defaultEnv,
 		HOST:                   defaultHost,
 		PORT:                   defaultPort,
-		PostgresURL:            defaultPostgresURL,
-		MongoDBURL:             defaultMongoDBURL,
-		MongoDBDatabase:        defaultMongoDBDatabase,
-		RedisURL:               defaultRedisURL,
+		PostgresUrl:            defaultPostgresUrl,
+		MongoDbUrl:             defaultMongoDbUrl,
+		MongoDbDatabase:        defaultMongoDbDatabase,
+		RedisUrl:               defaultRedisUrl,
 		CassandraContactPoints: parseContactPoints(defaultCassandraContactPoints),
-		CassandraLocalDC:       defaultCassandraLocalDC,
+		CassandraLocalDc:       defaultCassandraLocalDc,
 		CassandraKeyspace:      defaultCassandraKeyspace,
 	}
 
@@ -76,22 +76,22 @@ func LoadEnv() *Env {
 	}
 
 	if url, ok := os.LookupEnv("POSTGRES_URL"); ok && url != "" {
-		env.PostgresURL = url
+		env.PostgresUrl = url
 	}
 	if url, ok := os.LookupEnv("MONGODB_URL"); ok && url != "" {
-		env.MongoDBURL = url
+		env.MongoDbUrl = url
 	}
 	if db, ok := os.LookupEnv("MONGODB_DB"); ok && db != "" {
-		env.MongoDBDatabase = db
+		env.MongoDbDatabase = db
 	}
 	if url, ok := os.LookupEnv("REDIS_URL"); ok && url != "" {
-		env.RedisURL = url
+		env.RedisUrl = url
 	}
 	if cp, ok := os.LookupEnv("CASSANDRA_CONTACT_POINTS"); ok && cp != "" {
 		env.CassandraContactPoints = parseContactPoints(cp)
 	}
 	if dc, ok := os.LookupEnv("CASSANDRA_LOCAL_DATACENTER"); ok && dc != "" {
-		env.CassandraLocalDC = dc
+		env.CassandraLocalDc = dc
 	}
 	if ks, ok := os.LookupEnv("CASSANDRA_KEYSPACE"); ok && ks != "" {
 		env.CassandraKeyspace = ks

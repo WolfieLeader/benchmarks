@@ -64,13 +64,13 @@ func GetRepository(database DatabaseType, env *config.Env) UserRepository {
 
 	switch database {
 	case DatabasePostgres:
-		repo = NewPostgresRepository(env.PostgresURL)
+		repo = NewPostgresRepository(env.PostgresUrl)
 	case DatabaseMongoDB:
-		repo = NewMongoRepository(env.MongoDBURL, env.MongoDBDatabase)
+		repo = NewMongoRepository(env.MongoDbUrl, env.MongoDbDatabase)
 	case DatabaseRedis:
-		repo = NewRedisRepository(env.RedisURL)
+		repo = NewRedisRepository(env.RedisUrl)
 	case DatabaseCassandra:
-		repo = NewCassandraRepository(env.CassandraContactPoints, env.CassandraLocalDC, env.CassandraKeyspace)
+		repo = NewCassandraRepository(env.CassandraContactPoints, env.CassandraLocalDc, env.CassandraKeyspace)
 	default:
 		return nil
 	}
