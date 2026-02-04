@@ -15,7 +15,7 @@ import (
 
 type ServerResult struct {
 	Name        string                   `json:"name"`
-	ContainerID string                   `json:"-"`
+	ContainerId string                   `json:"-"`
 	ImageName   string                   `json:"-"`
 	Port        int                      `json:"-"`
 	StartTime   time.Time                `json:"-"`
@@ -39,7 +39,7 @@ type ResultMeta struct {
 }
 
 type ResultConfig struct {
-	BaseURL             string `json:"base_url"`
+	BaseUrl             string `json:"base_url"`
 	Concurrency         int    `json:"concurrency"`
 	DurationPerEndpoint string `json:"duration_per_endpoint"`
 }
@@ -72,6 +72,8 @@ type EndpointSummary struct {
 }
 
 type StatsSummary struct {
+	Count       int     `json:"count"`
+	TotalCount  int     `json:"total_count"`
 	AvgNs       int64   `json:"avg_ns"`
 	P50Ns       int64   `json:"p50_ns,omitempty"`
 	P95Ns       int64   `json:"p95_ns,omitempty"`
@@ -181,7 +183,7 @@ func (w *Writer) meta() ResultMeta {
 	return ResultMeta{
 		Timestamp: w.startTime,
 		Config: ResultConfig{
-			BaseURL:             w.config.BaseURL,
+			BaseUrl:             w.config.BaseUrl,
 			Concurrency:         w.config.Concurrency,
 			DurationPerEndpoint: w.config.DurationPerEndpoint.String(),
 		},
@@ -254,7 +256,7 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 	}
 
 	var (
-		totalAvg       time.Duration
+		totalLatency   time.Duration
 		minLatency     = time.Hour
 		maxLatency     time.Duration
 		totalSuccesses int
@@ -267,7 +269,7 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 			continue
 		}
 		endpointCount++
-		totalAvg += ep.Stats.Avg
+		totalLatency += ep.Stats.Avg * time.Duration(ep.Stats.Count)
 		if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
 			minLatency = ep.Stats.Low
 		}
@@ -282,7 +284,10 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 		return nil
 	}
 
-	avg := totalAvg / time.Duration(endpointCount)
+	var avg time.Duration
+	if totalSuccesses > 0 {
+		avg = totalLatency / time.Duration(totalSuccesses)
+	}
 	if minLatency == time.Hour {
 		minLatency = 0
 	}
@@ -293,6 +298,8 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 	}
 
 	return &StatsSummary{
+		Count:       totalSuccesses,
+		TotalCount:  totalRequests,
 		AvgNs:       avg.Nanoseconds(),
 		MinNs:       minLatency.Nanoseconds(),
 		MaxNs:       maxLatency.Nanoseconds(),
@@ -306,6 +313,8 @@ func statsFromClient(stats *client.Stats) *StatsSummary {
 	}
 
 	return &StatsSummary{
+		Count:       stats.Count,
+		TotalCount:  stats.TotalCount,
 		AvgNs:       stats.Avg.Nanoseconds(),
 		P50Ns:       stats.P50.Nanoseconds(),
 		P95Ns:       stats.P95.Nanoseconds(),

@@ -13,7 +13,7 @@ type Config struct {
 }
 
 type InfluxConfig struct {
-	URL           string  `json:"url"`
+	Url           string  `json:"url"`
 	Database      string  `json:"database"`
 	Token         string  `json:"token"`
 	SampleRate    string  `json:"sample_rate"`
@@ -21,7 +21,7 @@ type InfluxConfig struct {
 }
 
 type BenchmarkConfig struct {
-	BaseURL                string `json:"base_url"`
+	BaseUrl                string `json:"base_url"`
 	Concurrency            int    `json:"concurrency"`
 	DurationPerEndpointRaw string `json:"duration_per_endpoint"`
 	RequestTimeoutRaw      string `json:"request_timeout"`
@@ -37,7 +37,7 @@ type BenchmarkConfig struct {
 }
 
 type ContainerConfig struct {
-	CPULimit    float64 `json:"cpu_limit"`
+	CpuLimit    float64 `json:"cpu_limit"`
 	MemoryLimit string  `json:"memory_limit"`
 }
 

@@ -7,6 +7,7 @@ import (
 
 type Stats struct {
 	Count       int           `json:"count"`
+	TotalCount  int           `json:"total_count"`
 	Avg         time.Duration `json:"avg"`
 	High        time.Duration `json:"high"`
 	Low         time.Duration `json:"low"`
@@ -44,6 +45,7 @@ func CalculateStats(latencies []time.Duration, successCount, totalCount int) *St
 
 	return &Stats{
 		Count:       successCount,
+		TotalCount:  totalCount,
 		Avg:         total / time.Duration(len(latencies)),
 		Low:         low,
 		High:        high,
@@ -64,9 +66,6 @@ func Percentile(sorted []time.Duration, p int) time.Duration {
 	if p >= 100 {
 		return sorted[len(sorted)-1]
 	}
-	idx := (p * len(sorted)) / 100
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-	return sorted[idx]
+	index := (p * (len(sorted) - 1)) / 100
+	return sorted[index]
 }

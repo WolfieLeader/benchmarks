@@ -50,13 +50,13 @@ func getGradientColor(t float64) [3]float64 {
 	// Find which segment we're in
 	segments := float64(len(gradientStops) - 1)
 	scaled := t * segments
-	idx := int(scaled)
-	if idx >= len(gradientStops)-1 {
-		idx = len(gradientStops) - 2
+	index := int(scaled)
+	if index >= len(gradientStops)-1 {
+		index = len(gradientStops) - 2
 	}
-	localT := scaled - float64(idx)
+	localT := scaled - float64(index)
 
-	return lerpColor(gradientStops[idx], gradientStops[idx+1], localT)
+	return lerpColor(gradientStops[index], gradientStops[index+1], localT)
 }
 
 func PrintBanner() {

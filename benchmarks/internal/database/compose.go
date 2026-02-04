@@ -183,8 +183,8 @@ func parseComposeServices(data []byte) ([]composeService, error) {
 func extractServiceName(containerName, projectName string) string {
 	prefix := projectName + "-"
 	if name, found := strings.CutPrefix(containerName, prefix); found {
-		if idx := strings.LastIndex(name, "-"); idx > 0 {
-			return name[:idx]
+		if index := strings.LastIndex(name, "-"); index > 0 {
+			return name[:index]
 		}
 		return name
 	}

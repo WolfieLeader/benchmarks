@@ -145,7 +145,7 @@ func FormatMemoryFixed(bytes float64) string {
 	return fmt.Sprintf("%5.1fMB", mb)
 }
 
-func FormatCPU(percent float64, samples int) string {
+func FormatCpu(percent float64, samples int) string {
 	if samples < 2 || percent < 0.1 {
 		return "n/a"
 	}

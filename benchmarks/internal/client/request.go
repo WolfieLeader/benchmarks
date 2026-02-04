@@ -44,7 +44,7 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, tc.Method, tc.URL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, tc.Method, tc.Url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

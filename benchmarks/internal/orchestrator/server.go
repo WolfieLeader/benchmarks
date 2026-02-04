@@ -31,7 +31,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		Image:       server.ImageName,
 		Port:        server.Port,
 		HostPort:    8080,
-		CPULimit:    server.CPULimit,
+		CpuLimit:    server.CpuLimit,
 		MemoryLimit: server.MemoryLimit,
 		Network:     network,
 	}
@@ -41,23 +41,23 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		result.SetError(fmt.Errorf("failed to start container: %w", err))
 		return result, nil, nil
 	}
-	result.ContainerID = string(containerId)
+	result.ContainerId = string(containerId)
 
 	sampler := container.NewResourceSampler(string(containerId))
 	sampler.Start(ctx)
 
 	defer stopContainer(containerId) //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
 
-	serverURL := fmt.Sprintf("http://localhost:%d", options.HostPort)
-	if err = container.WaitToBeReady(ctx, 30*time.Second, serverURL); err != nil {
+	serverUrl := fmt.Sprintf("http://localhost:%d", options.HostPort)
+	if err = container.WaitToBeReady(ctx, 30*time.Second, serverUrl, databases); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("server did not become ready: %w", err))
 		return result, nil, nil
 	}
 
-	cli.Successf("Ready at %s (container: %.12s)", serverURL, containerId)
+	cli.Successf("Ready at %s (container: %.12s)", serverUrl, containerId)
 
-	if err = database.ResetAll(ctx, serverURL, databases); err != nil {
+	if err = database.ResetAll(ctx, serverUrl, databases); err != nil {
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("failed to reset databases: %w", err))
 		return result, nil, nil

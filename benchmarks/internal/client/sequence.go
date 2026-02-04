@@ -28,7 +28,7 @@ type SequenceResult struct {
 	ContextCanceled bool
 }
 
-func RunSequence(ctx context.Context, client *http.Client, baseURL string, seq *config.ResolvedSequence, workerID, cycleNum int, timeout time.Duration) SequenceResult {
+func RunSequence(ctx context.Context, client *http.Client, baseUrl string, seq *config.ResolvedSequence, workerId, cycleNum int, timeout time.Duration) SequenceResult {
 	result := SequenceResult{
 		SequenceId:    seq.Id,
 		Database:      seq.Database,
@@ -37,14 +37,14 @@ func RunSequence(ctx context.Context, client *http.Client, baseURL string, seq *
 		Success:       true,
 	}
 
-	vars := generateVars(seq.Vars, workerID, cycleNum)
+	vars := generateVars(seq.Vars, workerId, cycleNum)
 	captured := make(map[string]string)
 
 	var totalDuration time.Duration
 
 	for i, endpoint := range seq.Endpoints {
 		stepCtx, cancel := context.WithTimeout(ctx, timeout)
-		stepDuration, err := executeSequenceStep(stepCtx, client, baseURL, endpoint, vars, captured)
+		stepDuration, err := executeSequenceStep(stepCtx, client, baseUrl, endpoint, vars, captured)
 		cancel()
 
 		result.StepDurations[i] = stepDuration
@@ -66,7 +66,7 @@ func RunSequence(ctx context.Context, client *http.Client, baseURL string, seq *
 	return result
 }
 
-func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) map[string]any {
+func generateVars(varDefs map[string]config.VarConfig, workerId, cycleNum int) map[string]any {
 	vars := make(map[string]any)
 
 	for name, cfg := range varDefs {
@@ -90,7 +90,7 @@ func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) m
 
 		switch cfg.Type {
 		case "email":
-			vars[name] = fmt.Sprintf("user-%d-%d@test.com", workerID, cycleNum)
+			vars[name] = fmt.Sprintf("user-%d-%d@test.com", workerId, cycleNum)
 		case "int":
 			if cfg.Max > cfg.Min {
 				vars[name] = rand.Intn(cfg.Max-cfg.Min+1) + cfg.Min //nolint:gosec // test data generation
@@ -103,9 +103,9 @@ func generateVars(varDefs map[string]config.VarConfig, workerID, cycleNum int) m
 	return vars
 }
 
-func executeSequenceStep(ctx context.Context, client *http.Client, baseURL string, endpoint *config.ResolvedSequenceEndpoint, vars map[string]any, captured map[string]string) (time.Duration, error) {
+func executeSequenceStep(ctx context.Context, client *http.Client, baseUrl string, endpoint *config.ResolvedSequenceEndpoint, vars map[string]any, captured map[string]string) (time.Duration, error) {
 	path := replacePlaceholdersInString(endpoint.Path, vars, captured)
-	url := baseURL + path
+	url := baseUrl + path
 
 	var bodyReader io.Reader
 	if endpoint.Body != nil {

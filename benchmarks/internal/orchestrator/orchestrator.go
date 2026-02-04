@@ -33,7 +33,7 @@ func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, results
 		compose:   database.NewComposeManager(repoRoot),
 		writer:    summary.NewWriter(&cfg.Benchmark, resultsDir),
 		databases: cfg.Databases,
-		runId:     influx.RunID(time.Now()),
+		runId:     influx.RunId(time.Now()),
 	}
 }
 
@@ -51,7 +51,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	cli.Successf("Grafana stack started")
 
 	o.influx = influx.NewClient(ctx, influx.Config{
-		URL:        o.cfg.Influx.URL,
+		Url:        o.cfg.Influx.Url,
 		Database:   o.cfg.Influx.Database,
 		Token:      o.cfg.Influx.Token,
 		SampleRate: o.cfg.Influx.SampleRatePct,

@@ -13,17 +13,17 @@ const minReliableSamples = 3
 
 var dockerStatsClient = &http.Client{
 	Transport: &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 10,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return net.Dial("unix", "/var/run/docker.sock")
 		},
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 10,
 	},
 }
 
 type ResourceStats struct {
 	Memory   MemoryStats `json:"memory"`
-	CPU      CPUStats    `json:"cpu"`
+	Cpu      CpuStats    `json:"cpu"`
 	Samples  int         `json:"samples"`
 	Warnings []string    `json:"warnings,omitempty"`
 }
@@ -34,14 +34,14 @@ type MemoryStats struct {
 	MaxBytes float64 `json:"max_bytes"`
 }
 
-type CPUStats struct {
+type CpuStats struct {
 	MinPercent float64 `json:"min_percent"`
 	AvgPercent float64 `json:"avg_percent"`
 	MaxPercent float64 `json:"max_percent"`
 }
 
 type ResourceSampler struct {
-	containerID string
+	containerId string
 
 	mu        sync.Mutex
 	memory    []uint64
@@ -53,24 +53,24 @@ type ResourceSampler struct {
 }
 
 type cpuStatsBlock struct {
-	CPUUsage struct {
+	SystemCpuUsage uint64 `json:"system_cpu_usage"`
+	OnlineCpus     int    `json:"online_cpus"`
+	CpuUsage       struct {
 		TotalUsage uint64 `json:"total_usage"`
 	} `json:"cpu_usage"`
-	SystemCPUUsage uint64 `json:"system_cpu_usage"`
-	OnlineCPUs     int    `json:"online_cpus"`
 }
 
 type dockerStatsAPI struct {
 	MemoryStats struct {
 		Usage uint64 `json:"usage"`
 	} `json:"memory_stats"`
-	CPUStats    cpuStatsBlock `json:"cpu_stats"`
-	PreCPUStats cpuStatsBlock `json:"precpu_stats"`
+	CpuStats    cpuStatsBlock `json:"cpu_stats"`
+	PreCpuStats cpuStatsBlock `json:"precpu_stats"`
 }
 
-func NewResourceSampler(containerID string) *ResourceSampler {
+func NewResourceSampler(containerId string) *ResourceSampler {
 	return &ResourceSampler{
-		containerID: containerID,
+		containerId: containerId,
 		memory:      make([]uint64, 0, 64),
 		cpu:         make([]float64, 0, 64),
 		stopCh:      make(chan struct{}),
@@ -119,7 +119,7 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 		}
 	}()
 
-	url := fmt.Sprintf("http://localhost/containers/%s/stats?stream=true", r.containerID)
+	url := fmt.Sprintf("http://localhost/containers/%s/stats?stream=true", r.containerId)
 	req, err := http.NewRequestWithContext(streamCtx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return
@@ -148,22 +148,22 @@ func (r *ResourceSampler) processSample(stats *dockerStatsAPI) {
 
 	r.memory = append(r.memory, stats.MemoryStats.Usage)
 
-	currCPU := stats.CPUStats.CPUUsage.TotalUsage
-	prevCPU := stats.PreCPUStats.CPUUsage.TotalUsage
-	currSys := stats.CPUStats.SystemCPUUsage
-	prevSys := stats.PreCPUStats.SystemCPUUsage
-	numCPUs := stats.CPUStats.OnlineCPUs
-	if numCPUs == 0 {
-		numCPUs = 1
+	currCpu := stats.CpuStats.CpuUsage.TotalUsage
+	prevCpu := stats.PreCpuStats.CpuUsage.TotalUsage
+	currSys := stats.CpuStats.SystemCpuUsage
+	prevSys := stats.PreCpuStats.SystemCpuUsage
+	numCpus := stats.CpuStats.OnlineCpus
+	if numCpus == 0 {
+		numCpus = 1
 	}
 
-	if currSys > prevSys && currCPU >= prevCPU {
-		cpuDelta := currCPU - prevCPU
+	if currSys > prevSys && currCpu >= prevCpu {
+		cpuDelta := currCpu - prevCpu
 		sysDelta := currSys - prevSys
 
-		cpuPercent := (float64(cpuDelta) / float64(sysDelta)) * float64(numCPUs) * 100.0
-		if cpuPercent > float64(numCPUs)*100 {
-			cpuPercent = float64(numCPUs) * 100
+		cpuPercent := (float64(cpuDelta) / float64(sysDelta)) * float64(numCpus) * 100.0
+		if cpuPercent > float64(numCpus)*100 {
+			cpuPercent = float64(numCpus) * 100
 		}
 		r.cpu = append(r.cpu, cpuPercent)
 	}
@@ -199,21 +199,21 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 	}
 
 	if len(cpu) > 0 {
-		minCPU, maxCPU := cpu[0], cpu[0]
-		var totalCPU float64
+		minCpu, maxCpu := cpu[0], cpu[0]
+		var totalCpu float64
 		for _, c := range cpu {
-			if c < minCPU {
-				minCPU = c
+			if c < minCpu {
+				minCpu = c
 			}
-			if c > maxCPU {
-				maxCPU = c
+			if c > maxCpu {
+				maxCpu = c
 			}
-			totalCPU += c
+			totalCpu += c
 		}
-		result.CPU = CPUStats{
-			MinPercent: minCPU,
-			AvgPercent: totalCPU / float64(len(cpu)),
-			MaxPercent: maxCPU,
+		result.Cpu = CpuStats{
+			MinPercent: minCpu,
+			AvgPercent: totalCpu / float64(len(cpu)),
+			MaxPercent: maxCpu,
 		}
 	}
 

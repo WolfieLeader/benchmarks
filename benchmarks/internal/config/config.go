@@ -28,7 +28,7 @@ type Testcase struct {
 	EndpointName        string
 	Name                string
 	Path                string
-	URL                 string
+	Url                 string
 	Method              string
 	Headers             map[string]string
 	RequestType         RequestType
@@ -49,9 +49,9 @@ type ResolvedServer struct {
 	Name                string
 	ImageName           string
 	Port                int
-	BaseURL             string
+	BaseUrl             string
 	RequestTimeout      time.Duration
-	CPULimit            float64
+	CpuLimit            float64
 	MemoryLimit         string
 	Concurrency         int
 	DurationPerEndpoint time.Duration
@@ -79,7 +79,7 @@ func (cfg *Config) Print() {
 
 	const disabledStr = "disabled"
 
-	cli.KeyValue("Base URL", cfg.Benchmark.BaseURL)
+	cli.KeyValue("Base URL", cfg.Benchmark.BaseUrl)
 	cli.KeyValuePairs(
 		"Servers", strconv.Itoa(len(cfg.Servers)),
 		"Endpoints", strconv.Itoa(len(cfg.Endpoints)),
@@ -90,7 +90,7 @@ func (cfg *Config) Print() {
 		"Request Timeout", cfg.Benchmark.RequestTimeout.String(),
 	)
 	cli.KeyValuePairs(
-		"CPU Limit", strconv.FormatFloat(cfg.Container.CPULimit, 'f', -1, 64),
+		"CPU Limit", strconv.FormatFloat(cfg.Container.CpuLimit, 'f', -1, 64),
 		"Memory Limit", cfg.Container.MemoryLimit,
 	)
 

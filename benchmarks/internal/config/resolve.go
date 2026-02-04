@@ -34,7 +34,7 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 		if endpoint.Sequence != nil {
 			continue
 		}
-		testcases, err := resolveEndpoint(cfg.Benchmark.BaseURL, cfg.Databases, endpointName, &endpoint)
+		testcases, err := resolveEndpoint(cfg.Benchmark.BaseUrl, cfg.Databases, endpointName, &endpoint)
 		if err != nil {
 			return nil, err
 		}
@@ -49,9 +49,9 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 			Name:                server.Name,
 			ImageName:           server.Image,
 			Port:                server.Port,
-			BaseURL:             cfg.Benchmark.BaseURL,
+			BaseUrl:             cfg.Benchmark.BaseUrl,
 			RequestTimeout:      cfg.Benchmark.RequestTimeout,
-			CPULimit:            cfg.Container.CPULimit,
+			CpuLimit:            cfg.Container.CpuLimit,
 			MemoryLimit:         cfg.Container.MemoryLimit,
 			Concurrency:         cfg.Benchmark.Concurrency,
 			DurationPerEndpoint: cfg.Benchmark.DurationPerEndpoint,
@@ -138,7 +138,7 @@ func resolveSequences(cfg *Config, order []string) []*ResolvedSequence {
 	return sequences
 }
 
-func resolveEndpoint(baseURL string, databases []string, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {
+func resolveEndpoint(baseUrl string, databases []string, endpointName string, endpoint *EndpointConfig) ([]*Testcase, error) {
 	endpointFile, err := loadFile(endpoint.File)
 	if err != nil {
 		return nil, fmt.Errorf("endpoint %q file: %w", endpointName, err)
@@ -148,7 +148,7 @@ func resolveEndpoint(baseURL string, databases []string, endpointName string, en
 
 	if endpoint.PerDatabase && len(databases) > 0 {
 		for _, db := range databases {
-			tc, tcErr := buildTestcase(baseURL, endpointName, db, endpoint, nil, endpointFile, db)
+			tc, tcErr := buildTestcase(baseUrl, endpointName, db, endpoint, nil, endpointFile, db)
 			if tcErr != nil {
 				return nil, tcErr
 			}
@@ -165,7 +165,7 @@ func resolveEndpoint(baseURL string, databases []string, endpointName string, en
 				}
 
 				variationName := fmt.Sprintf("variation_%d", i)
-				tc, tcErr = buildTestcase(baseURL, endpointName, db+"/"+variationName, endpoint, variation, file, db)
+				tc, tcErr = buildTestcase(baseUrl, endpointName, db+"/"+variationName, endpoint, variation, file, db)
 				if tcErr != nil {
 					return nil, fmt.Errorf("endpoint %q database %q variation %d: %w", endpointName, db, i, tcErr)
 				}
@@ -174,14 +174,14 @@ func resolveEndpoint(baseURL string, databases []string, endpointName string, en
 		}
 	} else {
 		if len(endpoint.Variations) == 0 {
-			tc, tcErr := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+			tc, tcErr := buildTestcase(baseUrl, endpointName, "default", endpoint, nil, endpointFile, "")
 			if tcErr != nil {
 				return nil, tcErr
 			}
 			return []*Testcase{tc}, nil
 		}
 
-		tc, tcErr := buildTestcase(baseURL, endpointName, "default", endpoint, nil, endpointFile, "")
+		tc, tcErr := buildTestcase(baseUrl, endpointName, "default", endpoint, nil, endpointFile, "")
 		if tcErr != nil {
 			return nil, tcErr
 		}
@@ -198,7 +198,7 @@ func resolveEndpoint(baseURL string, databases []string, endpointName string, en
 			}
 
 			variationName := fmt.Sprintf("variation_%d", i)
-			tc, err = buildTestcase(baseURL, endpointName, variationName, endpoint, variation, file, "")
+			tc, err = buildTestcase(baseUrl, endpointName, variationName, endpoint, variation, file, "")
 			if err != nil {
 				return nil, fmt.Errorf("endpoint %q variation %d: %w", endpointName, i, err)
 			}
@@ -209,7 +209,7 @@ func resolveEndpoint(baseURL string, databases []string, endpointName string, en
 	return testcases, nil
 }
 
-func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig, variation *VariationConfig, file *FileUpload, database string) (*Testcase, error) {
+func buildTestcase(baseUrl, endpointName, name string, endpoint *EndpointConfig, variation *VariationConfig, file *FileUpload, database string) (*Testcase, error) {
 	path := endpoint.Path
 	method := strings.ToUpper(endpoint.Method)
 	headers := maps.Clone(endpoint.Headers)
@@ -269,7 +269,7 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		path = strings.ReplaceAll(path, "{database}", database)
 	}
 
-	fullURL, err := buildURL(baseURL, path, query)
+	fullUrl, err := buildUrl(baseUrl, path, query)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func buildTestcase(baseURL, endpointName, name string, endpoint *EndpointConfig,
 		EndpointName:    endpointName,
 		Name:            name,
 		Path:            path,
-		URL:             fullURL,
+		Url:             fullUrl,
 		Method:          method,
 		Headers:         canonicalizeHeaders(headers),
 		ExpectedStatus:  expectedStatus,
@@ -389,28 +389,28 @@ func loadFile(filename string) (*FileUpload, error) {
 	}, nil
 }
 
-func buildURL(baseURL, path string, query map[string]string) (string, error) {
-	base, err := url.Parse(baseURL)
+func buildUrl(baseUrl, path string, query map[string]string) (string, error) {
+	base, err := url.Parse(baseUrl)
 	if err != nil {
 		return "", fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	pathURL, err := url.Parse(path)
+	pathUrl, err := url.Parse(path)
 	if err != nil {
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
 
-	fullURL := base.ResolveReference(pathURL)
+	fullUrl := base.ResolveReference(pathUrl)
 
 	if len(query) > 0 {
-		q := fullURL.Query()
+		q := fullUrl.Query()
 		for k, v := range query {
 			q.Set(k, v)
 		}
-		fullURL.RawQuery = q.Encode()
+		fullUrl.RawQuery = q.Encode()
 	}
 
-	return fullURL.String(), nil
+	return fullUrl.String(), nil
 }
 
 func encodeFormBody(formData map[string]string) string {

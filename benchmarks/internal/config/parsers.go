@@ -15,18 +15,18 @@ func normalizeMemoryLimit(limit string) (string, error) {
 	}
 
 	lower := strings.ToLower(limit)
-	idx := len(lower)
-	for idx > 0 {
-		ch := lower[idx-1]
+	index := len(lower)
+	for index > 0 {
+		ch := lower[index-1]
 		if ch >= 'a' && ch <= 'z' {
-			idx--
+			index--
 			continue
 		}
 		break
 	}
 
-	value := strings.TrimSpace(lower[:idx])
-	unit := strings.TrimSpace(lower[idx:])
+	value := strings.TrimSpace(lower[:index])
+	unit := strings.TrimSpace(lower[index:])
 	if value == "" {
 		return "", errors.New("memory_limit must be a number with optional unit (k, m, g, kb, mb, gb)")
 	}

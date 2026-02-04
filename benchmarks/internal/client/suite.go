@@ -164,13 +164,13 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 	workCh := make(chan *config.Testcase)
 	go func() {
 		defer close(workCh)
-		idx := 0
+		index := 0
 		for ctx.Err() == nil {
 			select {
 			case <-ctx.Done():
 				return
-			case workCh <- testcases[idx%len(testcases)]:
-				idx++
+			case workCh <- testcases[index%len(testcases)]:
+				index++
 			}
 		}
 	}()
@@ -303,11 +303,11 @@ func (s *Suite) RunSequences(hostPort int) []SequenceStats {
 	}
 
 	s.timedSequences = nil
-	baseURL := fmt.Sprintf("http://localhost:%d", hostPort)
+	baseUrl := fmt.Sprintf("http://localhost:%d", hostPort)
 	results := make([]SequenceStats, 0, len(s.server.Sequences))
 
 	for _, seq := range s.server.Sequences {
-		stats := s.runSequence(baseURL, seq)
+		stats := s.runSequence(baseUrl, seq)
 		results = append(results, stats)
 	}
 
@@ -329,20 +329,20 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 	defer cancel()
 
 	type workItem struct {
-		workerID int
+		workerId int
 		cycleNum int
 	}
 
 	workCh := make(chan workItem)
 	go func() {
 		defer close(workCh)
-		idx := 0
+		index := 0
 		for ctx.Err() == nil {
 			select {
 			case <-ctx.Done():
 				return
-			case workCh <- workItem{workerID: idx % workers, cycleNum: idx}:
-				idx++
+			case workCh <- workItem{workerId: index % workers, cycleNum: index}:
+				index++
 			}
 		}
 	}()
@@ -358,7 +358,7 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 				requestStart := time.Now()
 				serverOffset := requestStart.Sub(s.serverStartTime)
 				sequenceOffset := requestStart.Sub(sequenceStartTime)
-				result := RunSequence(ctx, s.httpClient, baseURL, seq, item.workerID, item.cycleNum, s.server.RequestTimeout)
+				result := RunSequence(ctx, s.httpClient, baseURL, seq, item.workerId, item.cycleNum, s.server.RequestTimeout)
 				resultsCh <- timedSequenceResultItem{
 					result:         result,
 					serverOffset:   serverOffset,
@@ -503,18 +503,18 @@ func (s *Suite) runWarmup(testcases []*config.Testcase) {
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	for workerID := range workers {
+	for workerId := range workers {
 		go func(id int) {
 			defer wg.Done()
-			idx := id % len(testcases)
+			index := id % len(testcases)
 			for ctx.Err() == nil {
-				_, _ = s.executeTestcase(ctx, testcases[idx]) // Discard result
-				idx++
-				if idx >= len(testcases) {
-					idx = 0
+				_, _ = s.executeTestcase(ctx, testcases[index]) // Discard result
+				index++
+				if index >= len(testcases) {
+					index = 0
 				}
 			}
-		}(workerID)
+		}(workerId)
 	}
 
 	wg.Wait()

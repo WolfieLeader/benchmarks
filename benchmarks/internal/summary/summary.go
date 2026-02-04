@@ -25,7 +25,7 @@ func PrintServerSummary(result *ServerResult) {
 
 	if result.Resources != nil && result.Resources.Samples > 0 {
 		memStr := cli.FormatMemory(result.Resources.Memory.AvgBytes)
-		cpuStr := cli.FormatCPU(result.Resources.CPU.AvgPercent, result.Resources.Samples)
+		cpuStr := cli.FormatCpu(result.Resources.Cpu.AvgPercent, result.Resources.Samples)
 		warning := ""
 		if len(result.Resources.Warnings) > 0 {
 			warning = fmt.Sprintf(" (%s)", result.Resources.Warnings[0])
