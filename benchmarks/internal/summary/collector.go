@@ -257,6 +257,9 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 
 	var (
 		totalLatency   time.Duration
+		totalP50       time.Duration
+		totalP95       time.Duration
+		totalP99       time.Duration
 		minLatency     = time.Hour
 		maxLatency     time.Duration
 		totalSuccesses int
@@ -269,7 +272,11 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 			continue
 		}
 		endpointCount++
-		totalLatency += ep.Stats.Avg * time.Duration(ep.Stats.Count)
+		count := ep.Stats.Count
+		totalLatency += time.Duration(count) * ep.Stats.Avg
+		totalP50 += time.Duration(count) * ep.Stats.P50
+		totalP95 += time.Duration(count) * ep.Stats.P95
+		totalP99 += time.Duration(count) * ep.Stats.P99
 		if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
 			minLatency = ep.Stats.Low
 		}
@@ -284,9 +291,13 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 		return nil
 	}
 
-	var avg time.Duration
+	var avg, p50, p95, p99 time.Duration
 	if totalSuccesses > 0 {
-		avg = totalLatency / time.Duration(totalSuccesses)
+		divisor := time.Duration(totalSuccesses)
+		avg = totalLatency / divisor
+		p50 = totalP50 / divisor
+		p95 = totalP95 / divisor
+		p99 = totalP99 / divisor
 	}
 	if minLatency == time.Hour {
 		minLatency = 0
@@ -301,6 +312,9 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 		Count:       totalSuccesses,
 		TotalCount:  totalRequests,
 		AvgNs:       avg.Nanoseconds(),
+		P50Ns:       p50.Nanoseconds(),
+		P95Ns:       p95.Nanoseconds(),
+		P99Ns:       p99.Nanoseconds(),
 		MinNs:       minLatency.Nanoseconds(),
 		MaxNs:       maxLatency.Nanoseconds(),
 		SuccessRate: successRate,

@@ -24,7 +24,6 @@ export const dbRoutes = new Hono<{ Variables: DbVariables }>();
 
 dbRoutes.use("/:database/*", withRepository);
 
-// Create user
 dbRoutes.post("/:database/users", async (c) => {
   const repository = c.get("repository");
 
@@ -48,7 +47,6 @@ dbRoutes.post("/:database/users", async (c) => {
   }
 });
 
-// Read user
 dbRoutes.get("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
   const id = c.req.param("id");
@@ -64,7 +62,6 @@ dbRoutes.get("/:database/users/:id", async (c) => {
   }
 });
 
-// Update user (PATCH - partial update)
 dbRoutes.patch("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
   const id = c.req.param("id");
@@ -92,7 +89,6 @@ dbRoutes.patch("/:database/users/:id", async (c) => {
   }
 });
 
-// Delete user
 dbRoutes.delete("/:database/users/:id", async (c) => {
   const repository = c.get("repository");
   const id = c.req.param("id");
@@ -108,7 +104,6 @@ dbRoutes.delete("/:database/users/:id", async (c) => {
   }
 });
 
-// Reset - delete all users
 dbRoutes.delete("/:database/users", async (c) => {
   const repository = c.get("repository");
   try {
@@ -119,7 +114,6 @@ dbRoutes.delete("/:database/users", async (c) => {
   }
 });
 
-// Reset database - truncate all users
 dbRoutes.delete("/:database/reset", async (c) => {
   const repository = c.get("repository");
   try {

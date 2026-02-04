@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -172,4 +173,25 @@ func TruncatePath(path string, maxLen int) string {
 		return path[:maxLen-3] + "..."
 	}
 	return ".../" + parts[len(parts)-1]
+}
+
+func FormatReqs(count int) string {
+	if count < 1000 {
+		return strconv.Itoa(count)
+	}
+	if count < 1_000_000 {
+		return fmt.Sprintf("%.2fk", float64(count)/1000)
+	}
+	return fmt.Sprintf("%.2fM", float64(count)/1_000_000)
+}
+
+func FormatRate(rate float64) string {
+	pct := rate * 100
+	if pct >= 99.95 {
+		return "100%"
+	}
+	if pct >= 9.95 {
+		return fmt.Sprintf("%.1f%%", pct)
+	}
+	return fmt.Sprintf("%.2f%%", pct)
 }

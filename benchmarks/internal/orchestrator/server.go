@@ -72,23 +72,42 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 
 	result.StartTime = time.Now()
 
-	suite := client.NewSuite(ctx, server)
+	// Count unique endpoints for progress display
+	endpointCount := countUniqueEndpoints(server.Testcases)
+	sequenceCount := len(server.Sequences)
+
+	// Create progress spinner
+	progress := cli.NewProgressSpinner()
+	progress.Start(endpointCount, sequenceCount)
+
+	suite := client.NewSuite(ctx, server, &client.ProgressCallbacks{
+		OnEndpoint: func(method, path string, done int) {
+			progress.UpdateEndpoint(method, path, done)
+		},
+		OnSequence: func(seqName string, done int) {
+			progress.UpdateSequence(seqName, done)
+		},
+	})
 	defer suite.Close()
 
 	endpoints, err := suite.RunAll() //nolint:contextcheck // context is stored in Suite struct
 	if err != nil {
+		progress.Stop()
 		stopSampler(sampler, result)
 		result.SetError(fmt.Errorf("benchmark failed: %w", err))
 		return result, nil, nil
 	}
 
 	if ctx.Err() != nil {
+		progress.Stop()
 		stopSampler(sampler, result)
 		result.SetError(ctx.Err())
 		return result, nil, nil
 	}
 
-	sequences := suite.RunSequences(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
+	sequences := suite.RunSequences(options.HostPort, endpointCount) //nolint:contextcheck // context is stored in Suite struct
+
+	progress.Stop()
 
 	timedResults := suite.GetTimedResults()
 	timedSequences := suite.GetTimedSequences()
@@ -99,6 +118,14 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	result.Sequences = sequences
 
 	return result, timedResults, timedSequences
+}
+
+func countUniqueEndpoints(testcases []*config.Testcase) int {
+	seen := make(map[string]struct{})
+	for _, tc := range testcases {
+		seen[tc.EndpointName] = struct{}{}
+	}
+	return len(seen)
 }
 
 func stopContainer(containerId container.Id) {

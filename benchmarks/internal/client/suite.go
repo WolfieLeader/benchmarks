@@ -10,9 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
 )
+
+type ProgressCallbacks struct {
+	OnEndpoint func(method, path string, done int)
+	OnSequence func(seqName string, done int)
+}
 
 type Suite struct {
 	ctx             context.Context
@@ -22,9 +26,10 @@ type Suite struct {
 	serverStartTime time.Time
 	timedResults    []TimedResult
 	timedSequences  []TimedSequenceResult
+	progress        *ProgressCallbacks
 }
 
-func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
+func NewSuite(ctx context.Context, server *config.ResolvedServer, progress *ProgressCallbacks) *Suite {
 	transport := NewHTTPTransport(server.Concurrency)
 
 	return &Suite{
@@ -32,6 +37,7 @@ func NewSuite(ctx context.Context, server *config.ResolvedServer) *Suite {
 		httpClient: &http.Client{Transport: transport},
 		transport:  transport,
 		server:     server,
+		progress:   progress,
 	}
 }
 
@@ -62,6 +68,8 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 
 	results := make([]EndpointResult, 0, len(endpointTestcases))
 	used := make(map[string]struct{}, len(endpointTestcases))
+	endpointsDone := 0
+
 	for _, endpointName := range s.server.EndpointOrder {
 		if s.ctx.Err() != nil {
 			break
@@ -70,21 +78,7 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 		if !ok || len(testcases) == 0 {
 			continue
 		}
-		first := testcases[0]
-
-		cli.Infof("Testing %s %s...", first.Method, first.Path)
-
-		if s.server.WarmupDuration > 0 {
-			s.runWarmup(testcases)
-			if s.ctx.Err() != nil {
-				break
-			}
-			if s.server.WarmupPause > 0 {
-				time.Sleep(s.server.WarmupPause)
-			}
-		}
-
-		results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
+		endpointsDone = s.runEndpointWithWarmup(testcases, endpointsDone, &results)
 		used[endpointName] = struct{}{}
 	}
 
@@ -105,25 +99,35 @@ func (s *Suite) RunAll() ([]EndpointResult, error) {
 			if len(testcases) == 0 {
 				continue
 			}
-			first := testcases[0]
-
-			cli.Infof("Testing %s %s...", first.Method, first.Path)
-
-			if s.server.WarmupDuration > 0 {
-				s.runWarmup(testcases)
-				if s.ctx.Err() != nil {
-					break
-				}
-				if s.server.WarmupPause > 0 {
-					time.Sleep(s.server.WarmupPause)
-				}
-			}
-
-			results = append(results, s.runEndpoint(endpointName, first.Path, first.Method, testcases))
+			endpointsDone = s.runEndpointWithWarmup(testcases, endpointsDone, &results)
 		}
 	}
 
 	return results, nil //nolint:nilerr // context cancellation returns partial results, not an error
+}
+
+func (s *Suite) runEndpointWithWarmup(testcases []*config.Testcase, done int, results *[]EndpointResult) int {
+	if len(testcases) == 0 {
+		return done
+	}
+	first := testcases[0]
+
+	if s.progress != nil && s.progress.OnEndpoint != nil {
+		s.progress.OnEndpoint(first.Method, first.Path, done)
+	}
+
+	if s.server.WarmupDuration > 0 {
+		s.runWarmup(testcases)
+		if s.ctx.Err() != nil {
+			return done
+		}
+		if s.server.WarmupPause > 0 {
+			time.Sleep(s.server.WarmupPause)
+		}
+	}
+
+	*results = append(*results, s.runEndpoint(first.EndpointName, first.Path, first.Method, testcases))
+	return done + 1
 }
 
 func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testcase) EndpointResult {
@@ -297,7 +301,7 @@ type SequenceStepStats struct {
 	P99    time.Duration `json:"p99"`
 }
 
-func (s *Suite) RunSequences(hostPort int) []SequenceStats {
+func (s *Suite) RunSequences(hostPort int, endpointsDone int) []SequenceStats {
 	if len(s.server.Sequences) == 0 {
 		return nil
 	}
@@ -306,7 +310,14 @@ func (s *Suite) RunSequences(hostPort int) []SequenceStats {
 	baseUrl := fmt.Sprintf("http://localhost:%d", hostPort)
 	results := make([]SequenceStats, 0, len(s.server.Sequences))
 
-	for _, seq := range s.server.Sequences {
+	for i, seq := range s.server.Sequences {
+		if s.progress != nil && s.progress.OnSequence != nil {
+			seqName := seq.Id
+			if seq.Database != "" {
+				seqName = fmt.Sprintf("%s/%s", seq.Id, seq.Database)
+			}
+			s.progress.OnSequence(seqName, i)
+		}
 		stats := s.runSequence(baseUrl, seq)
 		results = append(results, stats)
 	}
