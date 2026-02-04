@@ -13,9 +13,9 @@
     "jsr:@std/media-types@1": "1.1.0",
     "jsr:@std/path@1": "1.1.4",
     "npm:cassandra-driver@^4.8.0": "4.8.0",
-    "npm:drizzle-orm@~0.45.1": "0.45.1_pg@8.17.2_pg@8.18.0",
+    "npm:drizzle-orm@~0.45.1": "0.45.1_pg@8.18.0",
     "npm:ioredis@^5.9.2": "5.9.2",
-    "npm:mongodb@7": "7.0.0",
+    "npm:mongodb@^7.1.0": "7.1.0",
     "npm:path-to-regexp@^6.3.0": "6.3.0",
     "npm:pg@^8.18.0": "8.18.0",
     "npm:uuid@13": "13.0.0",
@@ -104,8 +104,8 @@
     "adm-zip@0.5.16": {
       "integrity": "sha512-TGw5yVi4saajsSEgz25grObGHEUaDrniwvA2qwSC060KfqGPdglhvPMA2lPIoxs3PQIItj2iag35fONcQqgUaQ=="
     },
-    "bson@7.1.1": {
-      "integrity": "sha512-TtJgBB+QyOlWjrbM+8bRgH84VM/xrDjyBFgSgGrfZF4xvt6gbEDtcswm27Tn9F9TWsjQybxT8b8VpCP/oJK4Dw=="
+    "bson@7.2.0": {
+      "integrity": "sha512-YCEo7KjMlbNlyHhz7zAZNDpIpQbd+wOEHJYezv0nMYTn4x31eIUM2yomNNubclAt63dObUzKHWsBLJ9QcZNSnQ=="
     },
     "cassandra-driver@4.8.0": {
       "integrity": "sha512-HritfMGq9V7SuESeSodHvArs0mLuMk7uh+7hQK2lqdvXrvm50aWxb4RPxkK3mPDdsgHjJ427xNRFITMH2ei+Sw==",
@@ -127,7 +127,7 @@
     "denque@2.1.0": {
       "integrity": "sha512-HVQE3AAb/pxF8fQAoiqpvg9i3evqug3hoiwakOyZAwJm+6vZehbkYXZ0l4JxS+I3QxM97v5aaRNhj8v5oBhekw=="
     },
-    "drizzle-orm@0.45.1_pg@8.17.2_pg@8.18.0": {
+    "drizzle-orm@0.45.1_pg@8.18.0": {
       "integrity": "sha512-Te0FOdKIistGNPMq2jscdqngBRfBpC8uMFVwqjf6gtTVJHIQ/dosgV/CLBU2N4ZJBsXL5savCba9b0YJskKdcA==",
       "dependencies": [
         "pg"
@@ -169,8 +169,8 @@
         "whatwg-url"
       ]
     },
-    "mongodb@7.0.0": {
-      "integrity": "sha512-vG/A5cQrvGGvZm2mTnCSz1LUcbOPl83hfB6bxULKQ8oFZauyox/2xbZOoGNl+64m8VBrETkdGCDBdOsCr3F3jg==",
+    "mongodb@7.1.0": {
+      "integrity": "sha512-kMfnKunbolQYwCIyrkxNJFB4Ypy91pYqua5NargS/f8ODNSJxT03ZU3n1JqL4mCzbSih8tvmMEMLpKTT7x5gCg==",
       "dependencies": [
         "@mongodb-js/saslprep",
         "bson",
@@ -305,7 +305,7 @@
       "npm:cassandra-driver@^4.8.0",
       "npm:drizzle-orm@~0.45.1",
       "npm:ioredis@^5.9.2",
-      "npm:mongodb@7",
+      "npm:mongodb@^7.1.0",
       "npm:pg@^8.18.0",
       "npm:uuid@13",
       "npm:zod@^4.3.6"

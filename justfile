@@ -69,7 +69,7 @@ update target='all':
         case "$1" in
             honojs)    (cd {{ts_dir}}/bun-honojs && bun update --latest) ;;
             elysia)    (cd {{ts_dir}}/bun-elysia && bun update --latest) ;;
-            oak)       (cd {{ts_dir}}/deno-oak && deno outdated --update) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno update --latest) ;;
             express)   (cd {{ts_dir}}/node-express && pnpm update --latest) ;;
             nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm update --latest) ;;
             fastify)   (cd {{ts_dir}}/node-fastify && pnpm update --latest) ;;

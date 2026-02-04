@@ -14,7 +14,7 @@
     "drizzle-orm/node-postgres": "npm:drizzle-orm@^0.45.1/node-postgres",
     "drizzle-orm/pg-core": "npm:drizzle-orm@^0.45.1/pg-core",
     "ioredis": "npm:ioredis@^5.9.2",
-    "mongodb": "npm:mongodb@^7.0.0",
+    "mongodb": "npm:mongodb@^7.1.0",
     "pg": "npm:pg@^8.18.0",
     "uuid": "npm:uuid@^13.0.0",
     "zod": "npm:zod@^4.3.6"
