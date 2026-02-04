@@ -10,7 +10,7 @@
   "go.lintTool": "golangci-lint",
   "gopls": { "formatting.gofumpt": true },
   "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
-  "cSpell.words": ["cooldown"],
+  "cSpell.words": ["contextcheck", "cooldown", "Failf", "Infof", "Linef", "nolint", "Successf", "Warnf"],
   "material-icon-theme.folders.associations": {
     "infra": "container",
     "http-servers": "server",
