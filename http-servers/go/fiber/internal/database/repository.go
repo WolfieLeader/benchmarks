@@ -112,20 +112,26 @@ func GetAllHealthStatuses(ctx context.Context, env *config.Env) HealthStatus {
 		Databases: make(map[string]string),
 	}
 
-	for _, dbType := range DatabaseTypes {
-		repo := GetRepository(dbType, env)
-		if repo == nil {
-			result.Databases[string(dbType)] = "unhealthy"
-			continue
-		}
+	var wg sync.WaitGroup
+	var resultMu sync.Mutex
 
-		healthy, _ := repo.HealthCheck(ctx)
-		if healthy {
-			result.Databases[string(dbType)] = "healthy"
-		} else {
-			result.Databases[string(dbType)] = "unhealthy"
-		}
+	for _, dbType := range DatabaseTypes {
+		wg.Add(1)
+		go func(dt DatabaseType) {
+			defer wg.Done()
+			repo := GetRepository(dt, env)
+			status := "unhealthy"
+			if repo != nil {
+				if healthy, _ := repo.HealthCheck(ctx); healthy {
+					status = "healthy"
+				}
+			}
+			resultMu.Lock()
+			result.Databases[string(dt)] = status
+			resultMu.Unlock()
+		}(dbType)
 	}
+	wg.Wait()
 
 	return result
 }

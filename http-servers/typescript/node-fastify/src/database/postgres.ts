@@ -11,7 +11,7 @@ export class PostgresUserRepository implements UserRepository {
   private db: ReturnType<typeof drizzle>;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({ connectionString, max: 50, idleTimeoutMillis: 30000 });
     this.db = drizzle(this.pool);
   }
 
