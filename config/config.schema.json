@@ -15,6 +15,7 @@
         "concurrency": { "type": "integer", "minimum": 1, "maximum": 10000 },
         "duration_per_endpoint": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
         "request_timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "sample_rate": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%$", "default": "10%" },
         "server_cooldown": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
         "warmup_duration": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
         "warmup_pause": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" }
@@ -27,34 +28,6 @@
       "properties": {
         "cpu_limit": { "type": "number", "exclusiveMinimum": 0 },
         "memory_limit": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?([kKmMgG][bB]?)?$" }
-      }
-    },
-    "influx": {
-      "type": "object",
-      "description": "InfluxDB configuration for metrics export",
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "type": "string",
-          "description": "InfluxDB URL",
-          "default": "http://localhost:8181"
-        },
-        "database": {
-          "type": "string",
-          "description": "InfluxDB database",
-          "default": "benchmarks"
-        },
-        "token": {
-          "type": "string",
-          "description": "InfluxDB authentication token",
-          "default": "benchmark-token"
-        },
-        "sample_rate": {
-          "type": "string",
-          "description": "Sampling percentage for latency points",
-          "pattern": "^[0-9]+(\\.[0-9]+)?%$",
-          "default": "10%"
-        }
       }
     },
     "databases": {

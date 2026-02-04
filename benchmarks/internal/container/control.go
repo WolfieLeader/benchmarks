@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -96,7 +97,7 @@ type StartOptions struct {
 	Image       string
 	Port        int
 	HostPort    int
-	CPULimit    float64
+	CpuLimit    float64
 	MemoryLimit string
 	Network     string
 }
@@ -117,8 +118,8 @@ func StartWithOptions(ctx context.Context, timeout time.Duration, opts *StartOpt
 	}
 	args = append(args, "-p", fmt.Sprintf("%d:%d", hostPort, containerPort))
 
-	if opts.CPULimit > 0 {
-		args = append(args, "--cpus="+strconv.FormatFloat(opts.CPULimit, 'f', -1, 64))
+	if opts.CpuLimit > 0 {
+		args = append(args, "--cpus="+strconv.FormatFloat(opts.CpuLimit, 'f', -1, 64))
 	}
 	if opts.MemoryLimit != "" {
 		args = append(args, "--memory="+opts.MemoryLimit)
@@ -160,7 +161,7 @@ type healthResponse struct {
 	Databases map[string]string `json:"databases"`
 }
 
-func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string) error {
+func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string, requiredDbs []string) error {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -219,9 +220,22 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string)
 			continue
 		}
 
+		required := requiredDbs
+		if len(required) == 0 {
+			for db := range health.Databases {
+				required = append(required, db)
+			}
+		}
+		if len(required) == 0 {
+			lastErr = errors.New("health response missing database statuses")
+			time.Sleep(HealthCheckInterval)
+			continue
+		}
+
 		allDbsHealthy := true
-		for db, status := range health.Databases {
-			if status != "healthy" {
+		for _, db := range required {
+			status, ok := health.Databases[db]
+			if !ok || status != "healthy" {
 				allDbsHealthy = false
 				lastErr = fmt.Errorf("database %s is not healthy: %s", db, status)
 				break

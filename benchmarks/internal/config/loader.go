@@ -15,22 +15,17 @@ import (
 
 var DefaultConfig = Config{
 	Benchmark: BenchmarkConfig{
-		BaseURL:                "http://localhost:8080",
+		BaseUrl:                "http://localhost:8080",
 		Concurrency:            50,
 		DurationPerEndpointRaw: "10s",
 		RequestTimeoutRaw:      "10s",
+		SampleRateRaw:          "10%",
 		WarmupDurationRaw:      "1s",
 		WarmupPauseRaw:         "100ms",
 	},
 	Container: ContainerConfig{
-		CPULimit:    1.0,
+		CpuLimit:    1.0,
 		MemoryLimit: "512mb",
-	},
-	Influx: InfluxConfig{
-		URL:        "http://localhost:8086",
-		Database:   "benchmarks",
-		Token:      "benchmark-token",
-		SampleRate: "10%",
 	},
 }
 
@@ -161,10 +156,10 @@ func applyDefaults(cfg *Config) error {
 		return errors.New("configuration is nil")
 	}
 
-	if strings.TrimSpace(cfg.Benchmark.BaseURL) == "" {
-		cfg.Benchmark.BaseURL = DefaultConfig.Benchmark.BaseURL
+	if strings.TrimSpace(cfg.Benchmark.BaseUrl) == "" {
+		cfg.Benchmark.BaseUrl = DefaultConfig.Benchmark.BaseUrl
 	}
-	if _, err := url.Parse(cfg.Benchmark.BaseURL); err != nil {
+	if _, err := url.Parse(cfg.Benchmark.BaseUrl); err != nil {
 		return fmt.Errorf("benchmark base_url: %w", err)
 	}
 
@@ -192,6 +187,19 @@ func applyDefaults(cfg *Config) error {
 		return fmt.Errorf("benchmark request_timeout: %w", err)
 	}
 	cfg.Benchmark.RequestTimeout = requestTimeout
+
+	defaultSampleRate, _ := parsePercent(DefaultConfig.Benchmark.SampleRateRaw, DefaultConfig.Benchmark.SampleRateRaw)
+	sampleRate, err := parsePercent(cfg.Benchmark.SampleRateRaw, DefaultConfig.Benchmark.SampleRateRaw)
+	if err != nil {
+		return fmt.Errorf("benchmark sample_rate: %w", err)
+	}
+	if sampleRate <= 0 || sampleRate > 100 {
+		sampleRate = defaultSampleRate
+	}
+	if strings.TrimSpace(cfg.Benchmark.SampleRateRaw) == "" {
+		cfg.Benchmark.SampleRateRaw = DefaultConfig.Benchmark.SampleRateRaw
+	}
+	cfg.Benchmark.SampleRatePct = sampleRate / 100
 
 	if strings.TrimSpace(cfg.Benchmark.ServerCooldownRaw) != "" {
 		cooldown, cooldownErr := time.ParseDuration(cfg.Benchmark.ServerCooldownRaw)
@@ -228,8 +236,8 @@ func applyDefaults(cfg *Config) error {
 	}
 	cfg.Benchmark.WarmupPause = warmupPause
 
-	if cfg.Container.CPULimit <= 0 {
-		cfg.Container.CPULimit = DefaultConfig.Container.CPULimit
+	if cfg.Container.CpuLimit <= 0 {
+		cfg.Container.CpuLimit = DefaultConfig.Container.CpuLimit
 	}
 
 	if strings.TrimSpace(cfg.Container.MemoryLimit) == "" {
@@ -240,25 +248,6 @@ func applyDefaults(cfg *Config) error {
 		return fmt.Errorf("container memory_limit: %w", err)
 	}
 	cfg.Container.MemoryLimit = normalizedMemory
-
-	if cfg.Influx.URL == "" {
-		cfg.Influx.URL = DefaultConfig.Influx.URL
-	}
-	if cfg.Influx.Database == "" {
-		cfg.Influx.Database = DefaultConfig.Influx.Database
-	}
-	if cfg.Influx.Token == "" {
-		cfg.Influx.Token = DefaultConfig.Influx.Token
-	}
-	defaultSampleRate, _ := parsePercent(DefaultConfig.Influx.SampleRate, DefaultConfig.Influx.SampleRate)
-	sampleRate, err := parsePercent(cfg.Influx.SampleRate, DefaultConfig.Influx.SampleRate)
-	if err != nil {
-		return fmt.Errorf("influx sample_rate: %w", err)
-	}
-	if sampleRate <= 0 || sampleRate > 100 {
-		sampleRate = defaultSampleRate
-	}
-	cfg.Influx.SampleRatePct = sampleRate / 100
 
 	if len(cfg.Servers) == 0 {
 		return errors.New("no servers defined")

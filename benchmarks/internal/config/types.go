@@ -5,19 +5,10 @@ import "time"
 type Config struct {
 	Benchmark     BenchmarkConfig           `json:"benchmark"`
 	Container     ContainerConfig           `json:"container"`
-	Influx        InfluxConfig              `json:"influx"`
 	Databases     []string                  `json:"databases"`
 	Servers       []ServerConfig            `json:"servers"`
 	Endpoints     map[string]EndpointConfig `json:"endpoints"`
 	EndpointOrder []string                  `json:"-"`
-}
-
-type InfluxConfig struct {
-	Url           string  `json:"url"`
-	Database      string  `json:"database"`
-	Token         string  `json:"token"`
-	SampleRate    string  `json:"sample_rate"`
-	SampleRatePct float64 `json:"-"`
 }
 
 type BenchmarkConfig struct {
@@ -25,12 +16,14 @@ type BenchmarkConfig struct {
 	Concurrency            int    `json:"concurrency"`
 	DurationPerEndpointRaw string `json:"duration_per_endpoint"`
 	RequestTimeoutRaw      string `json:"request_timeout"`
+	SampleRateRaw          string `json:"sample_rate,omitempty"`
 	ServerCooldownRaw      string `json:"server_cooldown,omitempty"`
 	WarmupDurationRaw      string `json:"warmup_duration,omitempty"`
 	WarmupPauseRaw         string `json:"warmup_pause,omitempty"`
 
 	DurationPerEndpoint time.Duration `json:"-"`
 	RequestTimeout      time.Duration `json:"-"`
+	SampleRatePct       float64       `json:"-"`
 	ServerCooldown      time.Duration `json:"-"`
 	WarmupDuration      time.Duration `json:"-"`
 	WarmupPause         time.Duration `json:"-"`

@@ -4,10 +4,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
-
 	"benchmark-client/internal/client"
 	"benchmark-client/internal/container"
+
+	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
 )
 
 const writeBatchSize = 5000
@@ -28,8 +28,10 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 			if c.ctx != nil && c.ctx.Err() != nil {
 				return
 			}
-			if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
-				continue
+			if c.sampleRate > 0 && c.sampleRate < 1 {
+				if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+					continue
+				}
 			}
 			points = append(points, influxdb3.NewPoint(
 				"request_latency",
@@ -72,8 +74,10 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 			if c.ctx != nil && c.ctx.Err() != nil {
 				return
 			}
-			if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
-				continue
+			if c.sampleRate > 0 && c.sampleRate < 1 {
+				if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+					continue
+				}
 			}
 			points = append(points, influxdb3.NewPoint(
 				"sequence_latency",
@@ -102,8 +106,10 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 				if c.ctx != nil && c.ctx.Err() != nil {
 					return
 				}
-				if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
-					continue
+				if c.sampleRate > 0 && c.sampleRate < 1 {
+					if rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+						continue
+					}
 				}
 				points = append(points, influxdb3.NewPoint(
 					"sequence_step_latency",
@@ -145,10 +151,26 @@ func (c *Client) WriteResourceStats(runId, server string, stats *container.Resou
 			"memory_min_bytes": stats.Memory.MinBytes,
 			"memory_avg_bytes": stats.Memory.AvgBytes,
 			"memory_max_bytes": stats.Memory.MaxBytes,
-			"cpu_min_percent":  stats.CPU.MinPercent,
-			"cpu_avg_percent":  stats.CPU.AvgPercent,
-			"cpu_max_percent":  stats.CPU.MaxPercent,
+			"cpu_min_percent":  stats.Cpu.MinPercent,
+			"cpu_avg_percent":  stats.Cpu.AvgPercent,
+			"cpu_max_percent":  stats.Cpu.MaxPercent,
 			"samples":          stats.Samples,
+		},
+		time.Now(),
+	)
+}
+
+func (c *Client) WriteRunMeta(runId string, sampleRate float64) {
+	if c == nil {
+		return
+	}
+
+	c.WritePoint("run_meta",
+		map[string]string{
+			"run_id": runId,
+		},
+		map[string]any{
+			"sample_rate": sampleRate,
 		},
 		time.Now(),
 	)

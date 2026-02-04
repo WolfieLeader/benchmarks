@@ -21,32 +21,25 @@ type Client struct {
 	wg         sync.WaitGroup
 }
 
-type Config struct {
-	URL        string  `json:"url"`
-	Database   string  `json:"database"`
-	Token      string  `json:"token"`
-	SampleRate float64 `json:"sample_rate"`
-}
+const (
+	DefaultUrl          = "http://localhost:8181"
+	DefaultDatabase     = "benchmarks"
+	DefaultToken        = "benchmark-token"
+	DefaultSampleRate   = 0.1
+	defaultWriteTimeout = 15 * time.Second
+)
 
-const defaultWriteTimeout = 15 * time.Second
-
-//nolint:contextcheck // context is stored in Client for use in async write operations
-func NewClient(ctx context.Context, cfg Config) *Client {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	// Check if InfluxDB is healthy via HTTP before creating client
-	healthURL := cfg.URL + "/health"
+func waitToBeReady(ctx context.Context) error {
+	healthUrl := DefaultUrl + "/health"
 	deadline := time.Now().Add(30 * time.Second)
 
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
-			return nil
+			return ctx.Err()
 		}
 
 		reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, healthURL, http.NoBody)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, healthUrl, http.NoBody)
 		if err != nil {
 			cancel()
 			time.Sleep(2 * time.Second)
@@ -64,31 +57,42 @@ func NewClient(ctx context.Context, cfg Config) *Client {
 		}
 
 		if time.Now().Add(2 * time.Second).After(deadline) {
-			cli.Warnf("InfluxDB not available at %s, metrics export disabled", cfg.URL)
-			return nil
+			cli.Warnf("InfluxDB not available at %s, metrics export disabled", DefaultUrl)
+			return errors.New("influxdb not available, metrics export disabled")
 		}
 
 		time.Sleep(2 * time.Second)
 	}
+	return nil
+}
+
+//nolint:contextcheck // context is stored in Client for use in async write operations
+func NewClient(ctx context.Context, sampleRate float64) *Client {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if err := waitToBeReady(ctx); err != nil {
+		return nil
+	}
 
 	client, err := influxdb3.New(influxdb3.ClientConfig{
-		Host:     cfg.URL,
-		Token:    cfg.Token,
-		Database: cfg.Database,
+		Host:     DefaultUrl,
+		Token:    DefaultToken,
+		Database: DefaultDatabase,
 	})
 	if err != nil {
 		cli.Warnf("Failed to create InfluxDB client: %v", err)
 		return nil
 	}
 
-	sampleRate := cfg.SampleRate
 	if sampleRate <= 0 || sampleRate > 1 {
-		sampleRate = 0.1
+		sampleRate = DefaultSampleRate
 	}
 
 	return &Client{
 		client:     client,
-		database:   cfg.Database,
+		database:   DefaultDatabase,
 		ctx:        ctx,
 		timeout:    defaultWriteTimeout,
 		sampleRate: sampleRate,
@@ -99,7 +103,9 @@ func (c *Client) Close() {
 	if c == nil {
 		return
 	}
-	_ = c.client.Close()
+	if err := c.client.Close(); err != nil {
+		cli.Warnf("Failed to close InfluxDB client: %v", err)
+	}
 }
 
 func (c *Client) WritePoint(measurement string, tags map[string]string, fields map[string]any, ts time.Time) {
@@ -136,6 +142,7 @@ func (c *Client) writePoints(points []*influxdb3.Point) {
 			return
 		}
 		cli.Warnf("InfluxDB write error (%d points): %v", len(points), err)
+		return
 	}
 }
 
@@ -159,6 +166,6 @@ func (c *Client) Wait() {
 	c.wg.Wait()
 }
 
-func RunID(t time.Time) string {
+func RunId(t time.Time) string {
 	return t.UTC().Format("20060102-150405")
 }

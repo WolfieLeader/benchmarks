@@ -50,12 +50,10 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	}
 	cli.Successf("Grafana stack started")
 
-	o.influx = influx.NewClient(ctx, influx.Config{
-		Url:        o.cfg.Influx.Url,
-		Database:   o.cfg.Influx.Database,
-		Token:      o.cfg.Influx.Token,
-		SampleRate: o.cfg.Influx.SampleRatePct,
-	})
+	o.influx = influx.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
+	if o.influx != nil {
+		o.influx.WriteRunMeta(o.runId, o.cfg.Benchmark.SampleRatePct) //nolint:contextcheck // uses stored context from Client
+	}
 
 	cli.Infof("Starting database stack...")
 	if err := o.compose.StartDatabases(ctx); err != nil {

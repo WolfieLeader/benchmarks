@@ -10,6 +10,7 @@ import (
 
 func ResetAll(ctx context.Context, serverURL string, databases []string) error {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
+	defer httpClient.CloseIdleConnections()
 
 	for _, db := range databases {
 		resetURL := fmt.Sprintf("%s/db/%s/reset", serverURL, db)
