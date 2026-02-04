@@ -87,6 +87,7 @@ func ResolveRepository(database string, env *config.Env) UserRepository {
 }
 
 func InitializeConnections(env *config.Env) {
+	ctx := context.Background()
 	var wg sync.WaitGroup
 	for _, dbType := range DatabaseTypes {
 		wg.Add(1)
@@ -94,7 +95,7 @@ func InitializeConnections(env *config.Env) {
 			defer wg.Done()
 			repo := GetRepository(dt, env)
 			if repo != nil {
-				_, _ = repo.HealthCheck(context.Background())
+				_, _ = repo.HealthCheck(ctx)
 			}
 		}(dbType)
 	}

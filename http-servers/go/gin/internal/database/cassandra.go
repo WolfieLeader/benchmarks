@@ -131,16 +131,7 @@ func (r *CassandraRepository) Update(ctx context.Context, id string, data *Updat
 	}
 
 	params = append(params, id)
-	var sb strings.Builder
-	sb.WriteString("UPDATE users SET ")
-	for i, clause := range setClauses {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(clause)
-	}
-	sb.WriteString(" WHERE id = ?")
-	query := sb.String()
+	query := "UPDATE users SET " + strings.Join(setClauses, ", ") + " WHERE id = ?"
 
 	if err := r.session.Query(query, params...).WithContext(ctx).Exec(); err != nil {
 		return nil, err

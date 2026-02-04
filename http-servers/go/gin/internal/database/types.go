@@ -20,9 +20,10 @@ type UpdateUser struct {
 }
 
 func BuildUser(id string, data *CreateUser) *User {
-	user := &User{Id: id, Name: data.Name, Email: data.Email}
-	if data.FavoriteNumber != nil {
-		user.FavoriteNumber = data.FavoriteNumber
+	return &User{
+		Id:             id,
+		Name:           data.Name,
+		Email:          data.Email,
+		FavoriteNumber: data.FavoriteNumber,
 	}
-	return user
 }

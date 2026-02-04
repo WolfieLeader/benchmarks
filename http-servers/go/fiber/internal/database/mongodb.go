@@ -47,11 +47,12 @@ func (r *MongoRepository) connect() error {
 }
 
 func (r *MongoRepository) toUser(doc *userDocument) *User {
-	user := &User{Id: doc.Id.Hex(), Name: doc.Name, Email: doc.Email}
-	if doc.FavoriteNumber != nil {
-		user.FavoriteNumber = doc.FavoriteNumber
+	return &User{
+		Id:             doc.Id.Hex(),
+		Name:           doc.Name,
+		Email:          doc.Email,
+		FavoriteNumber: doc.FavoriteNumber,
 	}
-	return user
 }
 
 func (r *MongoRepository) parseObjectId(id string) (bson.ObjectID, bool) {
