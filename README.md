@@ -1,22 +1,39 @@
 <div align="center">
   <img src="./assets/banner.svg" alt="HTTP Benchmarks" />
   <p>
-    A benchmark harness comparing 10 HTTP frameworks<br/>
-    across Node.js, Bun, Deno, Go, and Python<br/>
-    with real database operations and metrics visualization.
+    A side-by-side HTTP performance comparison <br/> 
+    focused on identical behavior, real database flows, <br/> 
+    and metrics that enable fair cross-runtime evaluation.
   </p>
 
-[![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)](./http-servers/typescript/node-express)
-[![Fastify](https://img.shields.io/badge/Fastify-000000?style=for-the-badge&logo=fastify&logoColor=white)](./http-servers/typescript/node-fastify)
-[![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](./http-servers/typescript/node-nestjs)
-[![Hono](https://img.shields.io/badge/Hono-E36002?style=for-the-badge&logo=hono&logoColor=white)](./http-servers/typescript/bun-honojs)
-[![Elysia](https://img.shields.io/badge/Elysia-14151A?style=for-the-badge&logo=bun&logoColor=white)](./http-servers/typescript/bun-elysia)
-[![Oak](https://img.shields.io/badge/Oak-70FFAF?style=for-the-badge&logo=deno&logoColor=black)](./http-servers/typescript/deno-oak)
-[![Chi](https://img.shields.io/badge/Chi-00ADD8?style=for-the-badge&logo=go&logoColor=white)](./http-servers/go/chi)
-[![Gin](https://img.shields.io/badge/Gin-00ADD8?style=for-the-badge&logo=go&logoColor=white)](./http-servers/go/gin)
-[![Fiber](https://img.shields.io/badge/Fiber-00ADD8?style=for-the-badge&logo=go&logoColor=white)](./http-servers/go/fiber)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](./http-servers/python/fastapi)
+<p align="center">
+  <img src="./assets/node.svg" alt="Node.js" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/bun.svg" alt="Bun" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/deno.svg" alt="Deno" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/go.svg" alt="Go" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/python.svg" alt="Python" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/typescript.svg" alt="TypeScript" height="28" style="display:inline-block; vertical-align:middle;" />
+</p>
 
+<p align="center">
+  <img src="./assets/postgresql.svg" alt="PostgreSQL" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/mongodb.svg" alt="MongoDB" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/redis.svg" alt="Redis" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/cassandra.svg" alt="Cassandra" height="28" style="display:inline-block; vertical-align:middle;" />
+</p>
+
+<p align="center">
+  <a href="./http-servers/typescript/node-express"><img src="./assets/express.svg" alt="Express" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/typescript/node-fastify"><img src="./assets/fastify.svg" alt="Fastify" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/typescript/node-nestjs"><img src="./assets/nestjs.svg" alt="NestJS" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/typescript/bun-honojs"><img src="./assets/honojs.svg" alt="Hono" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/typescript/bun-elysia"><img src="./assets/elysiajs.svg" alt="Elysia" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/typescript/deno-oak"><img src="./assets/oak.svg" alt="Oak" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/go/chi"><img src="./assets/chi.svg" alt="Chi" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/go/gin"><img src="./assets/gin.svg" alt="Gin" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/go/fiber"><img src="./assets/fiber.svg" alt="Fiber" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./http-servers/python/fastapi"><img src="./assets/fastapi.svg" alt="FastAPI" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+</p>
 </div>
 
 ## Stack Map 📦
