@@ -8,6 +8,7 @@ import multer from "multer";
 
 import { AppModule } from "./app.module";
 import { env } from "./config/env";
+import { MAX_REQUEST_BYTES } from "./consts/defaults";
 import {
   FILE_SIZE_EXCEEDS,
   INTERNAL_ERROR,
@@ -25,7 +26,7 @@ class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse();
 
     if (exception instanceof NotFoundException) {
-      response.status(404).json(makeError(NOT_FOUND, exception.message));
+      response.status(404).json({ error: NOT_FOUND });
       return;
     }
 
@@ -76,8 +77,8 @@ async function bootstrap() {
     app.use(morgan("dev"));
   }
 
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.json({ limit: MAX_REQUEST_BYTES }));
+  app.use(express.urlencoded({ extended: false, limit: MAX_REQUEST_BYTES }));
   app.use(cookieParser());
 
   app.useGlobalFilters(new GlobalExceptionFilter());

@@ -3,7 +3,7 @@ import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { env } from "./config/env";
-import { MAX_FILE_BYTES } from "./consts/defaults";
+import { MAX_FILE_BYTES, MAX_REQUEST_BYTES } from "./consts/defaults";
 import {
   FILE_SIZE_EXCEEDS,
   INTERNAL_ERROR,
@@ -18,7 +18,7 @@ import { paramsRoutes } from "./routes/params";
 export type FormFields = Record<string, string>;
 
 export async function createApp(): Promise<FastifyInstance> {
-  const app = fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 });
+  const app = fastify({ logger: false, bodyLimit: MAX_REQUEST_BYTES });
 
   await app.register(cookie);
   await app.register(formbody);

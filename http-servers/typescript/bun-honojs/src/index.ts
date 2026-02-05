@@ -1,5 +1,6 @@
 import { createApp } from "./app";
 import { env } from "./config/env";
+import { MAX_REQUEST_BYTES } from "./consts/defaults";
 import { disconnectDatabases, initializeDatabases } from "./database/repository";
 
 await initializeDatabases();
@@ -10,7 +11,7 @@ Bun.serve({
   port: env.PORT,
   hostname: env.HOST,
   fetch: app.fetch,
-  maxRequestBodySize: 10 * 1024 * 1024 // 10 MB
+  maxRequestBodySize: MAX_REQUEST_BYTES
 });
 
 console.log(`Server running at http://${env.HOST}:${env.PORT}/`);
