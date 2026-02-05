@@ -29,9 +29,3 @@ func WriteError(c *gin.Context, status int, message string, detail ...any) {
 	}
 	c.JSON(status, resp)
 }
-
-const (
-	MaxFileBytes = 1 << 20 // 1MB
-	SniffLen     = 512
-	NullByte     = 0x00
-)

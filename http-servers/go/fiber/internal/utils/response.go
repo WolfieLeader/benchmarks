@@ -31,9 +31,3 @@ func WriteError(c *fiber.Ctx, status int, message string, detail ...any) error {
 	}
 	return c.JSON(resp)
 }
-
-const (
-	MaxFileBytes = 1 << 20 // 1MB
-	SniffLen     = 512
-	NullByte     = 0x00
-)

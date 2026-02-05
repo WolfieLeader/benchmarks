@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"fiber-server/internal/config"
+	"fiber-server/internal/consts"
 	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
 
@@ -43,7 +44,7 @@ func New() *App {
 	routes.RegisterDb(r.Group("/db"), env)
 
 	r.Use(func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": consts.ErrNotFound})
 	})
 
 	return &App{env: env, router: r}

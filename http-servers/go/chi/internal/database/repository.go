@@ -101,38 +101,3 @@ func InitializeConnections(env *config.Env) {
 	}
 	wg.Wait()
 }
-
-type HealthStatus struct {
-	Status    string            `json:"status"`
-	Databases map[string]string `json:"databases"`
-}
-
-func GetAllHealthStatuses(ctx context.Context, env *config.Env) HealthStatus {
-	result := HealthStatus{
-		Status:    "healthy",
-		Databases: make(map[string]string),
-	}
-
-	var wg sync.WaitGroup
-	var resultMu sync.Mutex
-
-	for _, dbType := range DatabaseTypes {
-		wg.Add(1)
-		go func(dt DatabaseType) {
-			defer wg.Done()
-			repo := GetRepository(dt, env)
-			status := "unhealthy"
-			if repo != nil {
-				if healthy, _ := repo.HealthCheck(ctx); healthy {
-					status = "healthy"
-				}
-			}
-			resultMu.Lock()
-			result.Databases[string(dt)] = status
-			resultMu.Unlock()
-		}(dbType)
-	}
-	wg.Wait()
-
-	return result
-}
