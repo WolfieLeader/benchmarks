@@ -1,6 +1,6 @@
 module benchmark-client
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/InfluxCommunity/influxdb3-go v0.14.0
@@ -47,7 +47,7 @@ require (
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260203154110-aaaaaa54ba6b // indirect
+	golang.org/x/telemetry v0.0.0-20260205145544-86a5c4bf3c8d // indirect
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect

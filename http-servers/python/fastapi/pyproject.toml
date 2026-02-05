@@ -3,7 +3,7 @@ name = "fastapi-server"
 version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.14.3"
 dependencies = [
     "asyncpg>=0.30.0",
     "email-validator>=2.0.0",
