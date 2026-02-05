@@ -1,10 +1,42 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  HttpException,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Res
+} from "@nestjs/common";
+import type { Response } from "express";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
 import { resolveRepository } from "./database/repository";
 import { zCreateUser, zUpdateUser } from "./database/types";
 
 @Controller("db")
 export class DbController {
+  @Get(":database/health")
+  @Header("Content-Type", "text/plain")
+  async health(@Param("database") database: string, @Res() res: Response) {
+    const repository = resolveRepository(database);
+    if (!repository) {
+      return res.status(503).send("Service Unavailable");
+    }
+
+    try {
+      if (await repository.healthCheck()) {
+        return res.status(200).send("OK");
+      }
+    } catch {
+      // fall through to 503
+    }
+    return res.status(503).send("Service Unavailable");
+  }
+
   @Post(":database/users")
   @HttpCode(201)
   async create(@Param("database") database: string, @Body() body: unknown) {

@@ -22,6 +22,18 @@ const withRepository: MiddlewareHandler<{ Variables: DbVariables }> = async (c, 
 
 export const dbRoutes = new Hono<{ Variables: DbVariables }>();
 
+dbRoutes.get("/:database/health", async (c) => {
+  const repository = resolveRepository(c.req.param("database"));
+  if (!repository) return c.text("Service Unavailable", 503);
+
+  try {
+    const healthy = await repository.healthCheck();
+    return healthy ? c.text("OK") : c.text("Service Unavailable", 503);
+  } catch {
+    return c.text("Service Unavailable", 503);
+  }
+});
+
 dbRoutes.use("/:database/*", withRepository);
 
 dbRoutes.post("/:database/users", async (c) => {

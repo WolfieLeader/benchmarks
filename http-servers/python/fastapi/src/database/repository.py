@@ -78,9 +78,3 @@ async def disconnect_databases() -> None:
     for repo in _repositories.values():
         await repo.disconnect()
     _repositories.clear()
-
-
-def get_all_repositories() -> dict[DatabaseType, UserRepository]:
-    for db_type in DATABASE_TYPES:
-        get_repository(db_type)
-    return _repositories.copy()

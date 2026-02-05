@@ -12,7 +12,6 @@ import {
   makeError,
   NOT_FOUND
 } from "./consts/errors";
-import { getAllDatabaseStatuses } from "./database/repository";
 import { dbRoutes } from "./routes/db";
 import { paramsRoutes } from "./routes/params";
 
@@ -38,12 +37,11 @@ export async function createApp(): Promise<FastifyInstance> {
     });
   }
 
-  app.get("/", async (_req, reply) => {
-    reply.type("text/plain").send("OK");
+  app.get("/", async () => {
+    return { hello: "world" };
   });
-  app.get("/health", async () => {
-    const databases = await getAllDatabaseStatuses();
-    return { status: "healthy", databases };
+  app.get("/health", async (_req, reply) => {
+    reply.type("text/plain").send("OK");
   });
 
   await app.register(paramsRoutes, { prefix: "/params" });

@@ -33,12 +33,10 @@ func New() *App {
 	r.Use(recover.New())
 
 	r.Get("/", func(c *fiber.Ctx) error {
-		c.Set("Content-Type", "text/plain")
-		return c.SendString("OK")
+		return c.JSON(fiber.Map{"hello": "world"})
 	})
 	r.Get("/health", func(c *fiber.Ctx) error {
-		status := database.GetAllHealthStatuses(c.UserContext(), env)
-		return c.JSON(status)
+		return c.SendString("OK")
 	})
 
 	routes.RegisterParams(r.Group("/params"))

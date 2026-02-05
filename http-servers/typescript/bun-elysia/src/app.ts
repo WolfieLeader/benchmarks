@@ -1,7 +1,6 @@
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors";
-import { getAllDatabaseStatuses } from "./database/repository";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
@@ -20,11 +19,8 @@ export function createApp() {
       });
   }
 
-  app.get("/", () => "OK");
-  app.get("/health", async () => {
-    const databases = await getAllDatabaseStatuses();
-    return { status: "healthy", databases };
-  });
+  app.get("/", () => ({ hello: "world" }));
+  app.get("/health", () => "OK");
 
   app.group("/params", (app) => app.use(paramsRouter));
   app.group("/db", (app) => app.use(dbRouter));

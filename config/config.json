@@ -35,23 +35,12 @@
   "endpoints": {
     "root": {
       "route": "GET /",
-      "expect": { "status": 200, "text": "OK" }
+      "expect": { "status": 200, "body": { "hello": "world" } }
     },
 
     "health": {
       "route": "GET /health",
-      "expect": {
-        "status": 200,
-        "body": {
-          "status": "healthy",
-          "databases": {
-            "postgres": "healthy",
-            "mongodb": "healthy",
-            "redis": "healthy",
-            "cassandra": "healthy"
-          }
-        }
-      }
+      "expect": { "status": 200, "text": "OK" }
     },
 
     "params_search": {
@@ -130,6 +119,13 @@
           "expect": { "body": { "filename": "multi.txt", "size": 21, "content": "Line 1\nLine 2\nLine 3\n" } }
         }
       ]
+    },
+
+    "crud_health": {
+      "route": "GET /db/{database}/health",
+      "expect": { "status": 200, "text": "OK" },
+      "per_database": true,
+      "sequence": { "id": "crud" }
     },
 
     "crud_create": {

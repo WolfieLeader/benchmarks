@@ -12,7 +12,6 @@ import {
   makeError,
   NOT_FOUND
 } from "./consts/errors";
-import { getAllDatabaseStatuses } from "./database/repository";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
@@ -30,11 +29,10 @@ export function createApp(): express.Express {
   app.use(cookieParser());
 
   app.get("/", (_req, res) => {
-    res.type("text/plain").send("OK");
+    res.json({ hello: "world" });
   });
-  app.get("/health", async (_req, res) => {
-    const databases = await getAllDatabaseStatuses();
-    res.json({ status: "healthy", databases });
+  app.get("/health", (_req, res) => {
+    res.send("OK");
   });
 
   app.use("/params", paramsRouter);

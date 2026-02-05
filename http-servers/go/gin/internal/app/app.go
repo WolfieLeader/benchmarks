@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+
 	"gin-server/internal/config"
 	"gin-server/internal/consts"
 	"gin-server/internal/database"
@@ -27,11 +29,10 @@ func New() *App {
 	r.Use(gin.Recovery())
 
 	r.GET("/", func(c *gin.Context) {
-		c.String(200, "OK")
+		c.JSON(http.StatusOK, gin.H{"hello": "world"})
 	})
 	r.GET("/health", func(c *gin.Context) {
-		status := database.GetAllHealthStatuses(c.Request.Context(), env)
-		c.JSON(200, status)
+		c.String(http.StatusOK, "OK")
 	})
 	routes.RegisterParams(r.Group("/params"))
 	routes.RegisterDb(r.Group("/db"), env)

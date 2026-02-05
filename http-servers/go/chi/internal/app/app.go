@@ -31,14 +31,15 @@ func New() *App {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		_, _ = w.Write([]byte(`{"hello":"world"}`))
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		status := database.GetAllHealthStatuses(r.Context(), env)
-		utils.WriteResponse(w, http.StatusOK, status)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })

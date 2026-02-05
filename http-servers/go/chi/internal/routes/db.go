@@ -42,6 +42,27 @@ func getRepository(r *http.Request) database.UserRepository {
 }
 
 func RegisterDb(r chi.Router, env *config.Env) {
+	r.Get("/{database}/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+
+		dbType := chi.URLParam(r, "database")
+		repo := database.ResolveRepository(dbType, env)
+		if repo == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("Service Unavailable"))
+			return
+		}
+
+		healthy, err := repo.HealthCheck(r.Context())
+		if err != nil || !healthy {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("Service Unavailable"))
+			return
+		}
+
+		_, _ = w.Write([]byte("OK"))
+	})
+
 	r.Route("/{database}", func(r chi.Router) {
 		r.Use(withRepository(env))
 		r.Post("/users", createUser)

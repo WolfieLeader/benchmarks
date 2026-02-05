@@ -29,6 +29,26 @@ const withRepository: RouterMiddleware<
 
 export const dbRoutes = new Router<DbState>();
 
+dbRoutes.get("/:database/health", async (ctx) => {
+  const repository = resolveRepository(ctx.params.database);
+  if (!repository) {
+    ctx.response.status = 503;
+    ctx.response.body = "Service Unavailable";
+    return;
+  }
+
+  try {
+    if (await repository.healthCheck()) {
+      ctx.response.body = "OK";
+      return;
+    }
+  } catch {
+    // fall through to 503
+  }
+  ctx.response.status = 503;
+  ctx.response.body = "Service Unavailable";
+});
+
 dbRoutes.use("/:database/:path*", withRepository);
 
 dbRoutes.post("/:database/users", async (ctx) => {

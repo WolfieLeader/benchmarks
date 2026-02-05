@@ -2,8 +2,6 @@ package container
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,17 +154,34 @@ func Stop(ctx context.Context, timeout time.Duration, containerId Id) error {
 	return nil
 }
 
-type healthResponse struct {
-	Status    string            `json:"status"`
-	Databases map[string]string `json:"databases"`
+func checkHealth(ctx context.Context, client *http.Client, url string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, HealthCheckRequestTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string, requiredDbs []string) error {
-	client := http.Client{
+	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 	deadline := time.Now().Add(timeout)
-	url := strings.TrimRight(serverUrl, "/") + "/health"
+	baseUrl := strings.TrimRight(serverUrl, "/")
 
 	var lastErr error
 
@@ -175,69 +190,17 @@ func WaitToBeReady(ctx context.Context, timeout time.Duration, serverUrl string,
 			return ctx.Err()
 		}
 
-		reqCtx, cancel := context.WithTimeout(ctx, HealthCheckRequestTimeout)
-		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, http.NoBody)
-		if err != nil {
-			cancel()
-			return fmt.Errorf("failed to create health check request: %w", err)
-		}
-
-		resp, err := client.Do(req)
-		cancel()
-
-		if err != nil {
-			lastErr = err
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			_ = resp.Body.Close()
-			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			lastErr = fmt.Errorf("failed to read health response body: %w", err)
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
-
-		var health healthResponse
-		if err := json.Unmarshal(body, &health); err != nil {
-			lastErr = fmt.Errorf("failed to parse health response: %w", err)
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
-
-		if health.Status != "healthy" {
-			lastErr = fmt.Errorf("server status is not healthy: %s", health.Status)
-			time.Sleep(HealthCheckInterval)
-			continue
-		}
-
-		required := requiredDbs
-		if len(required) == 0 {
-			for db := range health.Databases {
-				required = append(required, db)
-			}
-		}
-		if len(required) == 0 {
-			lastErr = errors.New("health response missing database statuses")
+		if err := checkHealth(ctx, client, baseUrl+"/health"); err != nil {
+			lastErr = fmt.Errorf("server health check failed: %w", err)
 			time.Sleep(HealthCheckInterval)
 			continue
 		}
 
 		allDbsHealthy := true
-		for _, db := range required {
-			status, ok := health.Databases[db]
-			if !ok || status != "healthy" {
+		for _, db := range requiredDbs {
+			if err := checkHealth(ctx, client, baseUrl+"/db/"+db+"/health"); err != nil {
 				allDbsHealthy = false
-				lastErr = fmt.Errorf("database %s is not healthy: %s", db, status)
+				lastErr = fmt.Errorf("database %s health check failed: %w", db, err)
 				break
 			}
 		}

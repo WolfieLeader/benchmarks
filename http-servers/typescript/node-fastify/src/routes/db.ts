@@ -12,6 +12,23 @@ declare module "fastify" {
 export const dbRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.decorateRequest("repository", null as unknown as UserRepository);
 
+  fastify.get<{ Params: { database: string } }>("/:database/health", async (request, reply) => {
+    const repository = resolveRepository(request.params.database);
+    if (!repository) {
+      reply.code(503).type("text/plain").send("Service Unavailable");
+      return;
+    }
+    try {
+      if (await repository.healthCheck()) {
+        reply.type("text/plain").send("OK");
+        return;
+      }
+    } catch {
+      // fall through to 503
+    }
+    reply.code(503).type("text/plain").send("Service Unavailable");
+  });
+
   fastify.addHook("preHandler", async (request: FastifyRequest<{ Params: { database: string } }>, reply) => {
     const repository = resolveRepository(request.params.database);
     if (!repository) {

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -12,9 +11,7 @@ from starlette.requests import Request
 
 from src.config.env import env
 from src.database.repository import (
-    DATABASE_TYPES,
     disconnect_databases,
-    get_all_repositories,
     initialize_databases,
 )
 from src.handlers import (
@@ -58,30 +55,12 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 @app.get("/")
 def root():
-    return PlainTextResponse("OK")
+    return {"hello": "world"}
 
 
 @app.get("/health")
-async def health():
-    repositories = get_all_repositories()
-
-    async def check_db(db_type: str) -> tuple[str, str]:
-        repo = repositories.get(db_type)  # type: ignore[arg-type]
-        if repo is None:
-            return db_type, "unhealthy"
-        try:
-            healthy = await repo.health_check()
-            return db_type, "healthy" if healthy else "unhealthy"
-        except Exception:
-            return db_type, "unhealthy"
-
-    results = await asyncio.gather(*[check_db(db_type) for db_type in DATABASE_TYPES])
-    db_statuses = dict(results)
-
-    return {
-        "status": "healthy",
-        "databases": db_statuses,
-    }
+def health():
+    return PlainTextResponse("OK")
 
 
 app.include_router(params_router, prefix="/params")

@@ -35,6 +35,8 @@ func getRepository(c *fiber.Ctx) database.UserRepository {
 }
 
 func RegisterDb(r fiber.Router, env *config.Env) {
+	r.Get("/:database/health", healthCheck(env))
+
 	db := r.Group("/:database", withRepository(env))
 
 	db.Post("/users", createUser)
@@ -43,6 +45,23 @@ func RegisterDb(r fiber.Router, env *config.Env) {
 	db.Delete("/users/:id", deleteUser)
 	db.Delete("/users", deleteAllUsers)
 	db.Delete("/reset", resetDatabase)
+}
+
+func healthCheck(env *config.Env) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		dbType := c.Params("database")
+		repo := database.ResolveRepository(dbType, env)
+		if repo == nil {
+			return c.Status(fiber.StatusServiceUnavailable).SendString("Service Unavailable")
+		}
+
+		healthy, err := repo.HealthCheck(c.UserContext())
+		if err != nil || !healthy {
+			return c.Status(fiber.StatusServiceUnavailable).SendString("Service Unavailable")
+		}
+
+		return c.SendString("OK")
+	}
 }
 
 func createUser(c *fiber.Ctx) error {

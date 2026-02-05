@@ -1,7 +1,6 @@
 import { Application, Router } from "@oak/oak";
 import { env } from "./config/env.ts";
 import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors.ts";
-import { getAllDatabaseStatuses } from "./database/repository.ts";
 import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
 
@@ -32,13 +31,11 @@ export function createApp() {
   }
 
   router.get("/", (ctx) => {
-    ctx.response.type = "text/plain";
-    ctx.response.body = "OK";
+    ctx.response.body = { hello: "world" };
   });
 
-  router.get("/health", async (ctx) => {
-    const databases = await getAllDatabaseStatuses();
-    ctx.response.body = { status: "healthy", databases };
+  router.get("/health", (ctx) => {
+    ctx.response.body = "OK";
   });
 
   router.use("/params", paramsRoutes.routes(), paramsRoutes.allowedMethods());

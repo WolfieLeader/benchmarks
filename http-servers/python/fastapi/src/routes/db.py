@@ -1,12 +1,27 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 from src.consts.errors import INTERNAL_ERROR, NOT_FOUND, make_error
 from src.database.repository import resolve_repository
 from src.database.types import CreateUser, UpdateUser
 
 db_router = APIRouter()
+
+
+@db_router.get("/{database}/health")
+async def database_health(database: str):
+    repo = resolve_repository(database)
+    if repo is None:
+        return Response(content="Service Unavailable", status_code=503, media_type="text/plain")
+
+    try:
+        healthy = await repo.health_check()
+        if healthy:
+            return Response(content="OK", media_type="text/plain")
+        return Response(content="Service Unavailable", status_code=503, media_type="text/plain")
+    except Exception:
+        return Response(content="Service Unavailable", status_code=503, media_type="text/plain")
 
 
 @db_router.post("/{database}/users", status_code=201)

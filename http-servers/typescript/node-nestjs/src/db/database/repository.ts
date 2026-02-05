@@ -62,18 +62,3 @@ export async function disconnectDatabases(): Promise<void> {
     })
   );
 }
-
-export async function getAllDatabaseStatuses(): Promise<Record<DatabaseType, "healthy" | "unhealthy">> {
-  const results = await Promise.all(
-    databaseTypes.map(async (db) => {
-      try {
-        const repo = getRepository(db);
-        const healthy = await repo.healthCheck();
-        return [db, healthy ? "healthy" : "unhealthy"] as const;
-      } catch {
-        return [db, "unhealthy"] as const;
-      }
-    })
-  );
-  return Object.fromEntries(results) as Record<DatabaseType, "healthy" | "unhealthy">;
-}

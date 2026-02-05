@@ -13,7 +13,23 @@ declare global {
 
 export const dbRouter: RouterType = Router();
 
-// Apply middleware to all routes with :database param
+dbRouter.get("/:database/health", async (req, res) => {
+  const repository = resolveRepository(req.params.database);
+  if (!repository) {
+    res.status(503).send("Service Unavailable");
+    return;
+  }
+  try {
+    if (await repository.healthCheck()) {
+      res.send("OK");
+      return;
+    }
+  } catch {
+    // fall through to 503
+  }
+  res.status(503).send("Service Unavailable");
+});
+
 dbRouter.param("database", (req, res, next, database) => {
   const repository = resolveRepository(database);
   if (!repository) {

@@ -39,6 +39,21 @@ func getRepository(c *gin.Context) database.UserRepository {
 }
 
 func RegisterDb(r *gin.RouterGroup, env *config.Env) {
+	r.GET("/:database/health", func(c *gin.Context) {
+		dbType := c.Param("database")
+		repo := database.ResolveRepository(dbType, env)
+		if repo == nil {
+			c.String(http.StatusServiceUnavailable, "Service Unavailable")
+			return
+		}
+		healthy, err := repo.HealthCheck(c.Request.Context())
+		if err != nil || !healthy {
+			c.String(http.StatusServiceUnavailable, "Service Unavailable")
+			return
+		}
+		c.String(http.StatusOK, "OK")
+	})
+
 	db := r.Group("/:database")
 	db.Use(withRepository(env))
 	db.POST("/users", createUser)
