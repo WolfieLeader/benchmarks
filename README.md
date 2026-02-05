@@ -13,16 +13,10 @@
   <img src="./assets/go.svg" alt="Go" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/python.svg" alt="Python" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/typescript.svg" alt="TypeScript" height="28" style="display:inline-block; vertical-align:middle;" />
-</p>
-
-<p align="center">
   <img src="./assets/postgresql.svg" alt="PostgreSQL" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/mongodb.svg" alt="MongoDB" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/redis.svg" alt="Redis" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/cassandra.svg" alt="Cassandra" height="28" style="display:inline-block; vertical-align:middle;" />
-</p>
-
-<p align="center">
   <a href="./http-servers/typescript/node-express"><img src="./assets/express.svg" alt="Express" height="28" style="display:inline-block; vertical-align:middle;" /></a>
   <a href="./http-servers/typescript/node-fastify"><img src="./assets/fastify.svg" alt="Fastify" height="28" style="display:inline-block; vertical-align:middle;" /></a>
   <a href="./http-servers/typescript/node-nestjs"><img src="./assets/nestjs.svg" alt="NestJS" height="28" style="display:inline-block; vertical-align:middle;" /></a>
