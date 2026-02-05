@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { Redis } from "ioredis";
+import { v7 as uuidv7 } from "uuid";
 import type { UserRepository } from "./repository";
 import { buildUser, type CreateUser, type UpdateUser, type User } from "./types";
 
@@ -16,7 +16,7 @@ export class RedisUserRepository implements UserRepository {
   }
 
   async create(data: CreateUser): Promise<User> {
-    const id = randomUUID();
+    const id = uuidv7();
     const fields: Record<string, string> = { name: data.name, email: data.email };
     if (data.favoriteNumber !== undefined) {
       fields.favoriteNumber = String(data.favoriteNumber);
