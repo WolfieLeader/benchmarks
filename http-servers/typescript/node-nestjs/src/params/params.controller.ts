@@ -11,7 +11,7 @@ import {
   UploadedFile,
   UseInterceptors
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, NoFilesInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import multer from "multer";
 import { MAX_FILE_BYTES } from "../consts/defaults";
@@ -52,6 +52,7 @@ export class ParamsController {
 
   @Post("/form")
   @HttpCode(200)
+  @UseInterceptors(NoFilesInterceptor())
   formParams(@Req() req: Request) {
     this.paramsService.validateFormContentType(req.get("content-type"));
     return this.paramsService.parseFormData(req.body);

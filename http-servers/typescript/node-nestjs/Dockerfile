@@ -1,4 +1,4 @@
-FROM node:25-alpine AS builder
+FROM node:25.6.0-alpine AS builder
 WORKDIR /app
 
 RUN npm i -g pnpm
@@ -11,7 +11,7 @@ COPY src ./src
 
 RUN pnpm build
 
-FROM node:25-alpine
+FROM node:25.6.0-alpine
 
 WORKDIR /app
 

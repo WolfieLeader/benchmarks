@@ -1,4 +1,4 @@
-FROM python:3.14-slim AS builder
+FROM python:3.14.3-slim AS builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-FROM python:3.14-slim
+FROM python:3.14.3-slim
 
 WORKDIR /app
 
@@ -35,4 +35,4 @@ USER app-runner
 
 EXPOSE 4001
 
-CMD [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "4001", "--loop", "uvloop"]
+CMD [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "4001", "--loop", "uvloop", "--workers", "4"]
