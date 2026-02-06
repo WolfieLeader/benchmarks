@@ -1,16 +1,18 @@
-import { randomUUIDv7, SQL } from "bun";
+import { randomUUIDv7 } from "bun";
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/bun-sql";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { users } from "./drizzle-schema";
 import type { UserRepository } from "./repository";
 import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./types";
 
 export class PostgresUserRepository implements UserRepository {
+  private pool: Pool;
   private db: ReturnType<typeof drizzle>;
 
   constructor(connectionString: string) {
-    const client = new SQL({ url: connectionString, max: 50, idleTimeout: 30 });
-    this.db = drizzle({ client });
+    this.pool = new Pool({ connectionString, max: 50, idleTimeoutMillis: 30000 });
+    this.db = drizzle(this.pool);
   }
 
   async create(data: CreateUser): Promise<User> {
@@ -61,6 +63,6 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async disconnect(): Promise<void> {
-    await this.db.$client.end();
+    await this.pool.end();
   }
 }
