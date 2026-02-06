@@ -32,4 +32,4 @@ USER deno
 
 EXPOSE 3004
 
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "src/index.ts"]
+CMD ["deno", "run", "--allow-all", "src/index.ts"]
