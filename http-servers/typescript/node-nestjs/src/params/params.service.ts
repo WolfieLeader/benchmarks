@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -56,10 +58,7 @@ export class ParamsService {
   validateFormContentType(contentType?: string): void {
     const ct = contentType?.toLowerCase() ?? "";
     if (!ct.startsWith("application/x-www-form-urlencoded") && !ct.startsWith("multipart/form-data")) {
-      throw new HttpException(
-        makeError(INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data"),
-        HttpStatus.BAD_REQUEST
-      );
+      throw new HttpException(makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE), HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -75,10 +74,7 @@ export class ParamsService {
   validateMultipartContentType(contentType?: string): void {
     const ct = contentType?.toLowerCase() ?? "";
     if (!ct.startsWith("multipart/form-data")) {
-      throw new HttpException(
-        makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data"),
-        HttpStatus.BAD_REQUEST
-      );
+      throw new HttpException(makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE), HttpStatus.BAD_REQUEST);
     }
   }
 
