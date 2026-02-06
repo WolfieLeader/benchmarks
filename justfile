@@ -67,18 +67,18 @@ update target='all':
     set -euo pipefail
     update_one() {
         case "$1" in
-            honojs)    (cd {{ts_dir}}/bun-honojs && bun update --latest) ;;
-            elysia)    (cd {{ts_dir}}/bun-elysia && bun update --latest) ;;
-            oak)       (cd {{ts_dir}}/deno-oak && deno update --latest) ;;
-            express)   (cd {{ts_dir}}/node-express && pnpm update --latest) ;;
-            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm update --latest) ;;
-            fastify)   (cd {{ts_dir}}/node-fastify && pnpm update --latest) ;;
+            honojs)    (cd {{ts_dir}}/bun-honojs && bun update --latest && bun install) ;;
+            elysia)    (cd {{ts_dir}}/bun-elysia && bun update --latest && bun install) ;;
+            oak)       (cd {{ts_dir}}/deno-oak && deno update --latest && deno install) ;;
+            express)   (cd {{ts_dir}}/node-express && pnpm update --latest && pnpm install) ;;
+            nestjs)    (cd {{ts_dir}}/node-nestjs && pnpm update --latest && pnpm install) ;;
+            fastify)   (cd {{ts_dir}}/node-fastify && pnpm update --latest && pnpm install) ;;
             chi)       (cd {{go_dir}}/chi && go get -u ./... && go mod tidy) ;;
             gin)       (cd {{go_dir}}/gin && go get -u ./... && go mod tidy) ;;
             fiber)     (cd {{go_dir}}/fiber && go get -u ./... && go mod tidy) ;;
-            fastapi)   (cd {{py_dir}}/fastapi && uv sync --upgrade) ;;
+            fastapi)   (cd {{py_dir}}/fastapi && uv sync --upgrade && uv sync) ;;
             benchmark) (cd benchmarks && go get -u ./... && go mod tidy) ;;
-            root)      pnpm update --latest ;;
+            root)      (pnpm update --latest && pnpm install) ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
     }
