@@ -1,6 +1,8 @@
 import { Elysia } from "elysia";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -54,10 +56,7 @@ paramsRouter.post("/form", ({ body, set, headers }) => {
   const contentType = headers["content-type"]?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
     set.status = 400;
-    return makeError(
-      INVALID_FORM_DATA,
-      "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
-    );
+    return makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE);
   }
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -80,7 +79,7 @@ paramsRouter.post("/file", async ({ body, set, headers }) => {
   const contentType = headers["content-type"]?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
     set.status = 400;
-    return makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data");
+    return makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE);
   }
 
   const form = body as Record<string, unknown>;

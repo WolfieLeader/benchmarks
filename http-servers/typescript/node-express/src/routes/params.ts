@@ -2,6 +2,8 @@ import express, { type NextFunction, type Request, type Response, type Router } 
 import multer from "multer";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, MAX_REQUEST_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -80,11 +82,7 @@ function handleForm(req: Request, res: Response) {
 paramsRouter.post("/form", (req: Request, res: Response) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
-    res
-      .status(400)
-      .json(
-        makeError(INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data")
-      );
+    res.status(400).json(makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE));
     return;
   }
 
@@ -105,7 +103,7 @@ paramsRouter.post("/form", (req: Request, res: Response) => {
 paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
-    res.status(400).json(makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data"));
+    res.status(400).json(makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE));
     return;
   }
 

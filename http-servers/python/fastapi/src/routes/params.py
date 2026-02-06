@@ -9,6 +9,8 @@ from src.consts.defaults import (
     DEFAULT_LIMIT,
 )
 from src.consts.errors import (
+    EXPECTED_FORM_CONTENT_TYPE,
+    EXPECTED_MULTIPART_CONTENT_TYPE,
     INVALID_JSON_BODY,
     INVALID_FORM_DATA,
     INVALID_MULTIPART,
@@ -76,9 +78,7 @@ async def form_params(request: Request):
     ):
         raise HTTPException(
             status_code=400,
-            detail=make_error(
-                INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
-            ),
+            detail=make_error(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE),
         )
 
     try:
@@ -110,16 +110,14 @@ async def form_params(request: Request):
 async def file_params(request: Request, file: UploadFile | None = File(default=None)):
     content_type = request.headers.get("content-type", "").lower()
     if not content_type.startswith("multipart/form-data"):
-        raise HTTPException(
-            status_code=400, detail=make_error(INVALID_MULTIPART, "expected content-type: multipart/form-data")
-        )
+        raise HTTPException(status_code=400, detail=make_error(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE))
 
     if file is None:
         raise HTTPException(
             status_code=400, detail=make_error(FILE_NOT_FOUND, "no file field named 'file' in form data")
         )
 
-    if file.content_type and not file.content_type.startswith("text/plain"):
+    if not file.content_type or not file.content_type.startswith("text/plain"):
         raise HTTPException(
             status_code=415, detail=make_error(ONLY_TEXT_PLAIN, f"received mimetype: {file.content_type or 'unknown'}")
         )

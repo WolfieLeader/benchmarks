@@ -68,7 +68,7 @@ func handleCookieParams(c *fiber.Ctx) error {
 func handleFormParams(c *fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidForm)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
 	}
 
 	name := cmp.Or(strings.TrimSpace(c.FormValue("name")), "none")
@@ -87,7 +87,7 @@ func handleFormParams(c *fiber.Ctx) error {
 func handleFileParams(c *fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "multipart/form-data") {
-		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidMultipart)
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)
 	}
 
 	fileHeader, err := c.FormFile("file")

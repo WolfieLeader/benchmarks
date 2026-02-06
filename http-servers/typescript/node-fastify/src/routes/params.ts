@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { collectFormFields } from "../app";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -58,10 +60,7 @@ export async function paramsRoutes(app: FastifyInstance) {
       !contentType.startsWith("multipart/form-data")
     ) {
       reply.code(400);
-      return makeError(
-        INVALID_FORM_DATA,
-        "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
-      );
+      return makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE);
     }
 
     const fields = await collectFormFields(request);
@@ -78,7 +77,7 @@ export async function paramsRoutes(app: FastifyInstance) {
     const contentType = request.headers["content-type"]?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data")) {
       reply.code(400);
-      return makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data");
+      return makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE);
     }
 
     const file = await request.file();

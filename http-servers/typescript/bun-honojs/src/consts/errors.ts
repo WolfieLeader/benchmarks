@@ -1,6 +1,9 @@
 export const INVALID_JSON_BODY = "invalid JSON body";
 export const INVALID_FORM_DATA = "invalid form data";
+export const EXPECTED_FORM_CONTENT_TYPE =
+  "expected content-type: application/x-www-form-urlencoded or multipart/form-data";
 export const INVALID_MULTIPART = "invalid multipart form data";
+export const EXPECTED_MULTIPART_CONTENT_TYPE = "expected content-type: multipart/form-data";
 export const FILE_NOT_FOUND = "file not found in form data";
 export const NOT_FOUND = "not found";
 export const FILE_SIZE_EXCEEDS = "file size exceeds limit";

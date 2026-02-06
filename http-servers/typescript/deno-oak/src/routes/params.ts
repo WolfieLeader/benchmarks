@@ -1,6 +1,8 @@
 import { Router } from "@oak/oak";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults.ts";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -66,17 +68,10 @@ paramsRoutes.get("/cookie", async (ctx) => {
 });
 
 paramsRoutes.post("/form", async (ctx) => {
-  const contentType = ctx.request.headers.get("content-type")?.toLowerCase() ??
-    "";
-  if (
-    !contentType.startsWith("application/x-www-form-urlencoded") &&
-    !contentType.startsWith("multipart/form-data")
-  ) {
+  const contentType = ctx.request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
     ctx.response.status = 400;
-    ctx.response.body = makeError(
-      INVALID_FORM_DATA,
-      "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
-    );
+    ctx.response.body = makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE);
     return;
   }
 
@@ -115,14 +110,10 @@ paramsRoutes.post("/form", async (ctx) => {
 });
 
 paramsRoutes.post("/file", async (ctx) => {
-  const contentType = ctx.request.headers.get("content-type")?.toLowerCase() ??
-    "";
+  const contentType = ctx.request.headers.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
     ctx.response.status = 400;
-    ctx.response.body = makeError(
-      INVALID_MULTIPART,
-      "expected content-type: multipart/form-data"
-    );
+    ctx.response.body = makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE);
     return;
   }
 
@@ -144,28 +135,19 @@ paramsRoutes.post("/file", async (ctx) => {
 
   if (!file) {
     ctx.response.status = 400;
-    ctx.response.body = makeError(
-      FILE_NOT_FOUND,
-      "no file field named 'file' in form data"
-    );
+    ctx.response.body = makeError(FILE_NOT_FOUND, "no file field named 'file' in form data");
     return;
   }
 
   if (!file.type || !file.type.startsWith("text/plain")) {
     ctx.response.status = 415;
-    ctx.response.body = makeError(
-      ONLY_TEXT_PLAIN,
-      `received mimetype: ${file.type || "unknown"}`
-    );
+    ctx.response.body = makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.type || "unknown"}`);
     return;
   }
 
   if (file.size > MAX_FILE_BYTES) {
     ctx.response.status = 413;
-    ctx.response.body = makeError(
-      FILE_SIZE_EXCEEDS,
-      `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`
-    );
+    ctx.response.body = makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`);
     return;
   }
 
@@ -174,20 +156,14 @@ paramsRoutes.post("/file", async (ctx) => {
 
   if (data.length > MAX_FILE_BYTES) {
     ctx.response.status = 413;
-    ctx.response.body = makeError(
-      FILE_SIZE_EXCEEDS,
-      `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`
-    );
+    ctx.response.body = makeError(FILE_SIZE_EXCEEDS, `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`);
     return;
   }
 
   const head = data.slice(0, SNIFF_LEN);
   if (head.includes(NULL_BYTE)) {
     ctx.response.status = 415;
-    ctx.response.body = makeError(
-      FILE_NOT_TEXT,
-      "file contains null bytes in header"
-    );
+    ctx.response.body = makeError(FILE_NOT_TEXT, "file contains null bytes in header");
     return;
   }
 

@@ -85,7 +85,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
 		return
 	}
 
@@ -112,11 +112,15 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart)
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)
 		return
 	}
 
 	if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "too large") {
+			utils.WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
+			return
+		}
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, err.Error())
 		return
 	}

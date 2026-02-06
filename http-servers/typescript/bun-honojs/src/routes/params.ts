@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  EXPECTED_FORM_CONTENT_TYPE,
+  EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
   FILE_NOT_TEXT,
   FILE_SIZE_EXCEEDS,
@@ -58,10 +60,7 @@ paramsRoutes.get("/cookie", (c) => {
 paramsRoutes.post("/form", async (c) => {
   const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/x-www-form-urlencoded") && !contentType.startsWith("multipart/form-data")) {
-    return c.json(
-      makeError(INVALID_FORM_DATA, "expected content-type: application/x-www-form-urlencoded or multipart/form-data"),
-      400
-    );
+    return c.json(makeError(INVALID_FORM_DATA, EXPECTED_FORM_CONTENT_TYPE), 400);
   }
 
   let form: Record<string, string | File>;
@@ -87,7 +86,7 @@ paramsRoutes.post("/form", async (c) => {
 paramsRoutes.post("/file", async (c) => {
   const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
-    return c.json(makeError(INVALID_MULTIPART, "expected content-type: multipart/form-data"), 400);
+    return c.json(makeError(INVALID_MULTIPART, EXPECTED_MULTIPART_CONTENT_TYPE), 400);
   }
 
   let form: FormData;

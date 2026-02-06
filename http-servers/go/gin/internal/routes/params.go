@@ -75,7 +75,7 @@ func handleCookieParams(c *gin.Context) {
 func handleFormParams(c *gin.Context) {
 	contentType := strings.ToLower(c.GetHeader("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidForm)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
 		return
 	}
 
@@ -95,7 +95,7 @@ func handleFormParams(c *gin.Context) {
 func handleFileParams(c *gin.Context) {
 	contentType := strings.ToLower(c.GetHeader("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidMultipart)
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)
 		return
 	}
 

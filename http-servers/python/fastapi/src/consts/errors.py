@@ -3,7 +3,9 @@ from typing import TypedDict
 
 INVALID_JSON_BODY = "invalid JSON body"
 INVALID_FORM_DATA = "invalid form data"
+EXPECTED_FORM_CONTENT_TYPE = "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
 INVALID_MULTIPART = "invalid multipart form data"
+EXPECTED_MULTIPART_CONTENT_TYPE = "expected content-type: multipart/form-data"
 FILE_NOT_FOUND = "file not found in form data"
 NOT_FOUND = "not found"
 FILE_SIZE_EXCEEDS = "file size exceeds limit"
