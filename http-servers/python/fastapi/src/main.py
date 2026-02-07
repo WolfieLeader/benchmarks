@@ -54,12 +54,12 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 
 @app.get("/")
-def root():
+async def root():
     return {"hello": "world"}
 
 
 @app.get("/health")
-def health():
+async def health():
     return PlainTextResponse("OK")
 
 

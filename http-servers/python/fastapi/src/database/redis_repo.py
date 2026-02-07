@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import uuid
+
 from typing import Any
 
 import redis.asyncio as aioredis
 
 from src.database.types import CreateUser, UpdateUser, User, build_user
+
+
+def _decode(value: bytes | str) -> str:
+    return value.decode() if isinstance(value, bytes) else value
 
 
 class RedisUserRepository:
@@ -14,62 +19,47 @@ class RedisUserRepository:
         self._client: Any = None
         self._prefix = "user:"
 
-    async def _connect(self) -> None:
-        if self._client is not None:
-            return
-        self._client = aioredis.from_url(self._url)
+    async def _ensure_client(self) -> Any:
+        if self._client is None:
+            self._client = aioredis.from_url(self._url)
+        return self._client
 
     def _key(self, id: str) -> str:
         return f"{self._prefix}{id}"
 
     async def create(self, data: CreateUser) -> User:
-        await self._connect()
-        if self._client is None:
-            raise RuntimeError("Redis client not connected")
-
+        client = await self._ensure_client()
         id = str(uuid.uuid7())
         fields: dict[str, str] = {"name": data.name, "email": data.email}
         if data.favoriteNumber is not None:
             fields["favoriteNumber"] = str(data.favoriteNumber)
 
-        await self._client.hset(self._key(id), mapping=fields)
+        await client.hset(self._key(id), mapping=fields)
         return build_user(id, data)
 
     async def find_by_id(self, id: str) -> User | None:
-        await self._connect()
-        if self._client is None:
-            raise RuntimeError("Redis client not connected")
-
+        client = await self._ensure_client()
         key = self._key(id)
-        exists = await self._client.exists(key)
-        if not exists:
+        if not await client.exists(key):
             return None
 
-        result = await self._client.hmget(key, ["name", "email", "favoriteNumber"])
+        result = await client.hmget(key, ["name", "email", "favoriteNumber"])
         if result[0] is None or result[1] is None:
             return None
 
-        name = result[0].decode() if isinstance(result[0], bytes) else result[0]
-        email = result[1].decode() if isinstance(result[1], bytes) else result[1]
-
         favorite_number = None
         if result[2] is not None:
-            fav_str = result[2].decode() if isinstance(result[2], bytes) else result[2]
             try:
-                favorite_number = int(fav_str)
+                favorite_number = int(_decode(result[2]))
             except ValueError:
                 return None
 
-        return User(id=id, name=name, email=email, favoriteNumber=favorite_number)
+        return User(id=id, name=_decode(result[0]), email=_decode(result[1]), favoriteNumber=favorite_number)
 
     async def update(self, id: str, data: UpdateUser) -> User | None:
-        await self._connect()
-        if self._client is None:
-            raise RuntimeError("Redis client not connected")
-
+        client = await self._ensure_client()
         key = self._key(id)
-        exists = await self._client.exists(key)
-        if not exists:
+        if not await client.exists(key):
             return None
 
         fields: dict[str, str] = {}
@@ -81,37 +71,29 @@ class RedisUserRepository:
             fields["favoriteNumber"] = str(data.favoriteNumber)
 
         if fields:
-            await self._client.hset(key, mapping=fields)
+            await client.hset(key, mapping=fields)
 
         return await self.find_by_id(id)
 
     async def delete(self, id: str) -> bool:
-        await self._connect()
-        if self._client is None:
-            raise RuntimeError("Redis client not connected")
-
-        deleted = await self._client.delete(self._key(id))
+        client = await self._ensure_client()
+        deleted = await client.delete(self._key(id))
         return deleted > 0
 
     async def delete_all(self) -> None:
-        await self._connect()
-        if self._client is None:
-            raise RuntimeError("Redis client not connected")
-
+        client = await self._ensure_client()
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=f"{self._prefix}*", count=100)
+            cursor, keys = await client.scan(cursor, match=f"{self._prefix}*", count=100)
             if keys:
-                await self._client.delete(*keys)
+                await client.delete(*keys)
             if cursor == 0:
                 break
 
     async def health_check(self) -> bool:
         try:
-            await self._connect()
-            if self._client is None:
-                raise RuntimeError("Redis client not connected")
-            await self._client.ping()
+            client = await self._ensure_client()
+            await client.ping()
             return True
         except Exception:
             return False

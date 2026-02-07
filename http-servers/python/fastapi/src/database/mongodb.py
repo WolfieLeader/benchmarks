@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo import ReturnDocument
 
 from src.database.types import CreateUser, UpdateUser, User, build_user
@@ -13,10 +13,10 @@ class MongoUserRepository:
         self._db_name = db_name
         self._client: AsyncIOMotorClient | None = None
 
-    def _connect(self) -> None:
-        if self._client is not None:
-            return
-        self._client = AsyncIOMotorClient(self._url)
+    def _collection(self) -> AsyncIOMotorCollection:
+        if self._client is None:
+            self._client = AsyncIOMotorClient(self._url)
+        return self._client[self._db_name]["users"]
 
     def _parse_object_id(self, id: str) -> ObjectId | None:
         try:
@@ -33,39 +33,25 @@ class MongoUserRepository:
         )
 
     async def create(self, data: CreateUser) -> User:
-        self._connect()
-        if self._client is None:
-            raise RuntimeError("MongoDB client not connected")
-
-        collection = self._client[self._db_name]["users"]
         id = ObjectId()
         doc = {"_id": id, "name": data.name, "email": data.email}
         if data.favoriteNumber is not None:
             doc["favoriteNumber"] = data.favoriteNumber
 
-        await collection.insert_one(doc)
+        await self._collection().insert_one(doc)
         return build_user(str(id), data)
 
     async def find_by_id(self, id: str) -> User | None:
-        self._connect()
-        if self._client is None:
-            raise RuntimeError("MongoDB client not connected")
-
         oid = self._parse_object_id(id)
         if oid is None:
             return None
 
-        collection = self._client[self._db_name]["users"]
-        doc = await collection.find_one({"_id": oid})
+        doc = await self._collection().find_one({"_id": oid})
         if doc is None:
             return None
         return self._to_user(doc)
 
     async def update(self, id: str, data: UpdateUser) -> User | None:
-        self._connect()
-        if self._client is None:
-            raise RuntimeError("MongoDB client not connected")
-
         oid = self._parse_object_id(id)
         if oid is None:
             return None
@@ -81,8 +67,7 @@ class MongoUserRepository:
         if not update_fields:
             return await self.find_by_id(id)
 
-        collection = self._client[self._db_name]["users"]
-        doc = await collection.find_one_and_update(
+        doc = await self._collection().find_one_and_update(
             {"_id": oid}, {"$set": update_fields}, return_document=ReturnDocument.AFTER
         )
         if doc is None:
@@ -90,31 +75,20 @@ class MongoUserRepository:
         return self._to_user(doc)
 
     async def delete(self, id: str) -> bool:
-        self._connect()
-        if self._client is None:
-            raise RuntimeError("MongoDB client not connected")
-
         oid = self._parse_object_id(id)
         if oid is None:
             return False
 
-        collection = self._client[self._db_name]["users"]
-        result = await collection.delete_one({"_id": oid})
+        result = await self._collection().delete_one({"_id": oid})
         return result.deleted_count > 0
 
     async def delete_all(self) -> None:
-        self._connect()
-        if self._client is None:
-            raise RuntimeError("MongoDB client not connected")
-
-        collection = self._client[self._db_name]["users"]
-        await collection.delete_many({})
+        await self._collection().delete_many({})
 
     async def health_check(self) -> bool:
         try:
-            self._connect()
             if self._client is None:
-                raise RuntimeError("MongoDB client not connected")
+                self._client = AsyncIOMotorClient(self._url)
             await self._client.admin.command("ping")
             return True
         except Exception:

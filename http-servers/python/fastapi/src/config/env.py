@@ -45,23 +45,20 @@ class Env(BaseModel):
     @field_validator("PORT", mode="before")
     @classmethod
     def parse_port(cls, value: str | int | None) -> int:
-        if value is None:
-            raise ValueError("PORT must be an integer between 1 and 65535")
+        msg = "PORT must be an integer between 1 and 65535"
         if isinstance(value, str):
-            value = value.strip()
-            if value == "":
-                raise ValueError("PORT must be an integer between 1 and 65535")
-            if not value.isdigit():
-                raise ValueError("PORT must be an integer between 1 and 65535")
-            value = int(value)
+            stripped = value.strip()
+            if not stripped.isdigit():
+                raise ValueError(msg)
+            value = int(stripped)
         if not isinstance(value, int):
-            raise ValueError("PORT must be an integer between 1 and 65535")
+            raise ValueError(msg)
         return value
 
     @field_validator("PORT")
     @classmethod
     def validate_port(cls, value: int) -> int:
-        if value < 1 or value > 65535:
+        if not 1 <= value <= 65535:
             raise ValueError("PORT must be an integer between 1 and 65535")
         return value
 

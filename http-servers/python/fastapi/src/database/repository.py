@@ -23,10 +23,6 @@ class UserRepository(Protocol):
 _repositories: dict[DatabaseType, UserRepository] = {}
 
 
-def is_database_type(value: str) -> bool:
-    return value in DATABASE_TYPES
-
-
 def get_repository(database: DatabaseType) -> UserRepository:
     if database in _repositories:
         return _repositories[database]
@@ -61,15 +57,17 @@ def get_repository(database: DatabaseType) -> UserRepository:
 
 
 def resolve_repository(database: str) -> UserRepository | None:
-    if not is_database_type(database):
+    if database not in DATABASE_TYPES:
         return None
     return get_repository(database)  # type: ignore[arg-type]
 
 
 async def initialize_databases() -> None:
     async def init_db(db_type: DatabaseType) -> None:
-        repo = get_repository(db_type)
-        await repo.health_check()
+        try:
+            await get_repository(db_type).health_check()
+        except Exception:
+            pass
 
     await asyncio.gather(*[init_db(db_type) for db_type in DATABASE_TYPES])
 

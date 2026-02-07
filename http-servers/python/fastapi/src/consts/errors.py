@@ -20,9 +20,7 @@ class ErrorResponse(TypedDict, total=False):
 
 
 def make_error(error: str, detail: str | Exception | None = None) -> ErrorResponse:
-    if isinstance(detail, Exception):
-        msg = str(detail)
-        return {"error": error, "details": msg} if msg else {"error": error}
-    if detail:
-        return {"error": error, "details": detail}
+    msg = str(detail) if detail is not None else None
+    if msg:
+        return {"error": error, "details": msg}
     return {"error": error}

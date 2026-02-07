@@ -1,23 +1,19 @@
+from typing import Any
+
 from fastapi import APIRouter, Body, Cookie, File, Header, Request, Response, UploadFile
 from fastapi.exceptions import HTTPException
-from typing import Any
-from src.consts.defaults import (
-    MAX_FILE_BYTES,
-    NULL_BYTE,
-    SNIFF_LEN,
-    SAFE_INT_LIMIT,
-    DEFAULT_LIMIT,
-)
+
+from src.consts.defaults import DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SAFE_INT_LIMIT, SNIFF_LEN
 from src.consts.errors import (
     EXPECTED_FORM_CONTENT_TYPE,
     EXPECTED_MULTIPART_CONTENT_TYPE,
-    INVALID_JSON_BODY,
-    INVALID_FORM_DATA,
-    INVALID_MULTIPART,
     FILE_NOT_FOUND,
-    FILE_SIZE_EXCEEDS,
-    ONLY_TEXT_PLAIN,
     FILE_NOT_TEXT,
+    FILE_SIZE_EXCEEDS,
+    INVALID_FORM_DATA,
+    INVALID_JSON_BODY,
+    INVALID_MULTIPART,
+    ONLY_TEXT_PLAIN,
     make_error,
 )
 
@@ -25,21 +21,26 @@ from src.consts.errors import (
 params_router = APIRouter()
 
 
+def _strip_or(value: str | None, default: str) -> str:
+    stripped = value.strip() if value else ""
+    return stripped or default
+
+
+def _parse_safe_int(value: str | None, default: int) -> int:
+    if value is None or "." in value:
+        return default
+    try:
+        num = int(value)
+        if -SAFE_INT_LIMIT <= num <= SAFE_INT_LIMIT:
+            return num
+    except ValueError:
+        pass
+    return default
+
+
 @params_router.get("/search")
 async def search_params(q: str | None = None, limit: str | None = None):
-    search = q.strip() if q is not None and q.strip() else "none"
-    parsed_limit = DEFAULT_LIMIT
-
-    if limit is not None:
-        if "." not in limit:
-            try:
-                num = int(limit)
-                if -SAFE_INT_LIMIT <= num <= SAFE_INT_LIMIT:
-                    parsed_limit = num
-            except ValueError:
-                pass
-
-    return {"search": search, "limit": parsed_limit}
+    return {"search": _strip_or(q, "none"), "limit": _parse_safe_int(limit, DEFAULT_LIMIT)}
 
 
 @params_router.get("/url/{dynamic}")
@@ -51,7 +52,7 @@ async def url_params(dynamic: str):
 async def header_params(
     header: str | None = Header(alias="X-Custom-Header", default=None),
 ):
-    return {"header": header.strip() if header and header.strip() else "none"}
+    return {"header": _strip_or(header, "none")}
 
 
 @params_router.post("/body")
@@ -67,7 +68,7 @@ async def cookie_params(
     foo: str | None = Cookie(default=None),
 ):
     response.set_cookie(key="bar", value="12345", max_age=10, httponly=True, path="/")
-    return {"cookie": foo.strip() if foo and foo.strip() else "none"}
+    return {"cookie": _strip_or(foo, "none")}
 
 
 @params_router.post("/form")
@@ -89,19 +90,10 @@ async def form_params(request: Request):
         )
 
     name_val = form.get("name")
-    name = name_val.strip() if isinstance(name_val, str) else ""
-    if name == "":
-        name = "none"
+    name = _strip_or(name_val if isinstance(name_val, str) else None, "none")
 
     age_val = form.get("age")
-    age = 0
-    if isinstance(age_val, str) and age_val.strip() != "":
-        try:
-            num = int(age_val)
-            if -SAFE_INT_LIMIT <= num <= SAFE_INT_LIMIT:
-                age = num
-        except ValueError:
-            pass
+    age = _parse_safe_int(age_val if isinstance(age_val, str) and age_val.strip() else None, 0)
 
     return {"name": name, "age": age}
 

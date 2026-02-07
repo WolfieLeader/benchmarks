@@ -29,12 +29,12 @@ class CassandraUserRepository:
         self._session = self._cluster.connect(self._keyspace)  # type: ignore[union-attr]
 
     async def _connect(self) -> None:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(self._executor, self._connect_sync)
 
     async def _execute(self, query: str, params: tuple = ()) -> list:
         await self._connect()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, lambda: list(self._session.execute(query, params)))  # type: ignore[union-attr]
 
     async def _execute_one(self, query: str, params: tuple = ()):
