@@ -1,232 +1,70 @@
-# ============================================
-# Operating System Files
-# ============================================
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 *.swp
 *.swo
 *~
 
-# ============================================
 # IDE / Editor
-# ============================================
 .vscode/*
 !.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
 .idea/
-*.sublime-project
-*.sublime-workspace
 
-# ============================================
 # AI / Code Agents
-# ============================================
-plan.md
-skill.md
-agents.md
 .agents/
-.claudeignore
-claude.md
 .claude/
-gemini.md
-.gemini/
-gemini.*
-codex.md
-.codex/
 .opencode/
 .cursor/
 .cursorignore
-cursor-tmp-*
 .copilot/
-.copilot-instructions.md
-.github/copilot-instructions.md
+plan.md
+skill.md
+agents.md
+claude.md
+codex.md
+gemini.md
+gemini.*
 
-# ============================================
-# Python
-# ============================================
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-*.venv
-
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Unit test / coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-.hypothesis/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# Ruff
-.ruff_cache/
-
-# uv
-.uv/
-
-# ============================================
-# Node.js / JavaScript / TypeScript
-# ============================================
-# Dependencies
+# Typescript
 node_modules/
-jspm_packages/
-
-# Build outputs
 dist/
 build/
 out/
-.next/
-.nuxt/
-.cache/
-
-# Logs
-logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-pnpm-debug.log*
+*.tsbuildinfo
+package-lock.json
+yarn.lock
+.bun/
+bun.lockb
 
-# Testing
-coverage/
-.nyc_output/
+# Go
+bin/
+tmp/
+vendor/
+go.work
+go.work.sum
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-# TypeScript
-*.tsbuildinfo
-
-# Package manager files
-package-lock.json  
-yarn.lock 
-
-# ============================================
-# Bun
-# ============================================
-.bun/
-bun.lockb
-
-# ============================================
-# Go
-# ============================================
-# Binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-
-# Go workspace file
-go.work
-go.work.sum
-
-# Dependency directories
-vendor/
-
-# Go build cache
-.cache/
-
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
-
-# ============================================
-# Kubernetes
-# ============================================
-*.kubeconfig
-secrets.yaml
-*-secret.yaml
-*.log
-
-# ============================================
-# Build / Temporary Files
-# ============================================
-*.tmp
-*.temp
-bin/
-tmp/
-temp/
-.cache/
-
-# ============================================
-# Project Specific
-# ============================================
 # Benchmark results
 results/
 *.benchmark
-
-# Compiled Go binary
-benchmarks/main
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
-
-# Compiled files
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
