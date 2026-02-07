@@ -49,14 +49,11 @@ class GlobalExceptionFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
       if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
         const payload = exceptionResponse as { error?: string; message?: string | string[]; details?: string };
-        if (typeof payload.error === "string") {
-          response.status(status).json({ error: payload.error, ...(payload.details && { details: payload.details }) });
-          return;
-        }
-        if (typeof payload.message === "string") {
-          response
-            .status(status)
-            .json({ error: payload.message, ...(payload.details && { details: payload.details }) });
+        let errorMsg: string | undefined;
+        if (typeof payload.error === "string") errorMsg = payload.error;
+        else if (typeof payload.message === "string") errorMsg = payload.message;
+        if (errorMsg) {
+          response.status(status).json({ error: errorMsg, ...(payload.details && { details: payload.details }) });
           return;
         }
       }

@@ -42,7 +42,7 @@ export class RedisUserRepository implements UserRepository {
     if (!name || !email) return null;
 
     const user: User = { id, name, email };
-    if (favoriteNumber !== null && favoriteNumber !== undefined) {
+    if (favoriteNumber != null) {
       const parsedFavoriteNumber = Number(favoriteNumber);
       if (!Number.isFinite(parsedFavoriteNumber)) return null;
       user.favoriteNumber = parsedFavoriteNumber;
@@ -57,7 +57,6 @@ export class RedisUserRepository implements UserRepository {
 
     if (!(await this.client.exists(key))) return null;
 
-    // Build fields array with only provided values
     const fields: string[] = [];
     if (data.name !== undefined) fields.push("name", data.name);
     if (data.email !== undefined) fields.push("email", data.email);

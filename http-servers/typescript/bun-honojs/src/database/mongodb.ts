@@ -64,7 +64,6 @@ export class MongoUserRepository implements UserRepository {
     const objectId = this.parseObjectId(id);
     if (!objectId) return null;
 
-    // Build $set with only provided fields
     const updateFields: Record<string, unknown> = {};
     if (data.name !== undefined) updateFields.name = data.name;
     if (data.email !== undefined) updateFields.email = data.email;

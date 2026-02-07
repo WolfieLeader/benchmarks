@@ -14,7 +14,7 @@ export function createApp() {
     } catch (err) {
       if (err instanceof Error) {
         ctx.response.status = 500;
-        ctx.response.body = makeError(INTERNAL_ERROR, err.message || undefined);
+        ctx.response.body = makeError(INTERNAL_ERROR, err.message);
       }
     }
   });
@@ -46,7 +46,6 @@ export function createApp() {
 
   app.use((ctx) => {
     if (ctx.response.status === 404 && ctx.response.body === undefined) {
-      ctx.response.status = 404;
       ctx.response.body = { error: NOT_FOUND };
     }
   });

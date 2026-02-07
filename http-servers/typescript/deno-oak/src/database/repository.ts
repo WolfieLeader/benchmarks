@@ -56,21 +56,14 @@ export function resolveRepository(database: string): UserRepository | null {
 }
 
 export async function initializeDatabases(): Promise<void> {
-  await Promise.all(
-    databaseTypes.map(async (dbType) => {
-      const repo = getRepository(dbType);
-      await repo.healthCheck();
-    })
-  );
+  await Promise.all(databaseTypes.map((db) => getRepository(db).healthCheck()));
 }
 
 export async function disconnectDatabases(): Promise<void> {
   await Promise.all(
-    databaseTypes.map(async (dbType) => {
-      const repo = repositories.get(dbType);
-      if (repo) {
-        await repo.disconnect();
-      }
+    databaseTypes.map(async (db) => {
+      const repo = repositories.get(db);
+      if (repo) await repo.disconnect();
     })
   );
 }

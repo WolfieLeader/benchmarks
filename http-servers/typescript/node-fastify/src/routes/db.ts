@@ -18,13 +18,10 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
       reply.code(503).type("text/plain").send("Service Unavailable");
       return;
     }
-    try {
-      if (await repository.healthCheck()) {
-        reply.type("text/plain").send("OK");
-        return;
-      }
-    } catch {
-      // fall through to 503
+    const healthy = await repository.healthCheck().catch(() => false);
+    if (healthy) {
+      reply.type("text/plain").send("OK");
+      return;
     }
     reply.code(503).type("text/plain").send("Service Unavailable");
   });

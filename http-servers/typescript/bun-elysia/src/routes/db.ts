@@ -28,11 +28,9 @@ export const dbRouter = new Elysia()
       return "Service Unavailable";
     }
 
-    try {
-      if (await repository.healthCheck()) return "OK";
-    } catch {
-      // fall through to 503
-    }
+    const healthy = await repository.healthCheck().catch(() => false);
+    if (healthy) return "OK";
+
     set.status = 503;
     return "Service Unavailable";
   })

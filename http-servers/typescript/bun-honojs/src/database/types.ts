@@ -23,7 +23,6 @@ export const zCreateUser = z.object({
 
 export type CreateUser = z.infer<typeof zCreateUser>;
 
-// PATCH semantics: all fields optional for partial updates
 export const zUpdateUser = z.object({
   name: z.string().min(1).optional(),
   email: z.email().optional(),

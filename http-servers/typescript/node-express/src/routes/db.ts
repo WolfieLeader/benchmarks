@@ -24,9 +24,7 @@ dbRouter.get("/:database/health", async (req, res) => {
       res.send("OK");
       return;
     }
-  } catch {
-    // fall through to 503
-  }
+  } catch {}
   res.status(503).send("Service Unavailable");
 });
 

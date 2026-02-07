@@ -42,7 +42,7 @@ export class RedisUserRepository implements UserRepository {
     if (!name || !email) return null;
 
     const user: User = { id, name, email };
-    if (favoriteNumber !== null && favoriteNumber !== undefined) {
+    if (favoriteNumber != null) {
       const parsedFavoriteNumber = Number(favoriteNumber);
       if (!Number.isFinite(parsedFavoriteNumber)) return null;
       user.favoriteNumber = parsedFavoriteNumber;

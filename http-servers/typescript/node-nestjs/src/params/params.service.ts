@@ -86,7 +86,7 @@ export class ParamsService {
       );
     }
 
-    if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
+    if (!file.mimetype?.startsWith("text/plain")) {
       throw new HttpException(
         makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`),
         HttpStatus.UNSUPPORTED_MEDIA_TYPE

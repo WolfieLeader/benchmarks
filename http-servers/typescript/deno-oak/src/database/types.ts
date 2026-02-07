@@ -31,12 +31,7 @@ export const zUpdateUser = z.object({
 
 export type UpdateUser = z.infer<typeof zUpdateUser>;
 
-type UserRow = {
-  id: string;
-  name: string;
-  email: string;
-  favoriteNumber?: number | null;
-};
+type UserRow = { id: string; name: string; email: string; favoriteNumber?: number | null };
 
 export function normalizeUser(row: UserRow): User {
   const user: User = { id: row.id, name: row.name, email: row.email };
@@ -46,8 +41,6 @@ export function normalizeUser(row: UserRow): User {
 
 export function buildUser(id: string, data: CreateUser): User {
   const user: User = { id, name: data.name, email: data.email };
-  if (data.favoriteNumber !== undefined) {
-    user.favoriteNumber = data.favoriteNumber;
-  }
+  if (data.favoriteNumber !== undefined) user.favoriteNumber = data.favoriteNumber;
   return user;
 }

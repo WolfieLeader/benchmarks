@@ -54,17 +54,17 @@ export async function createApp(): Promise<FastifyInstance> {
 
   app.setErrorHandler(async (error, _req, reply) => {
     const err = error as { code?: string; statusCode?: number; message?: string };
-    let statusCode = typeof err.statusCode === "number" ? err.statusCode : 500;
+    let statusCode = err.statusCode ?? 500;
     let message = INTERNAL_ERROR;
-    const details = err.message || undefined;
 
     if (err.code === "FST_ERR_CTP_INVALID_JSON_BODY" || err.code === "FST_ERR_CTP_EMPTY_JSON_BODY") {
       statusCode = 400;
       message = INVALID_JSON_BODY;
-    } else if (err.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
-      statusCode = 413;
-      message = FILE_SIZE_EXCEEDS;
-    } else if (err.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" || err.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE") {
+    } else if (
+      err.code === "FST_ERR_CTP_BODY_TOO_LARGE" ||
+      err.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" ||
+      err.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE"
+    ) {
       statusCode = 413;
       message = FILE_SIZE_EXCEEDS;
     } else if (err.code?.startsWith("FST_ERR_MULTIPART")) {
@@ -75,7 +75,7 @@ export async function createApp(): Promise<FastifyInstance> {
     }
 
     reply.code(statusCode);
-    return makeError(message, details);
+    return makeError(message, err.message || undefined);
   });
 
   return app;

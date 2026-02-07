@@ -86,7 +86,7 @@ export async function paramsRoutes(app: FastifyInstance) {
       return makeError(FILE_NOT_FOUND, "no file field named 'file' in form data");
     }
 
-    if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
+    if (!file.mimetype?.startsWith("text/plain")) {
       reply.code(415);
       return makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`);
     }

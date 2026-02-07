@@ -34,11 +34,14 @@ paramsRoutes.get("/header", (ctx) => {
 });
 
 paramsRoutes.post("/body", async (ctx) => {
+  if (!ctx.request.hasBody) {
+    ctx.response.status = 400;
+    ctx.response.body = makeError(INVALID_JSON_BODY, "No body");
+    return;
+  }
+
   let body: unknown;
   try {
-    if (!ctx.request.hasBody) {
-      throw new Error("No body");
-    }
     body = await ctx.request.body.json();
   } catch (err) {
     ctx.response.status = 400;
@@ -151,8 +154,7 @@ paramsRoutes.post("/file", async (ctx) => {
     return;
   }
 
-  const buffer = await new Response(file.stream()).arrayBuffer();
-  const data = new Uint8Array(buffer);
+  const data = new Uint8Array(await file.arrayBuffer());
 
   if (data.length > MAX_FILE_BYTES) {
     ctx.response.status = 413;
