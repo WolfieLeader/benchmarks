@@ -1,10 +1,17 @@
+volumes:
+  influx-data:
+
 services:
   influxdb:
     image: influxdb:3-core
     container_name: benchmark-influxdb
+    user: "0:0"
     ports:
-      - "8181:8181"
-    command: ["serve", "--node-id", "local", "--object-store", "memory", "--without-auth"]
+      - "8181:8181" # HTTP API for writes and health
+      - "8082:8082" # gRPC FlightSQL for SQL queries
+    command: ["serve", "--node-id", "local", "--object-store", "file", "--data-dir", "/data", "--without-auth"]
+    volumes:
+      - influx-data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
       interval: 10s
@@ -23,7 +30,6 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=123456
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=influxdata-flightsql-datasource
     depends_on:
       influxdb:
         condition: service_healthy
