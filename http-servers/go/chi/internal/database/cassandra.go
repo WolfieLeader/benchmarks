@@ -32,7 +32,7 @@ func (r *CassandraRepository) connect() error {
 	r.once.Do(func() {
 		cluster := gocql.NewCluster(r.contactPoints...)
 		cluster.Keyspace = r.keyspace
-		cluster.Consistency = gocql.Quorum
+		cluster.Consistency = gocql.LocalOne
 		if r.localDC != "" {
 			cluster.PoolConfig.HostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(r.localDC)
 		}
@@ -90,8 +90,7 @@ func (r *CassandraRepository) FindById(ctx context.Context, id string) (*User, e
 		return nil, err
 	}
 
-	user := &User{Id: userId, Name: name, Email: email, FavoriteNumber: favoriteNumber}
-	return user, nil
+	return &User{Id: userId, Name: name, Email: email, FavoriteNumber: favoriteNumber}, nil
 }
 
 func (r *CassandraRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {

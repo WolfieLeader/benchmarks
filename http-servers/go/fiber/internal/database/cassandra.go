@@ -32,7 +32,7 @@ func (r *CassandraRepository) connect() error {
 	r.once.Do(func() {
 		cluster := gocql.NewCluster(r.contactPoints...)
 		cluster.Keyspace = r.keyspace
-		cluster.Consistency = gocql.Quorum
+		cluster.Consistency = gocql.LocalOne
 		if r.localDC != "" {
 			cluster.PoolConfig.HostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(r.localDC)
 		}

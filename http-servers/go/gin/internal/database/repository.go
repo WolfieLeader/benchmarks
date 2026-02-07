@@ -87,8 +87,8 @@ func ResolveRepository(database string, env *config.Env) UserRepository {
 }
 
 func InitializeConnections(env *config.Env) {
-	var wg sync.WaitGroup
 	ctx := context.Background()
+	var wg sync.WaitGroup
 	for _, dbType := range DatabaseTypes {
 		wg.Add(1)
 		go func(dt DatabaseType) {

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"log"
+
 	application "chi-server/internal/app"
 )
 
 func main() {
 	app := application.New()
-	app.Start()
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
 }

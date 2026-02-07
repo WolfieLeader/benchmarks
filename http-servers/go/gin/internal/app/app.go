@@ -38,7 +38,7 @@ func New() *App {
 	routes.RegisterDb(r.Group("/db"), env)
 
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"error": consts.ErrNotFound})
+		c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
 	})
 
 	return &App{env: env, router: r}

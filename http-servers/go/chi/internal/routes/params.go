@@ -55,8 +55,6 @@ func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
-	defer func() { _ = r.Body.Close() }()
-
 	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
@@ -81,8 +79,6 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFormParams(w http.ResponseWriter, r *http.Request) {
-	defer func() { _ = r.Body.Close() }()
-
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
@@ -108,8 +104,6 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFileParams(w http.ResponseWriter, r *http.Request) {
-	defer func() { _ = r.Body.Close() }()
-
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)
