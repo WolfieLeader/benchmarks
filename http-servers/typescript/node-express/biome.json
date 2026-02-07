@@ -36,7 +36,6 @@
   },
   "javascript": {
     "formatter": {
-      "arrowParentheses": "always",
       "bracketSameLine": true,
       "bracketSpacing": true,
       "quoteStyle": "double",
