@@ -42,18 +42,22 @@ func NewSuite(ctx context.Context, server *config.ResolvedServer, progress *Prog
 }
 
 type EndpointResult struct {
-	Name         string `json:"name"`
-	Path         string `json:"path"`
-	Method       string `json:"method"`
-	Stats        *Stats `json:"stats"`
-	Error        string `json:"error,omitempty"`
-	FailureCount int    `json:"failure_count,omitempty"`
-	LastError    string `json:"last_error,omitempty"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Method        string `json:"method"`
+	Database      string `json:"database,omitempty"`
+	SequenceId    string `json:"sequence_id,omitempty"`
+	Stats         *Stats `json:"stats"`
+	Error         string `json:"error,omitempty"`
+	FailureCount  int    `json:"failure_count,omitempty"`
+	CanceledCount int    `json:"canceled_count,omitempty"`
+	LastError     string `json:"last_error,omitempty"`
 }
 
 func (s *Suite) Close() {
 	if s.transport != nil {
 		s.transport.CloseIdleConnections()
+		s.transport.DisableKeepAlives = true
 	}
 }
 
@@ -140,7 +144,7 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 		}
 	}
 
-	stats, timedLatencies, failureCount, lastErr := s.runTestcases(testcases)
+	stats, timedLatencies, failureCount, canceledCount, lastErr := s.runTestcases(testcases)
 
 	s.timedResults = append(s.timedResults, TimedResult{
 		Endpoint:  name,
@@ -149,16 +153,17 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 	})
 
 	return EndpointResult{
-		Name:         name,
-		Path:         path,
-		Method:       method,
-		Stats:        stats,
-		FailureCount: failureCount,
-		LastError:    lastErr,
+		Name:          name,
+		Path:          path,
+		Method:        method,
+		Stats:         stats,
+		FailureCount:  failureCount,
+		CanceledCount: canceledCount,
+		LastError:     lastErr,
 	}
 }
 
-func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedLatencies []TimedLatency, failureCount int, lastError string) {
+func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedLatencies []TimedLatency, failureCount, canceledCount int, lastError string) {
 	workers := s.server.Concurrency
 	endpointStartTime := time.Now()
 
@@ -218,8 +223,8 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 
 	for r := range resultsCh {
 		if r.err != nil {
-			// Don't count context cancellation as failure - expected at duration end
-			if errors.Is(r.err, context.DeadlineExceeded) || errors.Is(r.err, context.Canceled) {
+			if isBenchmarkContextCancellation(ctx, r.err) {
+				canceledCount++
 				continue
 			}
 			failureCount++
@@ -238,7 +243,7 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 
 	totalRequests := count + failureCount
 	stats = CalculateStats(latencies, count, totalRequests)
-	return stats, timedLatencies, failureCount, lastError
+	return stats, timedLatencies, failureCount, canceledCount, lastError
 }
 
 func (s *Suite) executeTestcase(ctx context.Context, tc *config.Testcase) (time.Duration, error) {
@@ -292,18 +297,27 @@ type SequenceStats struct {
 }
 
 type SequenceStepStats struct {
-	Name   string        `json:"name"`
-	Method string        `json:"method"`
-	Path   string        `json:"path"`
-	Avg    time.Duration `json:"avg"`
-	P50    time.Duration `json:"p50"`
-	P95    time.Duration `json:"p95"`
-	P99    time.Duration `json:"p99"`
+	Name     string        `json:"name"`
+	Method   string        `json:"method"`
+	Path     string        `json:"path"`
+	Count    int           `json:"count"`
+	Attempts int           `json:"attempts"`
+	Failures int           `json:"failures"`
+	Avg      time.Duration `json:"avg"`
+	Low      time.Duration `json:"low"`
+	High     time.Duration `json:"high"`
+	P50      time.Duration `json:"p50"`
+	P95      time.Duration `json:"p95"`
+	P99      time.Duration `json:"p99"`
 }
 
-func (s *Suite) RunSequences(hostPort int, endpointsDone int) []SequenceStats {
+func (s *Suite) RunSequences(hostPort int) []SequenceStats {
 	if len(s.server.Sequences) == 0 {
 		return nil
+	}
+
+	if s.transport != nil {
+		s.transport.CloseIdleConnections()
 	}
 
 	s.timedSequences = nil
@@ -336,7 +350,7 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 	stepCount := len(seq.Endpoints)
 	sequenceStartTime := time.Now()
 
-	ctx, cancel := context.WithTimeout(s.ctx, s.server.DurationPerEndpoint)
+	ctx, cancel := context.WithTimeout(s.ctx, s.server.DurationPerEndpoint*time.Duration(stepCount))
 	defer cancel()
 
 	type workItem struct {
@@ -394,11 +408,29 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 	for i := range stepDurations {
 		stepDurations[i] = make([]time.Duration, 0, 10000)
 	}
+	stepAttempts := make([]int, stepCount)
+	stepFailures := make([]int, stepCount)
 
 	timedLatencies := make([]TimedLatency, 0, 10000)
 	stepTimedLatencies := make(map[string][]TimedLatency)
 	for _, ep := range seq.Endpoints {
 		stepTimedLatencies[ep.Name] = make([]TimedLatency, 0, 10000)
+	}
+
+	recordSteps := func(item timedSequenceResultItem, count int) {
+		var stepOffset time.Duration
+		for i := range count {
+			d := item.result.StepDurations[i]
+			stepAttempts[i]++
+			stepDurations[i] = append(stepDurations[i], d)
+			stepName := seq.Endpoints[i].Name
+			stepTimedLatencies[stepName] = append(stepTimedLatencies[stepName], TimedLatency{
+				ServerOffset:   item.serverOffset + stepOffset,
+				EndpointOffset: item.sequenceOffset + stepOffset,
+				Duration:       d,
+			})
+			stepOffset += d
+		}
 	}
 
 	for item := range resultsCh {
@@ -407,32 +439,24 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 			successes++
 			totalDuration += r.TotalDuration
 			durations = append(durations, r.TotalDuration)
-			for i, d := range r.StepDurations {
-				stepDurations[i] = append(stepDurations[i], d)
-			}
+			recordSteps(item, len(r.StepDurations))
 			timedLatencies = append(timedLatencies, TimedLatency{
 				ServerOffset:   item.serverOffset,
 				EndpointOffset: item.sequenceOffset,
 				Duration:       r.TotalDuration,
 			})
-			var stepOffset time.Duration
-			for i, d := range r.StepDurations {
-				stepName := seq.Endpoints[i].Name
-				stepTimedLatencies[stepName] = append(stepTimedLatencies[stepName], TimedLatency{
-					ServerOffset:   item.serverOffset + stepOffset,
-					EndpointOffset: item.sequenceOffset + stepOffset,
-					Duration:       d,
-				})
-				stepOffset += d
-			}
 		} else {
-			// Don't count context cancellation as failure - expected at duration end
 			if r.ContextCanceled {
 				continue
 			}
 			failures++
 			lastError = r.Error
 			failedStep = r.FailedStep
+			recordSteps(item, min(r.FailedStep, stepCount))
+			if r.FailedStep >= 0 && r.FailedStep < stepCount {
+				stepAttempts[r.FailedStep]++
+				stepFailures[r.FailedStep]++
+			}
 		}
 	}
 
@@ -467,15 +491,28 @@ func (s *Suite) runSequence(baseURL string, seq *config.ResolvedSequence) Sequen
 		}
 		if len(stepDurations[i]) > 0 {
 			var stepTotal time.Duration
+			low := time.Hour
+			var high time.Duration
 			for _, d := range stepDurations[i] {
 				stepTotal += d
+				if d < low {
+					low = d
+				}
+				if d > high {
+					high = d
+				}
 			}
+			steps[i].Count = len(stepDurations[i])
 			steps[i].Avg = stepTotal / time.Duration(len(stepDurations[i]))
+			steps[i].Low = low
+			steps[i].High = high
 			slices.Sort(stepDurations[i])
 			steps[i].P50 = Percentile(stepDurations[i], 50)
 			steps[i].P95 = Percentile(stepDurations[i], 95)
 			steps[i].P99 = Percentile(stepDurations[i], 99)
 		}
+		steps[i].Attempts = stepAttempts[i]
+		steps[i].Failures = stepFailures[i]
 	}
 
 	return SequenceStats{
@@ -531,10 +568,61 @@ func (s *Suite) runWarmup(testcases []*config.Testcase) {
 	wg.Wait()
 }
 
+func SequenceStepsToResults(sequences []SequenceStats) []EndpointResult {
+	totalSteps := 0
+	for i := range sequences {
+		totalSteps += len(sequences[i].Steps)
+	}
+	results := make([]EndpointResult, 0, totalSteps)
+	for i := range sequences {
+		seq := &sequences[i]
+		for j := range seq.Steps {
+			step := &seq.Steps[j]
+			var successRate float64
+			if step.Attempts > 0 {
+				successRate = float64(step.Count) / float64(step.Attempts)
+			}
+			var lastError string
+			if step.Failures > 0 {
+				lastError = seq.LastError
+			}
+			results = append(results, EndpointResult{
+				Name:       step.Name,
+				Path:       step.Path,
+				Method:     step.Method,
+				Database:   seq.Database,
+				SequenceId: seq.SequenceId,
+				Stats: &Stats{
+					Count:       step.Count,
+					TotalCount:  step.Attempts,
+					Avg:         step.Avg,
+					Low:         step.Low,
+					High:        step.High,
+					P50:         step.P50,
+					P95:         step.P95,
+					P99:         step.P99,
+					SuccessRate: successRate,
+				},
+				FailureCount: step.Failures,
+				LastError:    lastError,
+			})
+		}
+	}
+	return results
+}
+
 func (s *Suite) GetTimedResults() []TimedResult {
 	return s.timedResults
 }
 
 func (s *Suite) GetTimedSequences() []TimedSequenceResult {
 	return s.timedSequences
+}
+
+func isBenchmarkContextCancellation(benchmarkCtx context.Context, err error) bool {
+	if benchmarkCtx == nil || benchmarkCtx.Err() == nil {
+		return false
+	}
+
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -21,7 +21,7 @@ type ServerResult struct {
 	StartTime   time.Time                `json:"-"`
 	EndTime     time.Time                `json:"-"`
 	Duration    time.Duration            `json:"-"`
-	Endpoints   []client.EndpointResult  `json:"-"`
+	Results     []client.EndpointResult  `json:"-"`
 	Sequences   []client.SequenceStats   `json:"-"`
 	Error       string                   `json:"-"`
 	Resources   *container.ResourceStats `json:"-"`
@@ -42,6 +42,7 @@ type ResultConfig struct {
 	BaseUrl             string `json:"base_url"`
 	Concurrency         int    `json:"concurrency"`
 	DurationPerEndpoint string `json:"duration_per_endpoint"`
+	RequestTimeout      string `json:"request_timeout"`
 }
 
 type BenchmarkSummary struct {
@@ -56,19 +57,22 @@ type ServerSummary struct {
 	DurationMs int64                    `json:"duration_ms"`
 	Error      string                   `json:"error,omitempty"`
 	Stats      *StatsSummary            `json:"stats,omitempty"`
-	Endpoints  []EndpointSummary        `json:"endpoints,omitempty"`
+	Results    []EndpointSummary        `json:"results,omitempty"`
 	Sequences  []client.SequenceStats   `json:"sequences,omitempty"`
 	Resources  *container.ResourceStats `json:"resources,omitempty"`
 }
 
 type EndpointSummary struct {
-	Name         string        `json:"name"`
-	Path         string        `json:"path"`
-	Method       string        `json:"method"`
-	Error        string        `json:"error,omitempty"`
-	Stats        *StatsSummary `json:"stats,omitempty"`
-	FailureCount int           `json:"failure_count,omitempty"`
-	LastError    string        `json:"last_error,omitempty"`
+	Name          string        `json:"name"`
+	Path          string        `json:"path"`
+	Method        string        `json:"method"`
+	Database      string        `json:"database,omitempty"`
+	SequenceId    string        `json:"sequence_id,omitempty"`
+	Error         string        `json:"error,omitempty"`
+	Stats         *StatsSummary `json:"stats,omitempty"`
+	FailureCount  int           `json:"failure_count,omitempty"`
+	CanceledCount int           `json:"canceled_count,omitempty"`
+	LastError     string        `json:"last_error,omitempty"`
 }
 
 type StatsSummary struct {
@@ -127,7 +131,6 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 		return nil, nil, "", err
 	}
 
-	// Create server summaries for the main results file (without endpoint details)
 	serverSummaries := make([]ServerSummary, 0, len(servers))
 	for _, s := range servers {
 		serverSummaries = append(serverSummaries, ServerSummary{
@@ -167,10 +170,10 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 	return metaResults, servers, path, nil
 }
 
-func (r *ServerResult) Complete(endpoints []client.EndpointResult) {
+func (r *ServerResult) Complete(results []client.EndpointResult) {
 	r.EndTime = time.Now()
 	r.Duration = r.EndTime.Sub(r.StartTime)
-	r.Endpoints = endpoints
+	r.Results = results
 }
 
 func (r *ServerResult) SetError(err error) {
@@ -186,6 +189,7 @@ func (w *Writer) meta() ResultMeta {
 			BaseUrl:             w.config.BaseUrl,
 			Concurrency:         w.config.Concurrency,
 			DurationPerEndpoint: w.config.DurationPerEndpoint.String(),
+			RequestTimeout:      w.config.RequestTimeout.String(),
 		},
 	}
 }
@@ -226,16 +230,20 @@ func readServerSummaries(dir string) (servers []ServerSummary, successCount, fai
 }
 
 func serverSummaryFromResult(result *ServerResult) ServerSummary {
-	endpoints := make([]EndpointSummary, 0, len(result.Endpoints))
-	for _, ep := range result.Endpoints {
-		endpoints = append(endpoints, EndpointSummary{
-			Name:         ep.Name,
-			Path:         ep.Path,
-			Method:       ep.Method,
-			Error:        ep.Error,
-			Stats:        statsFromClient(ep.Stats),
-			FailureCount: ep.FailureCount,
-			LastError:    ep.LastError,
+	results := make([]EndpointSummary, 0, len(result.Results))
+	for i := range result.Results {
+		ep := &result.Results[i]
+		results = append(results, EndpointSummary{
+			Name:          ep.Name,
+			Path:          ep.Path,
+			Method:        ep.Method,
+			Database:      ep.Database,
+			SequenceId:    ep.SequenceId,
+			Error:         ep.Error,
+			Stats:         statsFromClient(ep.Stats),
+			FailureCount:  ep.FailureCount,
+			CanceledCount: ep.CanceledCount,
+			LastError:     ep.LastError,
 		})
 	}
 
@@ -243,40 +251,34 @@ func serverSummaryFromResult(result *ServerResult) ServerSummary {
 		Name:       result.Name,
 		DurationMs: result.Duration.Milliseconds(),
 		Error:      result.Error,
-		Stats:      aggregateEndpointStats(result.Endpoints),
-		Endpoints:  endpoints,
+		Stats:      aggregateStats(result.Results),
+		Results:    results,
 		Sequences:  result.Sequences,
 		Resources:  result.Resources,
 	}
 }
 
-func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
-	if len(endpoints) == 0 {
+func aggregateStats(results []client.EndpointResult) *StatsSummary {
+	if len(results) == 0 {
 		return nil
 	}
 
 	var (
 		totalLatency   time.Duration
-		totalP50       time.Duration
-		totalP95       time.Duration
-		totalP99       time.Duration
 		minLatency     = time.Hour
 		maxLatency     time.Duration
 		totalSuccesses int
 		totalRequests  int
-		endpointCount  int
+		resultCount    int
 	)
 
-	for _, ep := range endpoints {
+	for i := range results {
+		ep := &results[i]
 		if ep.Stats == nil {
 			continue
 		}
-		endpointCount++
-		count := ep.Stats.Count
-		totalLatency += time.Duration(count) * ep.Stats.Avg
-		totalP50 += time.Duration(count) * ep.Stats.P50
-		totalP95 += time.Duration(count) * ep.Stats.P95
-		totalP99 += time.Duration(count) * ep.Stats.P99
+		resultCount++
+		totalLatency += time.Duration(ep.Stats.Count) * ep.Stats.Avg
 		if ep.Stats.Low > 0 && ep.Stats.Low < minLatency {
 			minLatency = ep.Stats.Low
 		}
@@ -287,17 +289,13 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 		totalRequests += ep.Stats.Count + ep.FailureCount
 	}
 
-	if endpointCount == 0 {
+	if resultCount == 0 {
 		return nil
 	}
 
-	var avg, p50, p95, p99 time.Duration
+	var avg time.Duration
 	if totalSuccesses > 0 {
-		divisor := time.Duration(totalSuccesses)
-		avg = totalLatency / divisor
-		p50 = totalP50 / divisor
-		p95 = totalP95 / divisor
-		p99 = totalP99 / divisor
+		avg = totalLatency / time.Duration(totalSuccesses)
 	}
 	if minLatency == time.Hour {
 		minLatency = 0
@@ -312,9 +310,6 @@ func aggregateEndpointStats(endpoints []client.EndpointResult) *StatsSummary {
 		Count:       totalSuccesses,
 		TotalCount:  totalRequests,
 		AvgNs:       avg.Nanoseconds(),
-		P50Ns:       p50.Nanoseconds(),
-		P95Ns:       p95.Nanoseconds(),
-		P99Ns:       p99.Nanoseconds(),
 		MinNs:       minLatency.Nanoseconds(),
 		MaxNs:       maxLatency.Nanoseconds(),
 		SuccessRate: successRate,

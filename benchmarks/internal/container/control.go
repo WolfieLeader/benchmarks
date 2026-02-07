@@ -135,9 +135,6 @@ func StartWithOptions(ctx context.Context, timeout time.Duration, opts *StartOpt
 	}
 
 	id := strings.TrimSpace(string(out))
-	if len(id) > 12 {
-		id = id[:12]
-	}
 	return Id(id), nil
 }
 

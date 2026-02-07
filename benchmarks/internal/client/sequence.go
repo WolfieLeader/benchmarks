@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -55,7 +54,7 @@ func RunSequence(ctx context.Context, client *http.Client, baseUrl string, seq *
 			result.FailedStep = i
 			result.Error = err.Error()
 			result.TotalDuration = totalDuration
-			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			if isBenchmarkContextCancellation(ctx, err) {
 				result.ContextCanceled = true
 			}
 			return result
@@ -74,9 +73,7 @@ func generateVars(varDefs map[string]config.VarConfig, workerId, cycleNum int) m
 			skipProb := 0.5
 			switch v := cfg.Optional.(type) {
 			case bool:
-				if v {
-					skipProb = 0.5
-				} else {
+				if !v {
 					skipProb = 0
 				}
 			case float64:
@@ -145,6 +142,9 @@ func executeSequenceStep(ctx context.Context, client *http.Client, baseUrl strin
 	}
 	if closeErr != nil {
 		return duration, closeErr
+	}
+	if ctx.Err() != nil {
+		return duration, ctx.Err()
 	}
 
 	if resp.StatusCode != endpoint.ExpectedStatus {

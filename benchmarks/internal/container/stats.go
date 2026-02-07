@@ -16,7 +16,7 @@ var dockerStatsClient = &http.Client{
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 10,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return net.Dial("unix", "/var/run/docker.sock")
+			return (&net.Dialer{}).DialContext(ctx, "unix", "/var/run/docker.sock")
 		},
 	},
 }
@@ -176,7 +176,6 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 	r.mu.Unlock()
 
 	result := ResourceStats{}
-	var warnings []string
 
 	if len(memory) > 0 {
 		minMem, maxMem := memory[0], memory[0]
@@ -218,11 +217,7 @@ func (r *ResourceSampler) aggregate() ResourceStats {
 	}
 
 	if result.Samples < minReliableSamples {
-		warnings = append(warnings, "low samples")
-	}
-
-	if len(warnings) > 0 {
-		result.Warnings = warnings
+		result.Warnings = []string{"low samples"}
 	}
 
 	return result

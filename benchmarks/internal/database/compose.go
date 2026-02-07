@@ -38,7 +38,6 @@ func (m *ComposeManager) StartDatabases(ctx context.Context) error {
 }
 
 func (m *ComposeManager) StartGrafana(ctx context.Context) error {
-	// Clean up any existing containers first for a fresh start
 	_ = m.composeDown(ctx, m.grafanaPath, GrafanaProject)
 	return m.composeUp(ctx, m.grafanaPath, GrafanaProject)
 }
@@ -71,7 +70,7 @@ func (m *ComposeManager) composeDown(ctx context.Context, composePath, project s
 		"compose",
 		"-f", composePath,
 		"-p", project,
-		"down",
+		"down", "-v",
 	}
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
 	out, err := cmd.CombinedOutput()
@@ -95,7 +94,9 @@ func (m *ComposeManager) WaitHealthy(ctx context.Context, timeout time.Duration)
 		healthy, err := m.checkServicesHealth(ctx, requiredServices)
 		if err != nil {
 			lastErr = err
-			time.Sleep(HealthCheckInterval)
+			if !sleepWithContext(ctx, HealthCheckInterval) {
+				return ctx.Err()
+			}
 			continue
 		}
 
@@ -103,7 +104,9 @@ func (m *ComposeManager) WaitHealthy(ctx context.Context, timeout time.Duration)
 			return nil
 		}
 
-		time.Sleep(HealthCheckInterval)
+		if !sleepWithContext(ctx, HealthCheckInterval) {
+			return ctx.Err()
+		}
 	}
 
 	if lastErr != nil {
@@ -161,6 +164,14 @@ func parseComposeServices(data []byte) ([]composeService, error) {
 		return nil, nil
 	}
 
+	if strings.HasPrefix(trimmed, "[") {
+		var services []composeService
+		if err := json.Unmarshal([]byte(trimmed), &services); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal services array: %w", err)
+		}
+		return services, nil
+	}
+
 	lines := strings.Split(trimmed, "\n")
 	var services []composeService
 
@@ -178,6 +189,18 @@ func parseComposeServices(data []byte) ([]composeService, error) {
 	}
 
 	return services, nil
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 func extractServiceName(containerName, projectName string) string {

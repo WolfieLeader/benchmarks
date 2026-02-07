@@ -83,11 +83,12 @@ func resolveSequences(cfg *Config, order []string) []*ResolvedSequence {
 		}
 	}
 
-	maxDbs := 1
-	maxDbs = max(maxDbs, len(cfg.Databases))
+	maxDbs := max(1, len(cfg.Databases))
 	sequences := make([]*ResolvedSequence, 0, len(seqEndpoints)*maxDbs)
+	seqIds := slices.Sorted(maps.Keys(seqEndpoints))
 
-	for seqId, endpointNames := range seqEndpoints {
+	for _, seqId := range seqIds {
+		endpointNames := seqEndpoints[seqId]
 		var perDatabase bool
 		for _, name := range endpointNames {
 			if cfg.Endpoints[name].PerDatabase {

@@ -94,7 +94,7 @@ func extractKeyOrder(data []byte, key string) ([]string, error) {
 		return nil, fmt.Errorf("%s must be an object", key)
 	}
 
-	order := make([]string, 0)
+	var order []string
 	for dec.More() {
 		keyTok, err := dec.Token()
 		if err != nil {
@@ -185,6 +185,9 @@ func applyDefaults(cfg *Config) error {
 	requestTimeout, err := time.ParseDuration(cfg.Benchmark.RequestTimeoutRaw)
 	if err != nil {
 		return fmt.Errorf("benchmark request_timeout: %w", err)
+	}
+	if requestTimeout <= 0 {
+		return errors.New("benchmark request_timeout must be > 0")
 	}
 	cfg.Benchmark.RequestTimeout = requestTimeout
 

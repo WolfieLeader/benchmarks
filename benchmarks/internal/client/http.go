@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-func NewHTTPClient(workers int) *http.Client {
-	return &http.Client{
-		Transport: NewHTTPTransport(workers),
-	}
-}
-
 func NewHTTPTransport(workers int) *http.Transport {
 	return &http.Transport{
 		DialContext: (&net.Dialer{

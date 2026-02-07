@@ -26,6 +26,8 @@ type Orchestrator struct {
 	runId     string
 }
 
+const cleanupTimeout = 30 * time.Second
+
 func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, resultsDir string) *Orchestrator {
 	return &Orchestrator{
 		cfg:       cfg,
@@ -52,6 +54,10 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 	o.influx = influx.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
 	if o.influx != nil {
+		defer func() {
+			o.influx.Wait()
+			o.influx.Close()
+		}()
 		o.influx.WriteRunMeta(o.runId, o.cfg.Benchmark.SampleRatePct) //nolint:contextcheck // uses stored context from Client
 	}
 
@@ -64,7 +70,8 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 	cli.Infof("Waiting for databases to be healthy...")
 	if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
-		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+		o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+		o.stopGrafana(context.Background())   //nolint:contextcheck // cleanup must run even if ctx is canceled
 		return err
 	}
 	cli.Successf("All databases ready")
@@ -93,13 +100,14 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		if o.influx != nil {
 			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults)   //nolint:contextcheck // uses stored context from Client
 			o.influx.WriteSequenceLatencies(o.runId, server.Name, timedSequences) //nolint:contextcheck // uses stored context from Client
+			o.influx.WriteEndpointStats(o.runId, server.Name, result.Results)     //nolint:contextcheck // uses stored context from Client
 			if result.Resources != nil {
 				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
 			}
 			cli.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
 		}
 
-		result.Endpoints = nil
+		result.Results = nil
 
 		if ctx.Err() != nil {
 			cli.Warnf("Interrupted, stopping...")
@@ -118,9 +126,21 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 				break
 			}
 		}
+
+		if i < len(o.servers)-1 {
+			cli.Infof("Verifying databases are healthy...")
+			if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
+				cli.Failf("Databases did not recover: %v", err)
+				break
+			}
+			cli.Successf("All databases ready")
+		}
 	}
 
-	// Stop databases early - they're no longer needed after server benchmarks complete
+	if o.influx != nil {
+		o.influx.Wait()
+	}
+
 	o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
 
 	metaResults, servers, path, err := o.writer.ExportMetaResults()
@@ -130,11 +150,6 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	}
 	cli.Infof("Meta results: %s", path)
 	summary.PrintFinalSummary(metaResults, servers)
-
-	if o.influx != nil {
-		o.influx.Wait()
-		o.influx.Close()
-	}
 
 	if !interrupted {
 		o.waitForUserThenStopGrafana(ctx)
@@ -167,14 +182,18 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 
 func (o *Orchestrator) stopDatabases(ctx context.Context) {
 	cli.Infof("Stopping database stack...")
-	if err := o.compose.StopDatabases(ctx); err != nil {
+	stopCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	defer cancel()
+	if err := o.compose.StopDatabases(stopCtx); err != nil {
 		cli.Warnf("Failed to stop databases: %v", err)
 	}
 }
 
 func (o *Orchestrator) stopGrafana(ctx context.Context) {
 	cli.Infof("Stopping Grafana stack...")
-	if err := o.compose.StopGrafana(ctx); err != nil {
+	stopCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	defer cancel()
+	if err := o.compose.StopGrafana(stopCtx); err != nil {
 		cli.Warnf("Failed to stop Grafana: %v", err)
 	}
 }

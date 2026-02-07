@@ -122,15 +122,11 @@ func (c *Client) writePoints(points []*influxdb3.Point) {
 		return
 	}
 
-	if c.ctx != nil && c.ctx.Err() != nil {
+	if c.ctx.Err() != nil {
 		return
 	}
 
 	ctx := c.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	if c.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.timeout)

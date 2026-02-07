@@ -19,7 +19,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		ImageName: server.ImageName,
 		Port:      server.Port,
 		StartTime: time.Now(),
-		Endpoints: make([]client.EndpointResult, 0),
+		Results:   make([]client.EndpointResult, 0),
 	}
 
 	if ctx.Err() != nil {
@@ -44,7 +44,6 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	result.ContainerId = string(containerId)
 
 	sampler := container.NewResourceSampler(string(containerId))
-	sampler.Start(ctx)
 
 	defer stopContainer(containerId) //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
 
@@ -70,13 +69,12 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
+	sampler.Start(ctx)
 	result.StartTime = time.Now()
 
-	// Count unique endpoints for progress display
 	endpointCount := countUniqueEndpoints(server.Testcases)
 	sequenceCount := len(server.Sequences)
 
-	// Create progress spinner
 	progress := cli.NewProgressSpinner()
 	progress.Start(endpointCount, sequenceCount)
 
@@ -105,7 +103,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	sequences := suite.RunSequences(options.HostPort, endpointCount) //nolint:contextcheck // context is stored in Suite struct
+	sequences := suite.RunSequences(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
 
 	progress.Stop()
 
@@ -114,7 +112,9 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 
 	stopSampler(sampler, result)
 
-	result.Complete(endpoints)
+	allResults := endpoints
+	allResults = append(allResults, client.SequenceStepsToResults(sequences)...)
+	result.Complete(allResults)
 	result.Sequences = sequences
 
 	return result, timedResults, timedSequences

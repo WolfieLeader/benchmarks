@@ -1,11 +1,14 @@
 package summary
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
 	"benchmark-client/internal/cli"
+	"benchmark-client/internal/client"
 )
 
 func PrintServerSummary(result *ServerResult) {
@@ -25,51 +28,34 @@ func PrintServerSummary(result *ServerResult) {
 	cli.Linef("Duration: %s  Memory: %s  CPU: %s", cli.FormatDuration(result.Duration), memStr, cpuStr)
 	cli.Blank()
 
+	var endpointIdx, seqStepIdx []int
+	for i := range result.Results {
+		if result.Results[i].Database != "" {
+			seqStepIdx = append(seqStepIdx, i)
+		} else {
+			endpointIdx = append(endpointIdx, i)
+		}
+	}
+
 	cli.Linef("Endpoints")
 	fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
 	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s\n",
 		"Method", "Path", "Reqs", "Avg", "P50", "P95", "Rate", "Status")
 
 	var totalReqs, totalSuccesses int
-	for _, ep := range result.Endpoints {
-		path := cli.TruncatePath(ep.Path, 27)
-		reqs := "-"
-		avg := "-"
-		p50 := "-"
-		p95 := "-"
-		rate := "-"
-		status := "OK"
-		statusSymbol := cli.SymbolPass
+	for _, i := range endpointIdx {
+		totalReqs, totalSuccesses = printResultRow(&result.Results[i], totalReqs, totalSuccesses)
+	}
 
-		if ep.Error != "" {
-			status = "FAIL"
-			statusSymbol = cli.SymbolFail
-		} else if ep.Stats != nil {
-			totalCount := ep.Stats.Count + ep.FailureCount
-			totalReqs += totalCount
-			totalSuccesses += ep.Stats.Count
-			reqs = cli.FormatReqs(totalCount)
-			avg = cli.FormatLatency(ep.Stats.Avg)
-			p50 = cli.FormatLatency(ep.Stats.P50)
-			p95 = cli.FormatLatency(ep.Stats.P95)
-			rate = cli.FormatRate(ep.Stats.SuccessRate)
-			if ep.Stats.SuccessRate < 1.0 {
-				statusSymbol = cli.SymbolFail
-				if ep.FailureCount > 0 {
-					status = fmt.Sprintf("FAIL (%d)", ep.FailureCount)
-				} else {
-					status = "FAIL"
-				}
-			}
-		}
+	if len(seqStepIdx) > 0 {
+		cli.Blank()
+		cli.Linef("Sequence Steps")
+		fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
+		fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s\n",
+			"Method", "Path", "Reqs", "Avg", "P50", "P95", "Rate", "Status")
 
-		fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s %s\n",
-			ep.Method, path, reqs, avg, p50, p95, rate, statusSymbol, status)
-
-		if ep.Error != "" {
-			fmt.Printf("    └─ %s\n", cli.Truncate(ep.Error, 75))
-		} else if ep.LastError != "" {
-			fmt.Printf("    └─ last: %s\n", cli.Truncate(ep.LastError, 70))
+		for _, i := range seqStepIdx {
+			totalReqs, totalSuccesses = printResultRow(&result.Results[i], totalReqs, totalSuccesses)
 		}
 	}
 
@@ -142,6 +128,54 @@ func PrintServerSummary(result *ServerResult) {
 	cli.Blank()
 }
 
+func printResultRow(ep *client.EndpointResult, totalReqs, totalSuccesses int) (updatedReqs, updatedSuccesses int) {
+	path := ep.Path
+	if ep.Database != "" {
+		path = fmt.Sprintf("[%s] %s", ep.Database, ep.Path)
+	}
+	path = cli.TruncatePath(path, 27)
+	reqs := "-"
+	avg := "-"
+	p50 := "-"
+	p95 := "-"
+	rate := "-"
+	status := "OK"
+	statusSymbol := cli.SymbolPass
+
+	if ep.Error != "" {
+		status = "FAIL"
+		statusSymbol = cli.SymbolFail
+	} else if ep.Stats != nil {
+		totalCount := ep.Stats.Count + ep.FailureCount
+		totalReqs += totalCount
+		totalSuccesses += ep.Stats.Count
+		reqs = cli.FormatReqs(totalCount)
+		avg = cli.FormatLatency(ep.Stats.Avg)
+		p50 = cli.FormatLatency(ep.Stats.P50)
+		p95 = cli.FormatLatency(ep.Stats.P95)
+		rate = cli.FormatRate(ep.Stats.SuccessRate)
+		if ep.Stats.SuccessRate < 1.0 {
+			statusSymbol = cli.SymbolFail
+			if ep.FailureCount > 0 {
+				status = fmt.Sprintf("FAIL (%d)", ep.FailureCount)
+			} else {
+				status = "FAIL"
+			}
+		}
+	}
+
+	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s %s\n",
+		ep.Method, path, reqs, avg, p50, p95, rate, statusSymbol, status)
+
+	if ep.Error != "" {
+		fmt.Printf("    └─ %s\n", cli.Truncate(ep.Error, 75))
+	} else if ep.LastError != "" {
+		fmt.Printf("    └─ last: %s\n", cli.Truncate(ep.LastError, 70))
+	}
+
+	return totalReqs, totalSuccesses
+}
+
 func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 	cli.Header("BENCHMARK SUMMARY")
 
@@ -153,14 +187,14 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		meta.Meta.Config.BaseUrl,
 		meta.Meta.Config.Concurrency,
 		meta.Meta.Config.DurationPerEndpoint,
-		meta.Meta.Config.DurationPerEndpoint)
+		meta.Meta.Config.RequestTimeout)
 	cli.Blank()
 
 	type rankedServer struct {
 		name        string
 		avg         int64
-		p50         int64
-		p95         int64
+		min         int64
+		max         int64
 		mem         float64
 		cpu         float64
 		hasMem      bool
@@ -169,7 +203,7 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		failed      bool
 	}
 
-	ranked := make([]rankedServer, 0)
+	var ranked []rankedServer
 	var totalReqs int
 	var issues []struct {
 		server    string
@@ -191,8 +225,8 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		rs := rankedServer{
 			name:        s.Name,
 			avg:         s.Stats.AvgNs,
-			p50:         s.Stats.P50Ns,
-			p95:         s.Stats.P95Ns,
+			min:         s.Stats.MinNs,
+			max:         s.Stats.MaxNs,
 			totalReqs:   s.Stats.TotalCount,
 			successRate: s.Stats.SuccessRate,
 		}
@@ -206,8 +240,8 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		ranked = append(ranked, rs)
 
 		// Collect issues
-		for j := range s.Endpoints {
-			ep := &s.Endpoints[j]
+		for j := range s.Results {
+			ep := &s.Results[j]
 			if ep.FailureCount > 0 || ep.Error != "" {
 				errMsg := ep.LastError
 				if ep.Error != "" {
@@ -240,19 +274,13 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 			}
 			return -1
 		}
-		if a.avg < b.avg {
-			return -1
-		}
-		if a.avg > b.avg {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.avg, b.avg)
 	})
 
-	cli.Linef("Server Rankings (by avg latency)")
+	cli.Linef("Server Rankings (by avg latency, all requests)")
 	fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
 	fmt.Printf("  %2s  %-10s  %8s  %8s  %8s  %6s  %5s  %9s  %5s  %s\n",
-		"#", "Server", "Avg", "P50", "P95", "Mem", "CPU", "Reqs", "Rate", "Status")
+		"#", "Server", "Avg", "Min", "Max", "Mem", "CPU", "Reqs", "Rate", "Status")
 
 	for i, s := range ranked {
 		rank := fmt.Sprintf("%2d", i+1)
@@ -278,8 +306,8 @@ func PrintFinalSummary(meta *MetaResults, servers []ServerSummary) {
 		fmt.Printf("  %s  %-10s  %8s  %8s  %8s  %6s  %5s  %9s  %5s  %s\n",
 			rank, s.name,
 			cli.FormatLatency(s.avg),
-			cli.FormatLatency(s.p50),
-			cli.FormatLatency(s.p95),
+			cli.FormatLatency(s.min),
+			cli.FormatLatency(s.max),
 			memStr, cpuStr,
 			cli.FormatReqs(s.totalReqs),
 			cli.FormatRate(s.successRate),
@@ -364,23 +392,11 @@ func collectSequenceInfo(servers []ServerSummary) (seqList, dbList []string) {
 		}
 	}
 
-	seqList = make([]string, 0, len(seqIds))
-	for id := range seqIds {
-		seqList = append(seqList, id)
-	}
-	slices.Sort(seqList)
-
-	dbList = make([]string, 0, len(databases))
-	for db := range databases {
-		dbList = append(dbList, db)
-	}
-	slices.Sort(dbList)
-
-	return seqList, dbList
+	return slices.Sorted(maps.Keys(seqIds)), slices.Sorted(maps.Keys(databases))
 }
 
 func collectServerSeqData(servers []ServerSummary, seqId string) []seqRankingData {
-	result := make([]seqRankingData, 0)
+	var result []seqRankingData
 	for i := range servers {
 		s := &servers[i]
 		if s.Error != "" {
@@ -429,13 +445,7 @@ func sortSeqRankingData(data []seqRankingData) {
 			}
 			return -1
 		}
-		if a.avgDuration < b.avgDuration {
-			return -1
-		}
-		if a.avgDuration > b.avgDuration {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.avgDuration, b.avgDuration)
 	})
 }
 
