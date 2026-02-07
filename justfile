@@ -98,19 +98,19 @@ db-up:
 # Stop database stack
 [group('docker')]
 db-down:
-    docker compose -f infra/compose/databases.yml down
+    docker compose -f infra/compose/databases.yml down -v
 
 # Start Grafana/InfluxDB stack
 [group('docker')]
 grafana-up:
-    docker compose -f infra/compose/grafana.yml down
+    docker compose -f infra/compose/grafana.yml down -v
     docker compose -f infra/compose/grafana.yml up -d
     @echo "Grafana: http://localhost:3000 (admin/123456)"
 
 # Stop Grafana/InfluxDB stack
 [group('docker')]
 grafana-down:
-    docker compose -f infra/compose/grafana.yml down
+    docker compose -f infra/compose/grafana.yml down -v
 
 # View Grafana logs
 [group('docker')]
