@@ -7,6 +7,8 @@
   </p>
 
 <p align="center">
+  <img src="./assets/grafana.svg" alt="Grafana" height="28" style="display:inline-block; vertical-align:middle;" />
+  <img src="./assets/influxdb.svg" alt="InfluxDB" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/node.svg" alt="Node.js" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/bun.svg" alt="Bun" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/deno.svg" alt="Deno" height="28" style="display:inline-block; vertical-align:middle;" />
@@ -29,6 +31,10 @@
   <a href="./http-servers/python/fastapi"><img src="./assets/fastapi.svg" alt="FastAPI" height="28" style="display:inline-block; vertical-align:middle;" /></a>
 </p>
 </div>
+
+## Results (200 Concurrency, 5s per endpoint) 📊
+
+![Benchmark Results](./assets/benchmark-results.png)
 
 ## Stack Map 📦
 
