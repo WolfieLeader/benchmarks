@@ -1,9 +1,8 @@
 <div align="center">
   <img src="./assets/banner.svg" alt="HTTP Benchmarks" />
   <p>
-    A side-by-side HTTP performance comparison <br/> 
-    focused on identical behavior, real database flows, <br/> 
-    and metrics that enable fair cross-runtime evaluation.
+    Side-by-side benchmarks. Same API.<br/> 
+    Real databases. No toy endpoints.
   </p>
 
 <p align="center">
