@@ -167,29 +167,22 @@ func applyDefaults(cfg *Config) error {
 		cfg.Benchmark.Concurrency = DefaultConfig.Benchmark.Concurrency
 	}
 
-	durationPerEndpoint, err := parseDuration(cfg.Benchmark.DurationPerEndpointRaw, DefaultConfig.Benchmark.DurationPerEndpointRaw)
+	var err error
+	cfg.Benchmark.DurationPerEndpoint, err = validateDuration(
+		&cfg.Benchmark.DurationPerEndpointRaw, DefaultConfig.Benchmark.DurationPerEndpointRaw,
+		"benchmark duration_per_endpoint", false,
+	)
 	if err != nil {
-		return fmt.Errorf("benchmark duration_per_endpoint: %w", err)
+		return err
 	}
-	if durationPerEndpoint <= 0 {
-		return errors.New("benchmark duration_per_endpoint must be > 0")
-	}
-	if strings.TrimSpace(cfg.Benchmark.DurationPerEndpointRaw) == "" {
-		cfg.Benchmark.DurationPerEndpointRaw = DefaultConfig.Benchmark.DurationPerEndpointRaw
-	}
-	cfg.Benchmark.DurationPerEndpoint = durationPerEndpoint
 
-	if strings.TrimSpace(cfg.Benchmark.RequestTimeoutRaw) == "" {
-		cfg.Benchmark.RequestTimeoutRaw = DefaultConfig.Benchmark.RequestTimeoutRaw
-	}
-	requestTimeout, err := time.ParseDuration(cfg.Benchmark.RequestTimeoutRaw)
+	cfg.Benchmark.RequestTimeout, err = validateDuration(
+		&cfg.Benchmark.RequestTimeoutRaw, DefaultConfig.Benchmark.RequestTimeoutRaw,
+		"benchmark request_timeout", false,
+	)
 	if err != nil {
-		return fmt.Errorf("benchmark request_timeout: %w", err)
+		return err
 	}
-	if requestTimeout <= 0 {
-		return errors.New("benchmark request_timeout must be > 0")
-	}
-	cfg.Benchmark.RequestTimeout = requestTimeout
 
 	defaultSampleRate, _ := parsePercent(DefaultConfig.Benchmark.SampleRateRaw, DefaultConfig.Benchmark.SampleRateRaw)
 	sampleRate, err := parsePercent(cfg.Benchmark.SampleRateRaw, DefaultConfig.Benchmark.SampleRateRaw)
@@ -215,29 +208,21 @@ func applyDefaults(cfg *Config) error {
 		cfg.Benchmark.ServerCooldown = cooldown
 	}
 
-	warmupDuration, err := parseDuration(cfg.Benchmark.WarmupDurationRaw, DefaultConfig.Benchmark.WarmupDurationRaw)
+	cfg.Benchmark.WarmupDuration, err = validateDuration(
+		&cfg.Benchmark.WarmupDurationRaw, DefaultConfig.Benchmark.WarmupDurationRaw,
+		"benchmark warmup_duration", true,
+	)
 	if err != nil {
-		return fmt.Errorf("benchmark warmup_duration: %w", err)
+		return err
 	}
-	if warmupDuration < 0 {
-		return errors.New("benchmark warmup_duration must be >= 0")
-	}
-	if strings.TrimSpace(cfg.Benchmark.WarmupDurationRaw) == "" {
-		cfg.Benchmark.WarmupDurationRaw = DefaultConfig.Benchmark.WarmupDurationRaw
-	}
-	cfg.Benchmark.WarmupDuration = warmupDuration
 
-	warmupPause, err := parseDuration(cfg.Benchmark.WarmupPauseRaw, DefaultConfig.Benchmark.WarmupPauseRaw)
+	cfg.Benchmark.WarmupPause, err = validateDuration(
+		&cfg.Benchmark.WarmupPauseRaw, DefaultConfig.Benchmark.WarmupPauseRaw,
+		"benchmark warmup_pause", true,
+	)
 	if err != nil {
-		return fmt.Errorf("benchmark warmup_pause: %w", err)
+		return err
 	}
-	if warmupPause < 0 {
-		return errors.New("benchmark warmup_pause must be >= 0")
-	}
-	if strings.TrimSpace(cfg.Benchmark.WarmupPauseRaw) == "" {
-		cfg.Benchmark.WarmupPauseRaw = DefaultConfig.Benchmark.WarmupPauseRaw
-	}
-	cfg.Benchmark.WarmupPause = warmupPause
 
 	if cfg.Container.CpuLimit <= 0 {
 		cfg.Container.CpuLimit = DefaultConfig.Container.CpuLimit
@@ -284,6 +269,25 @@ func applyDefaults(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// validateDuration parses a duration field, applies its default, and validates the result.
+// When allowZero is false, the duration must be > 0; when true, it must be >= 0.
+func validateDuration(raw *string, defaultRaw, fieldName string, allowZero bool) (time.Duration, error) {
+	d, err := parseDuration(*raw, defaultRaw)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", fieldName, err)
+	}
+	if !allowZero && d <= 0 {
+		return 0, fmt.Errorf("%s must be > 0", fieldName)
+	}
+	if allowZero && d < 0 {
+		return 0, fmt.Errorf("%s must be >= 0", fieldName)
+	}
+	if strings.TrimSpace(*raw) == "" {
+		*raw = defaultRaw
+	}
+	return d, nil
 }
 
 func applyEndpointDefaults(name string, e *EndpointConfig) error {

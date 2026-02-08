@@ -37,10 +37,9 @@ class Env(BaseModel):
             return "0.0.0.0"
         try:
             ipaddress.ip_address(value)
-            return value
         except ValueError:
-            pass
-        raise ValueError("HOST must be a valid IP or 'localhost'")
+            raise ValueError("HOST must be a valid IP or 'localhost'")
+        return value
 
     @field_validator("PORT", mode="before")
     @classmethod

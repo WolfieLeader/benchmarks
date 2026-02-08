@@ -106,8 +106,8 @@ func (r *CassandraRepository) Update(ctx context.Context, id string, data *Updat
 		return nil, nil
 	}
 
-	setClauses := []string{}
-	params := []any{}
+	var setClauses []string
+	var params []any
 
 	if data.Name != nil {
 		setClauses = append(setClauses, "name = ?")

@@ -41,14 +41,11 @@ def get_repository(database: DatabaseType) -> UserRepository:
 
         repo = RedisUserRepository(env.REDIS_URL)
     elif database == "cassandra":
-        try:
-            from src.database.cassandra import CassandraUserRepository
+        from src.database.cassandra import CassandraUserRepository
 
-            repo = CassandraUserRepository(
-                env.CASSANDRA_CONTACT_POINTS, env.CASSANDRA_LOCAL_DATACENTER, env.CASSANDRA_KEYSPACE
-            )
-        except ImportError as e:
-            raise RuntimeError(f"Cassandra driver not available: {e}") from e
+        repo = CassandraUserRepository(
+            env.CASSANDRA_CONTACT_POINTS, env.CASSANDRA_LOCAL_DATACENTER, env.CASSANDRA_KEYSPACE
+        )
     else:
         raise ValueError(f"Unknown database type: {database}")
 
@@ -63,13 +60,7 @@ def resolve_repository(database: str) -> UserRepository | None:
 
 
 async def initialize_databases() -> None:
-    async def init_db(db_type: DatabaseType) -> None:
-        try:
-            await get_repository(db_type).health_check()
-        except Exception:
-            pass
-
-    await asyncio.gather(*[init_db(db_type) for db_type in DATABASE_TYPES])
+    await asyncio.gather(*[get_repository(db).health_check() for db in DATABASE_TYPES])
 
 
 async def disconnect_databases() -> None:

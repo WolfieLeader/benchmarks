@@ -38,17 +38,17 @@ func handleSearchParams(c *fiber.Ctx) error {
 		}
 	}
 
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"search": q, "limit": limit})
+	return c.JSON(fiber.Map{"search": q, "limit": limit})
 }
 
 func handleUrlParams(c *fiber.Ctx) error {
 	dynamic := c.Params("dynamic")
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"dynamic": dynamic})
+	return c.JSON(fiber.Map{"dynamic": dynamic})
 }
 
 func handleHeaderParams(c *fiber.Ctx) error {
 	header := cmp.Or(strings.TrimSpace(c.Get("X-Custom-Header")), "none")
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"header": header})
+	return c.JSON(fiber.Map{"header": header})
 }
 
 func handleBodyParams(c *fiber.Ctx) error {
@@ -56,13 +56,13 @@ func handleBodyParams(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"body": body})
+	return c.JSON(fiber.Map{"body": body})
 }
 
 func handleCookieParams(c *fiber.Ctx) error {
 	cookie := cmp.Or(strings.TrimSpace(c.Cookies("foo")), "none")
 	c.Cookie(&fiber.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HTTPOnly: true, Path: "/"})
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"cookie": cookie})
+	return c.JSON(fiber.Map{"cookie": cookie})
 }
 
 func handleFormParams(c *fiber.Ctx) error {
@@ -81,7 +81,7 @@ func handleFormParams(c *fiber.Ctx) error {
 		}
 	}
 
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{"name": name, "age": age})
+	return c.JSON(fiber.Map{"name": name, "age": age})
 }
 
 func handleFileParams(c *fiber.Ctx) error {
@@ -141,7 +141,7 @@ func handleFileParams(c *fiber.Ctx) error {
 		return utils.WriteError(c, fiber.StatusUnsupportedMediaType, consts.ErrNotPlainText)
 	}
 
-	return utils.WriteResponse(c, fiber.StatusOK, fiber.Map{
+	return c.JSON(fiber.Map{
 		"filename": fileHeader.Filename,
 		"size":     len(data),
 		"content":  string(data),

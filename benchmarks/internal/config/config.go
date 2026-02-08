@@ -2,7 +2,6 @@ package config
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	"benchmark-client/internal/cli"
@@ -95,7 +94,7 @@ func (cfg *Config) Print() {
 	)
 
 	cooldownStr := disabledStr
-	if strings.TrimSpace(cfg.Benchmark.ServerCooldownRaw) != "" {
+	if cfg.Benchmark.ServerCooldown > 0 {
 		cooldownStr = cfg.Benchmark.ServerCooldown.String()
 	}
 	cli.KeyValuePairs(

@@ -26,11 +26,7 @@ async def database_health(database: str):
     if repo is None:
         return Response(content="Service Unavailable", status_code=503, media_type="text/plain")
 
-    try:
-        healthy = await repo.health_check()
-    except Exception:
-        healthy = False
-
+    healthy = await repo.health_check()
     if healthy:
         return Response(content="OK", media_type="text/plain")
     return Response(content="Service Unavailable", status_code=503, media_type="text/plain")

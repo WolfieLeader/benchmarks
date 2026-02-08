@@ -59,8 +59,7 @@ paramsRoutes.post("/body", async (ctx) => {
 });
 
 paramsRoutes.get("/cookie", async (ctx) => {
-  const cookieVal = await ctx.cookies.get("foo");
-  const cookie = cookieVal?.trim() || "none";
+  const cookie = (await ctx.cookies.get("foo"))?.trim() || "none";
 
   await ctx.cookies.set("bar", "12345", {
     maxAge: 10,
@@ -80,32 +79,21 @@ paramsRoutes.post("/form", async (ctx) => {
 
   const form: Record<string, string> = {};
   try {
-    const body = ctx.request.body;
-
-    if (body.type() === "form") {
-      const pairs = await body.form();
-      for (const [key, value] of pairs) {
+    const formData = await ctx.request.body.formData();
+    formData.forEach((value, key) => {
+      if (typeof value === "string") {
         form[key] = value;
       }
-    } else if (body.type() === "form-data") {
-      const result = await body.formData();
-      result.forEach((value: FormDataEntryValue, key: string) => {
-        if (typeof value === "string") {
-          form[key] = value;
-        }
-      });
-    } else {
-      throw new Error("Invalid type");
-    }
+    });
   } catch (err) {
     ctx.response.status = 400;
     ctx.response.body = makeError(INVALID_FORM_DATA, err);
     return;
   }
 
-  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
+  const name = form.name?.trim() || "none";
 
-  const ageStr = typeof form.age === "string" && form.age.trim() !== "" ? form.age.trim() : "0";
+  const ageStr = form.age?.trim() || "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
@@ -120,23 +108,17 @@ paramsRoutes.post("/file", async (ctx) => {
     return;
   }
 
-  let file: File | null = null;
+  let formData: FormData;
   try {
-    const body = ctx.request.body;
-    if (body.type() === "form-data") {
-      const formData = await body.formData();
-      const fileEntry = formData.get("file");
-      if (fileEntry instanceof File) {
-        file = fileEntry;
-      }
-    }
+    formData = await ctx.request.body.formData();
   } catch (err) {
     ctx.response.status = 400;
     ctx.response.body = makeError(INVALID_MULTIPART, err);
     return;
   }
 
-  if (!file) {
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
     ctx.response.status = 400;
     ctx.response.body = makeError(FILE_NOT_FOUND, "no file field named 'file' in form data");
     return;

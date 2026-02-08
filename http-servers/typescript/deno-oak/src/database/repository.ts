@@ -37,11 +37,7 @@ const repositoryFactories: Record<DatabaseType, () => UserRepository> = {
     })
 };
 
-export function isDatabaseType(value: string): value is DatabaseType {
-  return databaseTypes.includes(value as DatabaseType);
-}
-
-export function getRepository(database: DatabaseType): UserRepository {
+function getRepository(database: DatabaseType): UserRepository {
   let repo = repositories.get(database);
   if (!repo) {
     repo = repositoryFactories[database]();
@@ -51,8 +47,8 @@ export function getRepository(database: DatabaseType): UserRepository {
 }
 
 export function resolveRepository(database: string): UserRepository | null {
-  if (!isDatabaseType(database)) return null;
-  return getRepository(database);
+  if (!databaseTypes.includes(database as DatabaseType)) return null;
+  return getRepository(database as DatabaseType);
 }
 
 export async function initializeDatabases(): Promise<void> {

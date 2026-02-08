@@ -47,8 +47,7 @@ paramsRouter.get("/header", (req: Request, res: Response) => {
 });
 
 paramsRouter.post("/body", (req: Request, res: Response) => {
-  const body = req.body;
-
+  const { body } = req;
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     res.status(400).json(makeError(INVALID_JSON_BODY, "expected a JSON object"));
     return;
@@ -64,7 +63,7 @@ paramsRouter.get("/cookie", (req: Request, res: Response) => {
 });
 
 function handleForm(req: Request, res: Response) {
-  const body = req.body;
+  const { body } = req;
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     res.status(400).json(makeError(INVALID_FORM_DATA, "expected form fields"));
     return;
@@ -72,7 +71,7 @@ function handleForm(req: Request, res: Response) {
 
   const name = typeof body.name === "string" ? body.name.trim() || "none" : "none";
 
-  const ageStr = typeof body.age === "string" && body.age.trim() !== "" ? body.age.trim() : "0";
+  const ageStr = typeof body.age === "string" ? body.age.trim() || "0" : "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
@@ -119,7 +118,7 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
       return;
     }
 
-    if (!file.mimetype || !file.mimetype.startsWith("text/plain")) {
+    if (!file.mimetype?.startsWith("text/plain")) {
       res.status(415).json(makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`));
       return;
     }
@@ -142,8 +141,7 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
 
     let content: string;
     try {
-      const decoder = new TextDecoder("utf-8", { fatal: true });
-      content = decoder.decode(file.buffer);
+      content = new TextDecoder("utf-8", { fatal: true }).decode(file.buffer);
     } catch {
       res.status(415).json(makeError(FILE_NOT_TEXT, "file is not valid UTF-8"));
       return;

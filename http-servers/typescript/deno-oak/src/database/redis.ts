@@ -97,8 +97,7 @@ export class RedisUserRepository implements UserRepository {
     }
   }
 
-  disconnect(): Promise<void> {
-    this.client.disconnect();
-    return Promise.resolve();
+  async disconnect(): Promise<void> {
+    await this.client.quit();
   }
 }

@@ -63,26 +63,50 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 	cli.Infof("Starting database stack...")
 	if err := o.compose.StartDatabases(ctx); err != nil {
-		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
 		return err
 	}
 	cli.Successf("Database stack started")
 
 	cli.Infof("Waiting for databases to be healthy...")
 	if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
-		o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-		o.stopGrafana(context.Background())   //nolint:contextcheck // cleanup must run even if ctx is canceled
+		o.cleanupStacks() //nolint:contextcheck // cleanup uses fresh context
 		return err
 	}
 	cli.Successf("All databases ready")
 
-	interrupted := false
+	interrupted := o.runBenchmarkLoop(ctx)
+
+	if o.influx != nil {
+		o.influx.Wait()
+	}
+
+	o.cleanupDatabases() //nolint:contextcheck // cleanup uses fresh context
+
+	metaResults, servers, path, err := o.writer.ExportMetaResults()
+	if err != nil {
+		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
+		return err
+	}
+	cli.Infof("Meta results: %s", path)
+	summary.PrintFinalSummary(metaResults, servers)
+
+	if !interrupted {
+		o.waitForUserThenStopGrafana(ctx)
+	} else {
+		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
+	}
+
+	return nil
+}
+
+func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) {
 	cooldown := o.cfg.Benchmark.ServerCooldown
+
 	for i, server := range o.servers {
 		if ctx.Err() != nil {
 			cli.Warnf("Interrupted, stopping...")
-			interrupted = true
-			break
+			return true
 		}
 
 		cli.ServerHeader(server.Name)
@@ -111,19 +135,15 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 		if ctx.Err() != nil {
 			cli.Warnf("Interrupted, stopping...")
-			interrupted = true
-			break
+			return true
 		}
 
 		if cooldown > 0 && i < len(o.servers)-1 {
 			select {
 			case <-ctx.Done():
 				cli.Warnf("Interrupted, stopping...")
-				interrupted = true
+				return true
 			case <-time.After(cooldown):
-			}
-			if interrupted {
-				break
 			}
 		}
 
@@ -137,27 +157,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		}
 	}
 
-	if o.influx != nil {
-		o.influx.Wait()
-	}
-
-	o.stopDatabases(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-
-	metaResults, servers, path, err := o.writer.ExportMetaResults()
-	if err != nil {
-		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-		return err
-	}
-	cli.Infof("Meta results: %s", path)
-	summary.PrintFinalSummary(metaResults, servers)
-
-	if !interrupted {
-		o.waitForUserThenStopGrafana(ctx)
-	} else {
-		o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
-	}
-
-	return nil
+	return false
 }
 
 func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
@@ -177,25 +177,30 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 	case <-done:
 	}
 
-	o.stopGrafana(context.Background()) //nolint:contextcheck // cleanup must run even if ctx is canceled
+	o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
 }
 
-func (o *Orchestrator) stopDatabases(ctx context.Context) {
+func (o *Orchestrator) cleanupDatabases() {
 	cli.Infof("Stopping database stack...")
-	stopCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
-	if err := o.compose.StopDatabases(stopCtx); err != nil {
+	if err := o.compose.StopDatabases(ctx); err != nil {
 		cli.Warnf("Failed to stop databases: %v", err)
 	}
 }
 
-func (o *Orchestrator) stopGrafana(ctx context.Context) {
+func (o *Orchestrator) cleanupGrafana() {
 	cli.Infof("Stopping Grafana stack...")
-	stopCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
-	if err := o.compose.StopGrafana(stopCtx); err != nil {
+	if err := o.compose.StopGrafana(ctx); err != nil {
 		cli.Warnf("Failed to stop Grafana: %v", err)
 	}
+}
+
+func (o *Orchestrator) cleanupStacks() {
+	o.cleanupDatabases()
+	o.cleanupGrafana()
 }
 
 func (o *Orchestrator) checkImages(ctx context.Context) []string {

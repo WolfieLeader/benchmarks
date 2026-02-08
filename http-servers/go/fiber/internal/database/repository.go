@@ -33,15 +33,6 @@ var DatabaseTypes = []DatabaseType{
 	DatabaseCassandra,
 }
 
-func IsDatabaseType(value string) bool {
-	for _, dt := range DatabaseTypes {
-		if string(dt) == value {
-			return true
-		}
-	}
-	return false
-}
-
 var (
 	repositories = make(map[DatabaseType]UserRepository)
 	mu           sync.RWMutex
@@ -80,9 +71,6 @@ func GetRepository(database DatabaseType, env *config.Env) UserRepository {
 }
 
 func ResolveRepository(database string, env *config.Env) UserRepository {
-	if !IsDatabaseType(database) {
-		return nil
-	}
 	return GetRepository(DatabaseType(database), env)
 }
 

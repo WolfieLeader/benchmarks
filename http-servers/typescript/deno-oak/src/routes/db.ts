@@ -1,31 +1,9 @@
-import type { RouterMiddleware } from "@oak/oak";
 import { Router } from "@oak/oak";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors.ts";
 import { resolveRepository, type UserRepository } from "../database/repository.ts";
 import { zCreateUser, zUpdateUser } from "../database/types.ts";
 
 type DbState = { repository: UserRepository };
-
-const withRepository: RouterMiddleware<
-  "/:database/:path*",
-  { database: string; "path*": string },
-  DbState
-> = async (
-  ctx,
-  next
-) => {
-  const repository = resolveRepository(ctx.params.database);
-  if (!repository) {
-    ctx.response.status = 404;
-    ctx.response.body = makeError(
-      NOT_FOUND,
-      `unknown database type: ${ctx.params.database}`
-    );
-    return;
-  }
-  ctx.state.repository = repository;
-  await next();
-};
 
 export const dbRoutes = new Router<DbState>();
 
@@ -37,19 +15,25 @@ dbRoutes.get("/:database/health", async (ctx) => {
     return;
   }
 
-  try {
-    if (await repository.healthCheck()) {
-      ctx.response.body = "OK";
-      return;
-    }
-  } catch {
-    // fall through to 503
+  const healthy = await repository.healthCheck().catch(() => false);
+  if (healthy) {
+    ctx.response.body = "OK";
+    return;
   }
   ctx.response.status = 503;
   ctx.response.body = "Service Unavailable";
 });
 
-dbRoutes.use("/:database/:path*", withRepository);
+dbRoutes.use("/:database/:path*", async (ctx, next) => {
+  const repository = resolveRepository(ctx.params.database);
+  if (!repository) {
+    ctx.response.status = 404;
+    ctx.response.body = makeError(NOT_FOUND, `unknown database type: ${ctx.params.database}`);
+    return;
+  }
+  ctx.state.repository = repository;
+  await next();
+});
 
 dbRoutes.post("/:database/users", async (ctx) => {
   const { repository } = ctx.state;

@@ -9,13 +9,7 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
-func WriteResponse(c *fiber.Ctx, status int, data any) error {
-	c.Status(status)
-	return c.JSON(data)
-}
-
 func WriteError(c *fiber.Ctx, status int, message string, detail ...any) error {
-	c.Status(status)
 	resp := ErrorResponse{Error: message}
 	if len(detail) > 0 {
 		switch v := detail[0].(type) {
@@ -29,5 +23,5 @@ func WriteError(c *fiber.Ctx, status int, message string, detail ...any) error {
 			}
 		}
 	}
-	return c.JSON(resp)
+	return c.Status(status).JSON(resp)
 }

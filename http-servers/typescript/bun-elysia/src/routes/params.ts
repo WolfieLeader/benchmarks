@@ -44,10 +44,7 @@ paramsRouter.get("/cookie", ({ cookie }) => {
   const fooValue = cookie.foo?.value;
   const cookieVal = typeof fooValue === "string" ? fooValue.trim() || "none" : "none";
 
-  cookie.bar.value = "12345";
-  cookie.bar.maxAge = 10;
-  cookie.bar.httpOnly = true;
-  cookie.bar.path = "/";
+  cookie.bar.set({ value: "12345", maxAge: 10, httpOnly: true, path: "/" });
 
   return { cookie: cookieVal };
 });
@@ -66,9 +63,9 @@ paramsRouter.post("/form", ({ body, set, headers }) => {
 
   const form = body as Record<string, unknown>;
 
-  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
+  const name = (typeof form.name === "string" && form.name.trim()) || "none";
 
-  const ageStr = typeof form.age === "string" && form.age.trim() !== "" ? form.age.trim() : "0";
+  const ageStr = (typeof form.age === "string" && form.age.trim()) || "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 

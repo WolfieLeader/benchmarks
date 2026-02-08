@@ -1,7 +1,7 @@
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
-import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import fastify, { type FastifyError, type FastifyInstance, type FastifyRequest } from "fastify";
 import { env } from "./config/env";
 import { MAX_FILE_BYTES, MAX_REQUEST_BYTES } from "./consts/defaults";
 import {
@@ -52,22 +52,21 @@ export async function createApp(): Promise<FastifyInstance> {
     return { error: NOT_FOUND };
   });
 
-  app.setErrorHandler(async (error, _req, reply) => {
-    const err = error as { code?: string; statusCode?: number; message?: string };
-    let statusCode = err.statusCode ?? 500;
+  app.setErrorHandler<FastifyError>(async (error, _req, reply) => {
+    let statusCode = error.statusCode ?? 500;
     let message = INTERNAL_ERROR;
 
-    if (err.code === "FST_ERR_CTP_INVALID_JSON_BODY" || err.code === "FST_ERR_CTP_EMPTY_JSON_BODY") {
+    if (error.code === "FST_ERR_CTP_INVALID_JSON_BODY" || error.code === "FST_ERR_CTP_EMPTY_JSON_BODY") {
       statusCode = 400;
       message = INVALID_JSON_BODY;
     } else if (
-      err.code === "FST_ERR_CTP_BODY_TOO_LARGE" ||
-      err.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" ||
-      err.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE"
+      error.code === "FST_ERR_CTP_BODY_TOO_LARGE" ||
+      error.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" ||
+      error.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE"
     ) {
       statusCode = 413;
       message = FILE_SIZE_EXCEEDS;
-    } else if (err.code?.startsWith("FST_ERR_MULTIPART")) {
+    } else if (error.code?.startsWith("FST_ERR_MULTIPART")) {
       statusCode = 400;
       message = INVALID_MULTIPART;
     } else if (statusCode === 413) {
@@ -75,7 +74,7 @@ export async function createApp(): Promise<FastifyInstance> {
     }
 
     reply.code(statusCode);
-    return makeError(message, err.message || undefined);
+    return makeError(message, error.message || undefined);
   });
 
   return app;

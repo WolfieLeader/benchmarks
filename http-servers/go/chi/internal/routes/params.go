@@ -68,7 +68,7 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 	cookieVal, err := r.Cookie("foo")
 
 	cookie := "none"
-	if err == nil && cookieVal != nil {
+	if err == nil {
 		if trimmed := strings.TrimSpace(cookieVal.Value); trimmed != "" {
 			cookie = trimmed
 		}

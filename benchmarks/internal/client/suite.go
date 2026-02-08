@@ -537,9 +537,6 @@ func (s *Suite) runWarmup(testcases []*config.Testcase) {
 	if len(testcases) == 0 {
 		return
 	}
-	if s.server.WarmupDuration <= 0 {
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, s.server.WarmupDuration)
 	defer cancel()

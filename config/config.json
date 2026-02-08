@@ -3,9 +3,9 @@
 
   "benchmark": {
     "base_url": "http://localhost:8080",
+    "request_timeout": "10s",
     "concurrency": 200,
     "duration_per_endpoint": "5s",
-    "request_timeout": "10s",
     "sample_rate": "50%",
     "warmup_duration": "2s",
     "warmup_pause": "10s",

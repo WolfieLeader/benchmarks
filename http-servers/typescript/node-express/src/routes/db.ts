@@ -1,4 +1,4 @@
-import { Router, type Router as RouterType } from "express";
+import express, { type Router } from "express";
 import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
 import { resolveRepository, type UserRepository } from "../database/repository";
 import { zCreateUser, zUpdateUser } from "../database/types";
@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-export const dbRouter: RouterType = Router();
+export const dbRouter: Router = express.Router();
 
 dbRouter.get("/:database/health", async (req, res) => {
   const repository = resolveRepository(req.params.database);
@@ -19,12 +19,11 @@ dbRouter.get("/:database/health", async (req, res) => {
     res.status(503).send("Service Unavailable");
     return;
   }
-  try {
-    if (await repository.healthCheck()) {
-      res.send("OK");
-      return;
-    }
-  } catch {}
+  const healthy = await repository.healthCheck().catch(() => false);
+  if (healthy) {
+    res.send("OK");
+    return;
+  }
   res.status(503).send("Service Unavailable");
 });
 

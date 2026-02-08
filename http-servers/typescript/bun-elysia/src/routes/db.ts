@@ -23,12 +23,7 @@ const withRepository = new Elysia()
 export const dbRouter = new Elysia()
   .get("/:database/health", async ({ params, set }) => {
     const repository = resolveRepository(params.database);
-    if (!repository) {
-      set.status = 503;
-      return "Service Unavailable";
-    }
-
-    const healthy = await repository.healthCheck().catch(() => false);
+    const healthy = repository ? await repository.healthCheck().catch(() => false) : false;
     if (healthy) return "OK";
 
     set.status = 503;

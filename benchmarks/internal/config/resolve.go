@@ -145,44 +145,23 @@ func resolveEndpoint(baseUrl string, databases []string, endpointName string, en
 		return nil, fmt.Errorf("endpoint %q file: %w", endpointName, err)
 	}
 
-	var testcases []*Testcase
+	type dbContext struct {
+		name   string // testcase name prefix (database name or "default")
+		dbName string // database for path substitution (empty if not per-database)
+	}
 
+	var contexts []dbContext
 	if endpoint.PerDatabase && len(databases) > 0 {
 		for _, db := range databases {
-			tc, tcErr := buildTestcase(baseUrl, endpointName, db, endpoint, nil, endpointFile, db)
-			if tcErr != nil {
-				return nil, tcErr
-			}
-			testcases = append(testcases, tc)
-
-			for i := range endpoint.Variations {
-				variation := &endpoint.Variations[i]
-				file := endpointFile
-				if variation.File != "" {
-					file, tcErr = loadFile(variation.File)
-					if tcErr != nil {
-						return nil, fmt.Errorf("endpoint %q variation %d file: %w", endpointName, i, tcErr)
-					}
-				}
-
-				variationName := fmt.Sprintf("variation_%d", i)
-				tc, tcErr = buildTestcase(baseUrl, endpointName, db+"/"+variationName, endpoint, variation, file, db)
-				if tcErr != nil {
-					return nil, fmt.Errorf("endpoint %q database %q variation %d: %w", endpointName, db, i, tcErr)
-				}
-				testcases = append(testcases, tc)
-			}
+			contexts = append(contexts, dbContext{name: db, dbName: db})
 		}
 	} else {
-		if len(endpoint.Variations) == 0 {
-			tc, tcErr := buildTestcase(baseUrl, endpointName, "default", endpoint, nil, endpointFile, "")
-			if tcErr != nil {
-				return nil, tcErr
-			}
-			return []*Testcase{tc}, nil
-		}
+		contexts = []dbContext{{name: "default", dbName: ""}}
+	}
 
-		tc, tcErr := buildTestcase(baseUrl, endpointName, "default", endpoint, nil, endpointFile, "")
+	var testcases []*Testcase
+	for _, dctx := range contexts {
+		tc, tcErr := buildTestcase(baseUrl, endpointName, dctx.name, endpoint, nil, endpointFile, dctx.dbName)
 		if tcErr != nil {
 			return nil, tcErr
 		}
@@ -192,16 +171,20 @@ func resolveEndpoint(baseUrl string, databases []string, endpointName string, en
 			variation := &endpoint.Variations[i]
 			file := endpointFile
 			if variation.File != "" {
-				file, err = loadFile(variation.File)
-				if err != nil {
-					return nil, fmt.Errorf("endpoint %q variation %d file: %w", endpointName, i, err)
+				file, tcErr = loadFile(variation.File)
+				if tcErr != nil {
+					return nil, fmt.Errorf("endpoint %q variation %d file: %w", endpointName, i, tcErr)
 				}
 			}
 
 			variationName := fmt.Sprintf("variation_%d", i)
-			tc, err = buildTestcase(baseUrl, endpointName, variationName, endpoint, variation, file, "")
-			if err != nil {
-				return nil, fmt.Errorf("endpoint %q variation %d: %w", endpointName, i, err)
+			tcName := variationName
+			if dctx.dbName != "" {
+				tcName = dctx.dbName + "/" + variationName
+			}
+			tc, tcErr = buildTestcase(baseUrl, endpointName, tcName, endpoint, variation, file, dctx.dbName)
+			if tcErr != nil {
+				return nil, fmt.Errorf("endpoint %q variation %d: %w", endpointName, i, tcErr)
 			}
 			testcases = append(testcases, tc)
 		}

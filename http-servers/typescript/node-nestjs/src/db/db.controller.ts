@@ -41,10 +41,7 @@ export class DbController {
     }
 
     const healthy = await repository.healthCheck().catch(() => false);
-    if (healthy) {
-      return res.status(200).send("OK");
-    }
-    return res.status(503).send("Service Unavailable");
+    return res.status(healthy ? 200 : 503).send(healthy ? "OK" : "Service Unavailable");
   }
 
   @Post(":database/users")
@@ -80,7 +77,6 @@ export class DbController {
   }
 
   @Patch(":database/users/:id")
-  @HttpCode(200)
   async update(@Param("database") database: string, @Param("id") id: string, @Body() body: unknown) {
     const repository = this.getRepo(database);
 

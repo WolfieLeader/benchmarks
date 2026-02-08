@@ -46,7 +46,7 @@ func (r *MongoRepository) connect() error {
 	return r.initErr
 }
 
-func (r *MongoRepository) toUser(doc *userDocument) *User {
+func toUserDocument(doc *userDocument) *User {
 	return &User{
 		Id:             doc.Id.Hex(),
 		Name:           doc.Name,
@@ -55,7 +55,7 @@ func (r *MongoRepository) toUser(doc *userDocument) *User {
 	}
 }
 
-func (r *MongoRepository) parseObjectId(id string) (bson.ObjectID, bool) {
+func parseObjectId(id string) (bson.ObjectID, bool) {
 	oid, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return bson.ObjectID{}, false
@@ -84,7 +84,7 @@ func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error
 		return nil, err
 	}
 
-	oid, ok := r.parseObjectId(id)
+	oid, ok := parseObjectId(id)
 	if !ok {
 		return nil, nil
 	}
@@ -98,7 +98,7 @@ func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error
 		return nil, err
 	}
 
-	return r.toUser(&doc), nil
+	return toUserDocument(&doc), nil
 }
 
 func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUser) (*User, error) {
@@ -106,7 +106,7 @@ func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUse
 		return nil, err
 	}
 
-	oid, ok := r.parseObjectId(id)
+	oid, ok := parseObjectId(id)
 	if !ok {
 		return nil, nil
 	}
@@ -136,7 +136,7 @@ func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUse
 		return nil, err
 	}
 
-	return r.toUser(&doc), nil
+	return toUserDocument(&doc), nil
 }
 
 func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
@@ -144,7 +144,7 @@ func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
 		return false, err
 	}
 
-	oid, ok := r.parseObjectId(id)
+	oid, ok := parseObjectId(id)
 	if !ok {
 		return false, nil
 	}

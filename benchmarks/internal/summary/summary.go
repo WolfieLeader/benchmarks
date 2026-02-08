@@ -28,11 +28,9 @@ func PrintServerSummary(result *ServerResult) {
 	cli.Linef("Duration: %s  Memory: %s  CPU: %s", cli.FormatDuration(result.Duration), memStr, cpuStr)
 	cli.Blank()
 
-	var endpointIdx, seqStepIdx []int
+	var endpointIdx []int
 	for i := range result.Results {
-		if result.Results[i].Database != "" {
-			seqStepIdx = append(seqStepIdx, i)
-		} else {
+		if result.Results[i].Database == "" {
 			endpointIdx = append(endpointIdx, i)
 		}
 	}
@@ -47,15 +45,11 @@ func PrintServerSummary(result *ServerResult) {
 		totalReqs, totalSuccesses = printResultRow(&result.Results[i], totalReqs, totalSuccesses)
 	}
 
-	if len(seqStepIdx) > 0 {
-		cli.Blank()
-		cli.Linef("Sequence Steps")
-		fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
-		fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s\n",
-			"Method", "Path", "Reqs", "Avg", "P50", "P95", "Rate", "Status")
-
-		for _, i := range seqStepIdx {
-			totalReqs, totalSuccesses = printResultRow(&result.Results[i], totalReqs, totalSuccesses)
+	for i := range result.Results {
+		ep := &result.Results[i]
+		if ep.Database != "" && ep.Stats != nil {
+			totalReqs += ep.Stats.Count + ep.FailureCount
+			totalSuccesses += ep.Stats.Count
 		}
 	}
 
@@ -129,11 +123,7 @@ func PrintServerSummary(result *ServerResult) {
 }
 
 func printResultRow(ep *client.EndpointResult, totalReqs, totalSuccesses int) (updatedReqs, updatedSuccesses int) {
-	path := ep.Path
-	if ep.Database != "" {
-		path = fmt.Sprintf("[%s] %s", ep.Database, ep.Path)
-	}
-	path = cli.TruncatePath(path, 27)
+	path := cli.TruncatePath(ep.Path, 27)
 	reqs := "-"
 	avg := "-"
 	p50 := "-"

@@ -74,9 +74,9 @@ paramsRoutes.post("/form", async (c) => {
     return c.json(makeError(INVALID_FORM_DATA, "expected form fields"), 400);
   }
 
-  const name = typeof form.name === "string" && form.name.trim() !== "" ? form.name.trim() : "none";
+  const name = (typeof form.name === "string" && form.name.trim()) || "none";
 
-  const ageStr = typeof form.age === "string" && form.age.trim() !== "" ? form.age.trim() : "0";
+  const ageStr = (typeof form.age === "string" && form.age.trim()) || "0";
   const ageNum = Number(ageStr);
   const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
@@ -107,8 +107,7 @@ paramsRoutes.post("/file", async (c) => {
     return c.json(makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`), 413);
   }
 
-  const buffer = await file.arrayBuffer();
-  const data = new Uint8Array(buffer);
+  const data = new Uint8Array(await file.arrayBuffer());
   if (data.length > MAX_FILE_BYTES) {
     return c.json(makeError(FILE_SIZE_EXCEEDS, `file size ${data.length} exceeds limit ${MAX_FILE_BYTES}`), 413);
   }

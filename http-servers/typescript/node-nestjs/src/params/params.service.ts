@@ -13,29 +13,12 @@ import {
   ONLY_TEXT_PLAIN
 } from "../consts/errors";
 
-export interface SearchResult {
-  search: string;
-  limit: number;
-}
-
-export interface FormResult {
-  name: string;
-  age: number;
-}
-
-export interface FileResult {
-  filename: string;
-  size: number;
-  content: string;
-}
-
 @Injectable()
 export class ParamsService {
-  parseSearchParams(q?: string, limit?: string): SearchResult {
+  parseSearchParams(q?: string, limit?: string): { search: string; limit: number } {
     const search = q?.trim() || "none";
-    const limitStr = limit?.trim();
-    const limitNum = limitStr ? Number(limitStr) : Number.NaN;
-    const safeLimit = Number.isSafeInteger(limitNum) && !limitStr?.includes(".") ? limitNum : DEFAULT_LIMIT;
+    const limitNum = Number(limit);
+    const safeLimit = Number.isSafeInteger(limitNum) && !limit?.includes(".") ? limitNum : DEFAULT_LIMIT;
 
     return { search, limit: safeLimit };
   }
@@ -62,9 +45,9 @@ export class ParamsService {
     }
   }
 
-  parseFormData(body?: { name?: string; age?: string }): FormResult {
+  parseFormData(body?: { name?: string; age?: string }): { name: string; age: number } {
     const name = typeof body?.name === "string" ? body.name.trim() || "none" : "none";
-    const ageStr = typeof body?.age === "string" && body.age.trim() !== "" ? body.age.trim() : "0";
+    const ageStr = typeof body?.age === "string" ? body.age.trim() || "0" : "0";
     const ageNum = Number(ageStr);
     const age = Number.isSafeInteger(ageNum) ? ageNum : 0;
 
@@ -78,7 +61,7 @@ export class ParamsService {
     }
   }
 
-  processUploadedFile(file?: Express.Multer.File): FileResult {
+  processUploadedFile(file?: Express.Multer.File): { filename: string; size: number; content: string } {
     if (!file) {
       throw new HttpException(
         makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"),

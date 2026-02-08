@@ -47,9 +47,7 @@ class MongoUserRepository:
             return None
 
         doc = await self._collection().find_one({"_id": oid})
-        if doc is None:
-            return None
-        return self._to_user(doc)
+        return self._to_user(doc) if doc else None
 
     async def update(self, id: str, data: UpdateUser) -> User | None:
         oid = self._parse_object_id(id)
@@ -70,9 +68,7 @@ class MongoUserRepository:
         doc = await self._collection().find_one_and_update(
             {"_id": oid}, {"$set": update_fields}, return_document=ReturnDocument.AFTER
         )
-        if doc is None:
-            return None
-        return self._to_user(doc)
+        return self._to_user(doc) if doc else None
 
     async def delete(self, id: str) -> bool:
         oid = self._parse_object_id(id)

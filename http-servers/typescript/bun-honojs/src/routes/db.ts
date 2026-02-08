@@ -26,12 +26,8 @@ dbRoutes.get("/:database/health", async (c) => {
   const repository = resolveRepository(c.req.param("database"));
   if (!repository) return c.text("Service Unavailable", 503);
 
-  try {
-    const healthy = await repository.healthCheck();
-    return healthy ? c.text("OK") : c.text("Service Unavailable", 503);
-  } catch {
-    return c.text("Service Unavailable", 503);
-  }
+  const healthy = await repository.healthCheck().catch(() => false);
+  return healthy ? c.text("OK") : c.text("Service Unavailable", 503);
 });
 
 dbRoutes.use("/:database/*", withRepository);

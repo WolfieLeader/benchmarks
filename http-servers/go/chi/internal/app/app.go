@@ -42,7 +42,7 @@ func New() *App {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	r.Route("/params", func(r chi.Router) { routes.RegisterParams(r) })
+	r.Route("/params", routes.RegisterParams)
 	r.Route("/db", func(r chi.Router) { routes.RegisterDb(r, env) })
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

@@ -14,16 +14,11 @@ export const dbRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{ Params: { database: string } }>("/:database/health", async (request, reply) => {
     const repository = resolveRepository(request.params.database);
-    if (!repository) {
-      reply.code(503).type("text/plain").send("Service Unavailable");
-      return;
-    }
-    const healthy = await repository.healthCheck().catch(() => false);
-    if (healthy) {
-      reply.type("text/plain").send("OK");
-      return;
-    }
-    reply.code(503).type("text/plain").send("Service Unavailable");
+    const healthy = repository ? await repository.healthCheck().catch(() => false) : false;
+    reply
+      .code(healthy ? 200 : 503)
+      .type("text/plain")
+      .send(healthy ? "OK" : "Service Unavailable");
   });
 
   fastify.addHook("preHandler", async (request: FastifyRequest<{ Params: { database: string } }>, reply) => {

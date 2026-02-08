@@ -9,10 +9,6 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
-func WriteResponse(c *gin.Context, status int, data any) {
-	c.JSON(status, data)
-}
-
 func WriteError(c *gin.Context, status int, message string, detail ...any) {
 	resp := ErrorResponse{Error: message}
 	if len(detail) > 0 {

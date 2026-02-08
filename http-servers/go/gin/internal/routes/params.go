@@ -38,17 +38,17 @@ func handleSearchParams(c *gin.Context) {
 		}
 	}
 
-	utils.WriteResponse(c, http.StatusOK, gin.H{"search": q, "limit": limit})
+	c.JSON(http.StatusOK, gin.H{"search": q, "limit": limit})
 }
 
 func handleUrlParams(c *gin.Context) {
 	dynamic := c.Param("dynamic")
-	utils.WriteResponse(c, http.StatusOK, gin.H{"dynamic": dynamic})
+	c.JSON(http.StatusOK, gin.H{"dynamic": dynamic})
 }
 
 func handleHeaderParams(c *gin.Context) {
 	header := cmp.Or(strings.TrimSpace(c.GetHeader("X-Custom-Header")), "none")
-	utils.WriteResponse(c, http.StatusOK, gin.H{"header": header})
+	c.JSON(http.StatusOK, gin.H{"header": header})
 }
 
 func handleBodyParams(c *gin.Context) {
@@ -57,7 +57,7 @@ func handleBodyParams(c *gin.Context) {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
-	utils.WriteResponse(c, http.StatusOK, gin.H{"body": body})
+	c.JSON(http.StatusOK, gin.H{"body": body})
 }
 
 func handleCookieParams(c *gin.Context) {
@@ -69,7 +69,7 @@ func handleCookieParams(c *gin.Context) {
 	}
 
 	c.SetCookie("bar", "12345", 10, "/", "", false, true)
-	utils.WriteResponse(c, http.StatusOK, gin.H{"cookie": cookie})
+	c.JSON(http.StatusOK, gin.H{"cookie": cookie})
 }
 
 func handleFormParams(c *gin.Context) {
@@ -89,7 +89,7 @@ func handleFormParams(c *gin.Context) {
 		}
 	}
 
-	utils.WriteResponse(c, http.StatusOK, gin.H{"name": name, "age": age})
+	c.JSON(http.StatusOK, gin.H{"name": name, "age": age})
 }
 
 func handleFileParams(c *gin.Context) {
@@ -161,7 +161,7 @@ func handleFileParams(c *gin.Context) {
 		return
 	}
 
-	utils.WriteResponse(c, http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"filename": fileHeader.Filename,
 		"size":     len(data),
 		"content":  string(data),
