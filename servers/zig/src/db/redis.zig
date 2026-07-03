@@ -51,6 +51,18 @@ pub const Redis = struct {
         return self;
     }
 
+    /// Closes every pooled connection and frees pool bookkeeping. Called on
+    /// graceful shutdown, after the http workers have stopped (so all
+    /// connections are idle).
+    pub fn deinit(self: *Redis) void {
+        for (self.idle[0..self.idle_count]) |conn| {
+            conn.stream.close(self.io);
+            self.allocator.destroy(conn);
+        }
+        self.allocator.free(self.idle);
+        self.allocator.free(self.host);
+    }
+
     fn dial(self: *Redis) !Io.net.Stream {
         const hostname: Io.net.HostName = try .init(self.host);
         return hostname.connect(self.io, self.port, .{ .mode = .stream });

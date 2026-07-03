@@ -70,6 +70,15 @@ pub fn main(init: std.process.Init) !void {
 
     std.log.info("Zig server listening on 0.0.0.0:{d}", .{env.port});
     try server.listen();
+
+    // Graceful teardown once listen() returns (SIGINT/SIGTERM -> stop()): the
+    // http workers have stopped, so release each DB client in reverse init
+    // order before exit.
+    app.cassandra.deinit();
+    app.mongo.deinit();
+    app.redis.deinit();
+    app.postgres.deinit();
+    allocator.destroy(app);
 }
 
 fn index(_: *App, _: *httpz.Request, res: *httpz.Response) !void {
