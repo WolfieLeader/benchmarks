@@ -1,0 +1,244 @@
+# TypeScript Best Practices — HTTP Benchmarks Repo
+
+Scope: 6 TS servers (`ts-express`, `ts-fastify`, `ts-nestjs` on Node 26; `ts-bun-elysia`, `ts-bun-honojs` on Bun 1.3; `ts-deno-oak` on Deno 2.9), one shared package (`@bench/shared`), TypeScript 7.0 RC (native `tsc`), pnpm 11 workspace, biome strict. Rules are numbered and grouped by theme; each carries the _why_ and, where it isn't obvious, a tiny sketch. "In this repo" at the end grounds the rules in this codebase's actual files.
+
+---
+
+## 1. Type-level discipline
+
+1. **Turn on `strict` and treat it as a floor, not a ceiling.** `strict` bundles `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitThis`, `alwaysStrict`. Without `strictNullChecks` in particular, `T | null | undefined` collapses to `T` everywhere and every "cannot read property of undefined" bug becomes invisible to the compiler. Add `noUncheckedIndexedAccess` on top — it is not part of `strict` but is the single highest-value opt-in flag: it makes `arr[i]` and `obj[key]` return `T | undefined` instead of lying that indexing always succeeds. (TypeScript Handbook, "tsconfig Reference" / Effective TypeScript Item 2, "Know Which TypeScript Options You're Using".)
+
+2. **Prefer `unknown` over `any` at every untrusted boundary.** `any` disables type checking on everything it touches and _propagates_ — one `any` in a function signature poisons every caller. `unknown` forces a narrowing check (`typeof`, `instanceof`, a type guard, or a zod `.parse`) before the value can be used, which is exactly what you want for JSON bodies, `catch` clause variables, and third-party callback payloads.
+
+   ```ts
+   function handle(body: unknown) {
+     const data = zCreateUser.parse(body); // now data: CreateUser, not any
+   }
+   ```
+
+   (Effective TypeScript Item 5, "Limit Use of the any Type"; TS Handbook "Unknown".)
+
+3. **Model variants as discriminated unions, not optional-field bags.** A type with five optional fields lets every combination compile, including the nonsensical ones; a union with a literal discriminant (`type: "postgres" | "mongodb" | ...`) lets the compiler narrow inside each branch and reject invalid combinations at the call site. This repo's `DatabaseType` (`"postgres" | "mongodb" | "redis" | "cassandra"`) is the discriminant that `resolveRepository` narrows on.
+
+4. **Make illegal states unrepresentable with exhaustiveness checks (`never`).** Every `switch`/`if` chain over a union should end in a default branch that assigns the residual value to a parameter typed `never`. If a new union member is added later and a branch is missed, this becomes a compile error instead of a silent runtime fallthrough:
+
+   ```ts
+   function assertUnreachable(x: never): never {
+     throw new Error(`unhandled case: ${JSON.stringify(x)}`);
+   }
+   switch (db) {
+     case "postgres": ...
+     case "mongodb": ...
+     case "redis": ...
+     case "cassandra": ...
+     default: return assertUnreachable(db);
+   }
+   ```
+
+   Pair this with biome/eslint's switch-exhaustiveness rule so it's enforced even before the branches exist. (TS Handbook, "Narrowing" → "The `never` type".)
+
+5. **Use `satisfies` to check a literal against a type without widening it.** `const x: Config = {...}` erases the literal's precise shape to `Config`; `const x = {...} satisfies Config` validates against `Config` but keeps the narrower inferred type, so downstream code can still see literal keys/values. This matters for things like a `repositoryFactories` map keyed by a union — `satisfies Record<DatabaseType, () => UserRepository>` both enforces every key is present _and_ keeps each factory's own return type visible. (TS 4.9 release notes; TS Handbook "satisfies".)
+
+6. **Use type-only imports (`import type`) for anything imported purely for its types.** Two reasons this is not cosmetic: (a) `isolatedModules` (which every tsconfig in this repo sets) requires the compiler to transpile each file independently, without cross-file type information — an ambiguous import that _could_ be a value or a type is a hard error unless it's disambiguated; (b) a plain `import` of a side-effect-only or polyfill module (e.g. `reflect-metadata` in NestJS) must run, but a plain `import` of a _type_ forces a runtime module load that a bundler/runtime cannot always tree-shake away, which is exactly the failure mode `noNonNullAssertion`-adjacent `verbatimModuleSyntax`/`isolatedModules` are designed to catch. Prefer `import { type Foo, bar } from "..."` (inline) or a fully separate `import type { Foo } from "..."` block; biome's `assist.actions.source.organizeImports` (on in this repo's `biome.json`) sorts but does not itself add `type` — that's on the author. (typescript-eslint `consistent-type-imports` rule docs: "TypeScript allows specifying a type keyword on imports to indicate that the import is only used for types, not runtime values... this allows transpilers to drop imports without knowing the types of the dependencies.")
+
+7. **Validate at the boundary with zod, then work in the inferred TS type everywhere else ("zod-at-boundaries" pattern).** Parse untrusted input (env vars, request bodies, query strings) once, immediately, with a zod schema; derive the TS type with `z.infer<typeof schema>`; never re-validate or re-guard downstream. This keeps validation logic in one place and guarantees the type and the runtime check can't drift apart. `@bench/shared`'s `zEnv`/`env`, `zUser`/`User`, `zCreateUser`/`CreateUser` are exactly this shape — the schema is the single source of truth and the type is derived, never hand-written twice.
+
+8. **Let inference do the work; annotate only at public boundaries.** Redundant annotations (`const n: number = 5`) add no safety and rot when the implementation changes but the annotation doesn't get updated (the compiler won't catch a _widened_ mismatch on a `let`/`const` initializer in every case). Annotate function parameters (inference can't see call sites) and exported function/variable return types (so a change to internal logic that accidentally changes the return type is a compile error, not a silent breaking change for consumers) — leave locals and internals to inference. (Effective TypeScript Item 19, "Avoid Cargo Cult Type Parameters" / Item 4, "Use Type Annotations for Function Parameters and Return Types, Not Variables"; biome's `noInferrableTypes` rule, already `error` in this repo, enforces the local-variable half of this.)
+
+---
+
+## 2. ESM / module hygiene
+
+9. **On Node, use `module`/`moduleResolution: NodeNext` and write explicit `.js` extensions on relative imports — even though the source file is `.ts`.** NodeNext resolution mirrors Node's own ESM loader, which requires a fully-specified specifier at runtime; since the _emitted_ file is `.js`, the _source_ import must say `.js` even though `foo.js` doesn't exist yet at edit time (`import { createApp } from "./app.js"` in a file called `app.ts`). This is the single most common "why does this work in the editor but fail at runtime" trap for newcomers — TS will resolve `./app.js` back to `./app.ts` for type-checking purposes, but Node's loader needs the literal `.js` path to exist after compilation. `ts-express`/`ts-fastify`/`ts-nestjs`/`ts-bun-elysia`/`ts-bun-honojs` all set `module`/`moduleResolution: NodeNext` for this reason. (TS Handbook, "Modules — Choosing Compiler Options"; Node.js ESM docs, "Mandatory file extensions".)
+
+10. **Deno resolves relative specifiers as literal files, not compiled output — so it uses the source extension (`.ts`), and it is a mistake to copy the Node `.js`-suffix convention there.** Deno has no separate compile step for its own modules; `./app.ts` must point at a file that actually exists. `ts-deno-oak/src/index.ts` imports `"./app.ts"`, not `"./app.js"` — this is not a typo, it's the correct idiom for that runtime, and it would be wrong to "fix" it to match the Node servers.
+
+11. **A `.d.ts` file that re-exports across multiple source files is a cross-runtime trap — know why before splitting a shared package into modules.** NodeNext-resolved consumers (Node, Bun) require the `.d.ts`'s own relative re-exports to carry `.js` specifiers (mirroring what the compiled `.js` will look like); Deno resolves that same `.js` specifier straight to a same-named runtime file, which doesn't carry the type-only re-exported members, silently dropping them. There is no compiler flag that reconciles this — the fix is either to avoid cross-file re-exports in the package that ships a `.d.ts` to multiple runtimes, or to hand-author dual entry points. `@bench/shared` is a single `src/index.ts` file specifically to sidestep this (see "In this repo" below).
+
+    ```
+    // package split across modules:
+    // dist/foo.d.ts:      export { Bar } from "./bar.js";
+    //   Node/Bun (NodeNext): resolves ./bar.js -> dist/bar.js — fine.
+    //   Deno:                resolves ./bar.js -> a literal bar.js it looks
+    //                        for next to bar.ts; type-only re-exports vanish.
+    ```
+
+12. **Bundler resolution (`moduleResolution: "bundler"`) is for code a bundler will process (Vite/esbuild/webpack output) — don't reach for it on a server that ships plain `tsc`-emitted JS to a Node/Bun runtime.** `bundler` mode relaxes Node's extension/exports-field strictness because a bundler resolves imports itself before anything executes; it is the wrong choice for `NodeNext`-run servers because it will happily typecheck an extensionless relative import that Node's own loader then fails to resolve at runtime — the gap only shows up when you actually run the emitted output, not at typecheck time. Separately, `esModuleInterop`/`allowSyntheticDefaultImports` (both `true` in every tsconfig here) are interop _conveniences_ for CommonJS default-import ergonomics, not resolution-strategy choices — don't confuse the two axes: changing one doesn't substitute for the other.
+
+---
+
+## 3. Async & event loop (deep)
+
+13. **Never leave a promise floating — await it, chain a rejection handler, or mark it deliberately fire-and-forget with `void`.** A "floating" promise is a promise-returning expression whose rejection nothing observes; if it rejects, Node's default is an `unhandledRejection` that (since Node 15) crashes the process. `void somePromise()` is the explicit, lint-satisfying way to say "I am intentionally not awaiting this, and I've reasoned about what happens if it rejects" — it's a marker for readers and for `typescript-eslint`'s `no-floating-promises`, which "requires Promise-like statements to be handled appropriately... reports on promises in expression statements that are not awaited, not chained with `.catch()`, and not explicitly ignored with the `void` operator." (typescript-eslint `no-floating-promises` docs.)
+
+14. **Choose `Promise.all` vs `Promise.allSettled` based on whether a single failure should abort the whole batch.** `Promise.all` rejects as soon as any input rejects, discarding the results of everything else in flight — correct when the operations are coupled (e.g. "all four DB health checks must succeed to call the app healthy"). `Promise.allSettled` always resolves, with a per-item `{status, value|reason}`, and is correct when operations are independent and a partial failure is meaningful and reportable (e.g. "tell me which of the four DBs is down, not just that one is"):
+
+    ```ts
+    const results = await Promise.allSettled(dbs.map((d) => d.healthCheck()));
+    const down = dbs.filter((_, i) => results[i]!.status === "rejected");
+    ```
+
+    `@bench/shared`'s `initializeDatabases`/`disconnectDatabases` use `Promise.all` over the four DB kinds instead — a deliberate choice that one DB being unreachable at boot fails startup entirely, rather than starting in a partially-degraded state.
+
+15. **A sequential `await` inside a `for`/`for...of` loop is a performance smell _unless the iterations must be ordered or must not overrun a resource_.** `for (const id of ids) { await save(id); }` serializes N independent round-trips into N × latency; when the operations are independent, collect the promises first and `Promise.all`/`allSettled` them (or use a bounded-concurrency helper if N is large enough that "all at once" would exhaust a connection pool or overwhelm a downstream service). The exception that makes sequential-await _correct_: writes that must apply in order (e.g. a migration list), or a loop that intentionally throttles itself against a fixed-size pool (this repo's Postgres pool caps at `max: 50` — firing more than 50 concurrent queries doesn't get you more throughput, it gets you queueing inside `pg`/`postgres` instead of inside your own code, so know which one you're choosing).
+
+16. **Propagate cancellation with `AbortController`/`AbortSignal`, don't invent a bespoke cancellation flag.** `AbortSignal` is the platform-standard cancellation primitive: `fetch`, Node's `http`/`stream` APIs, Deno's `Deno.serve`, and oak's `.listen()` all accept a `signal` and react to `abort()` uniformly, so a single controller can cascade a shutdown or timeout through a whole call chain without every layer needing bespoke plumbing. `ts-deno-oak/src/index.ts` uses exactly this: one `AbortController` created at startup, passed to `app.listen({ signal })`, and `.abort()`ed from the SIGINT/SIGTERM handler.
+
+17. **Never synchronously parse or hash a large payload on the event loop thread — it blocks every other in-flight request.** `JSON.parse` of a multi-MB body, `crypto.*Sync` functions, and `fs.*Sync` calls all run to completion before the event loop can service anything else; on a single-process server (this repo's fairness rule: "single-process servers, identical pool sizes"), that means every other concurrent connection stalls for the duration. This is exactly why `MAX_REQUEST_BYTES` (10 MB) exists as a hard cap in `@bench/shared` — it isn't just a payload-size policy, it's an event-loop-latency guard, enforced per framework (`express.json({ limit })`, Fastify's `bodyLimit`, Bun's `maxRequestBodySize`).
+
+18. **Know the microtask/macrotask ordering when reasoning about "why did this log before that."** Promise callbacks (`.then`, `await` continuations, `queueMicrotask`) run on the _microtask_ queue, which fully drains before the event loop proceeds to the next _macrotask_ (a `setTimeout` callback, an I/O callback, a `setImmediate`). This is why `setTimeout(fn, 0)` reliably runs after every already-queued promise continuation, and why a chain of `.then()`s can starve `setTimeout(0)` if it keeps re-queueing more microtasks. (Node.js docs, "The Node.js Event Loop, Timers, and `process.nextTick()`".)
+
+19. **Top-level `await` at a module's entry point delays that module's own completion until the awaited promise settles — know what that means for import order.** Every one of this repo's runnable entry points (`ts-express/src/index.ts`, `ts-bun-elysia/src/index.ts`, `ts-deno-oak/src/index.ts`) does `await initializeDatabases()` before constructing the app; this is only safe because nothing else in the module graph needs the app to exist synchronously. Top-level `await` in a module that _is_ imported by others (rather than run as an entry point) will stall every transitive importer until it resolves — fine at a program's root, a footgun in a library.
+
+20. **Respect backpressure on streams — don't pump a large body/file through without watching the write-side buffer.** Calling `.write()` on a Node/Web stream can return `false` when the internal buffer is full; ignoring that and continuing to write anyway grows unbounded memory instead of pausing the source. For the file-upload path in this repo (1 MB cap, multipart), the cap keeps this moot in practice — but any future streaming route (e.g. a raw large-file endpoint) needs to either use `pipeline`/`pipe()` (which handles backpressure automatically) or explicitly await the `drain` event. (Node.js docs, "Stream — Writable Streams", `Backpressure`.)
+
+---
+
+## 4. HTTP-server specifics per runtime
+
+21. **Node: `server.close()` alone does not wait for anything — pass or await its callback, and know exactly what it does and doesn't drain.** As of Node ≥19, `server.close()` "stops the server from accepting new connections and closes all connections connected to this server which are not sending a request or waiting for a response" — i.e. it closes _idle_ keep-alive sockets immediately but leaves active in-flight connections to finish on their own; it does **not** return a promise, only an optional callback invoked once every connection has actually closed. `server.closeIdleConnections()`/`closeAllConnections()` (added Node v18.2) are for: the former, compatibility with older-than-19 runtimes needing an explicit idle-reap; the latter, a forceful last resort inside a shutdown timeout that severs even active connections. (Node.js `http` docs, `server.close([callback])`, `server.closeIdleConnections()`, `server.closeAllConnections()`.)
+
+```ts
+async function shutdown() {
+  await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  await disconnectDatabases();
+  process.exit(0);
+}
+```
+
+Calling `server.close()` without awaiting its callback (as bare `server.close();`) races the DB teardown against the server actually finishing in-flight requests — the process may `exit(0)` while a request is still being served.
+
+22. **Node/Nest/Fastify: prefer a framework's own async `close()`/lifecycle hook over reaching into the raw `http.Server`.** Fastify's `fastify.close()` runs `preClose` → drains connections (per `forceCloseConnections`) → stops accepting TCP connections → runs `onClose` → _then_ resolves; by the time an `onClose` hook runs, "the HTTP server has already stopped listening, all in-flight HTTP requests have been completed, and connections have been drained" — making `onClose` the correct place to tear down a DB pool, and making `await app.close()` sufficient on its own (no manual `closeIdleConnections` dance needed). NestJS's `app.close()` similarly cascades through its lifecycle hooks. (Fastify docs, `Reference/Server.md#close`, `Reference/Hooks.md#onclose`/`#preclose`.)
+
+23. **Bun: `server.stop()` defaults to graceful (drains in-flight requests/WebSockets) — `server.stop(true)` is the forceful variant, and the two are not interchangeable.** `Bun.serve()`'s returned server exposes `.stop(closeActiveConnections?: boolean)`; called with no argument (or `false`) it stops accepting new connections and returns a promise that resolves once in-flight work finishes; called with `true` it severs every connection immediately. A shutdown handler that never calls `server.stop()` at all — just tearing down DBs and calling `process.exit(0)` — leaves the OS socket open until the process actually dies, which is a real (if usually brief) fairness gap against servers that drain properly first. (Bun docs, `Server.stop` reference; `bun.sh/docs/api/http`.)
+
+24. **Deno: two equally valid shutdown idioms exist — `AbortController` passed to `Deno.serve`/`app.listen`, or the server object's own `.shutdown()` — pick one and don't mix metaphors.** `Deno.serve()` returns an `HttpServer` with a `.shutdown()` method that stops accepting connections and drains in flight; alternatively (and this is oak's own documented idiom), an `AbortController`'s `.signal` passed into `.listen({ signal })` causes the `.listen()` promise itself to resolve once the abort propagates and the server stops accepting new requests. Oak's README is explicit: "Oak uses the browser-standard `AbortController` to close a server... pass the controller's `.signal` to the listen options and call `.abort()` on the controller when you want to close the server." (Deno docs, "HTTP server: Graceful shutdown"; oak README/FAQ via Context7.)
+
+25. **Cap request body size per framework's own knob — there is no cross-framework default, so an omitted cap silently reverts to "unbounded" or a mismatched default.** Express/Nest (express body-parser): `express.json({ limit })`/`express.urlencoded({ limit })`. Fastify: the `bodyLimit` factory option. Bun: `Bun.serve({ maxRequestBodySize })`. Each of these must be wired to the _same_ shared constant (`MAX_REQUEST_BYTES`) for the servers to be comparably fair and comparably safe against the event-loop-blocking risk in rule 17 — a framework left at its own built-in default (which vary framework to framework and are not all 10 MB) breaks that comparability silently.
+
+26. **Pin connection-pool size explicitly and identically across servers — don't rely on a driver's default.** This repo's canon is `max: 50` for Postgres (`new Pool({ connectionString, max: 50, idleTimeoutMillis: 30000 })` in `@bench/shared`); a driver's own default (`pg`'s default pool max is 10) would silently make one server's DB layer a bottleneck relative to another's, corrupting any benchmark comparison between them. Fairness here isn't a style preference — it's the one thing that makes the whole repo's cross-language comparison meaningful (see CLAUDE.md: "identical pool sizes — never give one framework an advantage the others can't have idiomatically").
+
+---
+
+## 5. Runtime differences that bite
+
+27. **Bun's Node-compat layer has real gaps in less-common `node:*` APIs — verify against the compat table before assuming a library "just works."** A concrete instance this repo hit: `mongodb`'s `bson` dependency (from 7.3.x onward) calls `node:v8`'s `isBuildingSnapshot()` during its own module initialization; Bun 1.3.14's `node:v8` shim does not implement that function, so _importing_ `mongodb` (not even calling it) throws at startup on Bun. The fix wasn't a Bun-side workaround — it was pinning `bson` to `7.2.0` workspace-wide (see "In this repo" below). Treat "does this npm package's transitive dependency touch an obscure `node:*` API" as a real risk factor when picking dependencies for a Bun target, not a theoretical one. (Bun docs, `Node.js Compatibility`; corroborated by upstream `oven-sh/bun` issue reports of the same `v8.startupSnapshot`/bson failure.)
+
+28. **Deno's `node_modules` "manual" mode means the workspace's `node_modules` is not self-maintaining — an explicit install step is required before Deno sees dependency changes.** With `"nodeModulesDir": "manual"` (the default when a `package.json` is present), Deno does _not_ run its own resolver/installer against `node_modules` — it expects `pnpm install`/`npm install` to have already produced it, and only then reads from it exactly as Node would. This is precisely why this repo's root convention is "**`pnpm install` must run before any Deno command**" (CLAUDE.md) — running `deno task` / `deno run` against a stale or absent `node_modules` will fail resolution or use stale versions, not auto-repair itself. (Deno docs, "Node and npm compatibility"; "Dependency management".)
+
+29. **JSR (`jsr:` specifiers) is Deno's preferred registry for _Deno-native_ packages, but it is a separate namespace from npm — a package available on JSR isn't automatically the same artifact as its npm counterpart, and vice versa.** `oak` is consumed from JSR in this repo (PLAN §0.1: "oak 17 (**from JSR**)") specifically because that's oak's canonical distribution for Deno; don't assume every dependency needs (or has) a JSR equivalent — npm packages resolved through `node_modules` remain the normal path for anything not JSR-native.
+
+30. **Treat any bare "X is faster than Y" runtime claim as a marketing headline until you've reproduced it under this repo's own harness.** Bun/Deno startup-time and micro-benchmark claims move fast and are frequently measured on unrepresentative workloads (no DB I/O, no real JSON payload, no connection pooling); the only throughput/latency numbers worth trusting for this project are the ones `benchmark/` produces against the actual 16-route contract under the actual DB containers. UNVERIFIED: any specific Bun-vs-Node or Deno-vs-Node throughput percentage — this guide intentionally does not assert one.
+
+---
+
+## 6. pnpm workspace practices
+
+31. **Reference workspace-local packages with the `workspace:*` protocol, never a version range or a relative path, in `package.json`.** `workspace:*` tells pnpm "resolve this from the local workspace package, and fail the install if it isn't there" — it also gets rewritten to a real semver range on publish, which a relative `file:` path or a guessed version range does not. `@bench/shared` is consumed this way by every one of the six server packages.
+
+32. **Scope `overrides` by dependency graph path, not by workspace member — pnpm's `overrides` key is graph-scoped, and there is no member-scoped equivalent.** A version override in `pnpm-workspace.yaml` applies wherever that dependency appears in _any_ resolution path in the whole workspace; you cannot say "override `bson` only for the Bun servers" if `bson` arrives at the same graph path (`mongodb` → `bson`) for the Node servers too — pnpm resolves one version per unique graph path, workspace-member-wide. This repo learned this the concrete way: `bson` needed pinning to `7.2.0` only for Bun's crash, but because `@bench/shared`'s single `mongodb` dependency is the _one_ graph path every server consumes, the override necessarily applies workspace-wide, functionally moving the Node servers' `bson` version too (see `pnpm-workspace.yaml`'s own comment on this, and "In this repo" below).
+
+33. **Use `catalogs` to pin one version of a dependency and reference it everywhere via the `catalog:` protocol, instead of copy-pasting the same version string into every member's `package.json`.** A catalog entry is a single source of truth; every consuming `package.json` writes `"some-dep": "catalog:"` and pnpm substitutes the pinned version at install time — this is the mechanism to reach for if/when a dependency needs the _same_ version enforced across members without resorting to an `overrides` graph-path pin (which is graph-wide, not a "make everyone agree" tool — see rule 32). (pnpm docs, "Catalogs".)
+
+34. **`minimumReleaseAge` (default 1 day in pnpm 11) is a supply-chain gate, not a bug — a version published in the last 24h simply won't resolve.** This is deliberate: a freshly-published npm version is the highest-risk moment for a compromised-maintainer-account supply-chain attack, and pnpm 11 turns this cooldown on by default. It interacts with pinned prerelease channels (`typescript@rc`, `drizzle-orm@rc` in this repo) in one specific way worth knowing: those pins are re-resolved by `just update`'s pin-aware update path (PLAN §10), and since the RC channel builds are already well past 24h old by the time this repo tracks them, the gate doesn't block the intended update — but a _just-published_ prerelease build will transiently 404 out of resolution until it ages past the cooldown. Per-package exclusions (this repo excludes `tsx@4.23.0`) go in `minimumReleaseAgeExclude`. (pnpm 11.0 release notes; `pnpm.io/supply-chain-security`.)
+
+35. **`allowBuilds` is the pnpm 11 replacement for the old "approve postinstall scripts" allowlist — an unlisted package's install/build script simply does not run.** pnpm 11 blocks arbitrary lifecycle scripts (`postinstall`, etc.) from any dependency by default; a package needs an explicit `allowBuilds: { "pkg-name": true }` entry in `pnpm-workspace.yaml` to be allowed to run one. This repo allows exactly two: `esbuild` (pulled in via `tsx`, which the Node servers' dev loop depends on) and `@nestjs/core` (Nest's own install hook) — anything else with a build script silently doesn't build until someone notices and adds it. (pnpm 11 release notes / `pnpm.io/settings`.)
+
+36. **pnpm 11 no longer reads the legacy `pnpm` field in `package.json` — all of the above (`overrides`, `catalogs`, `allowBuilds`, `minimumReleaseAge`) live in `pnpm-workspace.yaml` now.** A config block copy-pasted from an older pnpm-9/10-era `package.json.pnpm` field silently does nothing under pnpm 11; the workspace-level YAML file is the only place these settings are read from. (Corroborated by upstream tooling breakage reports, e.g. Rush's `pnpm field in package.json` issue against pnpm 11.)
+
+---
+
+## 7. TypeScript 7 (native compiler) — current status, verify before assuming
+
+37. **The native, Go-ported `tsc` is the RC-stage default binary — it is not a separate `tsgo` executable anymore.** Earlier previews shipped the native compiler under the name `tsgo`; as of the 7.0 RC, installing `typescript@rc` gives you a binary literally named `tsc`, invoked exactly like every prior TypeScript version, "just... much faster" (Microsoft cites roughly 10× on typecheck/build). (Microsoft DevBlogs, "Announcing TypeScript 7.0 RC", June 2026 — training-data-stale territory, re-verify if this guide is read much later than mid-2026.)
+
+38. **`tsc --noEmit` is the safe, at-parity, ~10× faster typecheck gate today — adopt it for CI/`just verify` without hesitation.** This is the one piece of TS 7 RC functionality Microsoft explicitly signs off on as production-ready for every project shape; PLAN §0.1 already adopts this ("use native `tsc --noEmit` as the typecheck gate across all TS projects").
+
+39. **There is no stable _programmatic_ compiler API until 7.1 — anything that imports the `typescript` package's JS API (ts-node, bundler dts plugins, custom tooling) cannot yet target the 7.0 RC directly.** Microsoft's own RC announcement states plainly: "we won't have a stable programmatic API available until at least several months from now with TypeScript 7.1." A compatibility shim package, `@typescript/typescript6` (binary `tsc6`), re-exports the 6.0 API and installs side-by-side with 7.0's `tsc` for anything that still needs the old programmatic surface. This is precisely why this repo cannot use `tsdown`/`rolldown-plugin-dts` (a dts-emitting bundler plugin, which needs the programmatic API) to build `@bench/shared` — see rule 11 and "In this repo" below.
+
+40. **NestJS's own build step (full JS + declaration emit to `dist/`) is now reachable with native `tsc`, but validate the declaration output once before trusting it — there's no official per-tool compatibility matrix yet.** PLAN §0.1 flags this explicitly as something to validate rather than assume: "native `tsc` now does full JS + `.d.ts` emit, so it _can_ build `dist/`... validate the declaration output once, else keep 6.x `tsc` for NestJS's emit step and native for `--noEmit`."
+
+41. **Bun and Deno never read the `typescript` npm package at all — TS 7's adoption status is irrelevant to their own type-checking.** Both runtimes transpile with their own toolchains (Deno's `deno check` uses its bundled TypeScript build, independent of whatever `typescript` version sits in `node_modules`); flipping the workspace to `typescript@rc` is purely an _external, optional_ typecheck layer for the Bun/Deno servers, never something that changes what those runtimes actually execute.
+
+42. **Some JSDoc-based JS patterns silently stop being understood under TS 7 — this repo isn't affected (no plain-JS sources), but know the shape of the change if a dependency ships JS with JSDoc types.** The RC drops support for several JSDoc patterns previously used to fake class-like/enum-like semantics in plain JS (`@enum`, `@class`, Closure-style function syntax); a `.d.ts`-less JS dependency relying on those patterns for its inferred types may type-check differently (or not at all) under `typescript@rc` even though it runs identically at runtime. (Microsoft DevBlogs, "Announcing TypeScript 7.0 RC".)
+
+---
+
+## 8. Common mistakes catalogue
+
+43. **Floating promises.** Covered in depth in rule 13 — the single most common source of a silent `unhandledRejection` crash. Lint for it (`no-floating-promises`); don't rely on code review alone to catch it.
+
+44. **`enum` — prefer a `const` object + derived union, or a plain string-literal union, in almost every case.** TypeScript's `enum` has real runtime-semantics quirks that a plain union doesn't: numeric enums allow _any_ number to be assigned without a type error (reverse-mapping means the enum object also contains a numeric-key-to-name mapping you didn't ask for), and `const enum` requires special compiler support that isolated-file transpilers (`isolatedModules: true`, which every tsconfig in this repo sets) cannot support at all. The idiomatic replacement:
+
+    ```ts
+    export const databaseTypes = ["postgres", "mongodb", "redis", "cassandra"] as const;
+    export type DatabaseType = (typeof databaseTypes)[number];
+    ```
+
+    This is the exact pattern `@bench/shared` uses for `DatabaseType` — and biome's `noEnum` rule (already `error` in this repo's `biome.json`) enforces it repo-wide.
+
+45. **"As"-casting culture — a cast is a promise to the compiler, not a fix.** `value as Foo` (or the even more dangerous `value as unknown as Foo`) suppresses the type checker without changing what's actually in `value` at runtime; every cast should be read as "I am asserting something the compiler can't prove, and I take responsibility for it being true." Prefer a type guard, a zod parse, or a narrowing `if` — reach for a cast only when you have external knowledge the compiler structurally cannot have (e.g. a DOM API's overly-generic return type), and comment _why_ at the cast site.
+
+46. **Barrel files (`index.ts` that only re-exports) have a real cost, not just a style cost.** A barrel forces every consumer's bundler/compiler to resolve and often evaluate the _entire_ re-exported module graph, even for a single named import — this shows up as slower cold builds/typechecks and (in a runtime that isn't tree-shaking, like a plain `tsc`-emitted Node server) modules being _executed_ for side effects nobody wanted. This repo's own shared package is the extreme version of "don't do this by accident": it's a deliberate _single_ file specifically to avoid any cross-file re-export graph (rule 11), not a barrel — the two look similar on the surface (one export surface) but solve opposite problems.
+
+47. **`Date` handling: never trust `JSON.parse` to produce a `Date` — it produces a string, always.** `JSON.stringify(new Date())` yields an ISO string; `JSON.parse` of that yields a `string`, not a `Date` — there is no automatic revival. A hand-written type that declares a field `createdAt: Date` on data that actually flowed through `JSON.parse` is lying to the compiler the moment that data crosses a network boundary; this is exactly the shape of bug zod-at-boundaries (rule 7) is meant to prevent — validate/transform the string into a `Date` explicitly in the schema (`z.string().datetime()` or a `.transform(v => new Date(v))`) rather than asserting the type and hoping.
+
+48. **`JSON.parse`'s return type is `any` — every "typed" JSON parse in the codebase is a type assertion in disguise unless it goes through a runtime validator.** `JSON.parse(text) as SomeInterface` type-checks regardless of what's actually in `text` — it is indistinguishable, from the compiler's point of view, from an outright lie. This is the whole reason zod schemas sit at every boundary in `@bench/shared` (`zEnv.parse(process.env)`, `zCreateUser.parse(body)`): `.parse()` throws (or `.safeParse()` returns a discriminated `{success, data|error}`) if the shape is wrong, so the inferred type is actually backed by a runtime check, not a hopeful cast.
+
+49. **Preserve error causes when re-throwing or wrapping — use the `cause` option, don't swallow the original error.** `new Error("context message", { cause: originalError })` keeps the original stack/error accessible via `.cause` for logging/debugging, instead of the common anti-pattern of catching, discarding, and throwing a brand-new error that erases what actually failed. This matters most exactly where this repo already centralizes error shaping — `makeError(error, detail)` in `@bench/shared` accepts an `unknown` detail and special-cases `detail instanceof Error` to surface `detail.message` — extend that pattern (attach `cause`) rather than re-stringifying and losing the original.
+
+---
+
+## 9. Testing
+
+50. **This repo's primary correctness gate today is the contract conformance suite (`just contract`), not per-server unit tests — no TS server package currently has a `test` script wired up.** That's a deliberate consequence of the architecture, not an oversight: the 16-route contract (`contract/*.json`, run by the Go-based harness) already asserts exact status codes, JSON shapes, and error strings against a live server + real DB containers, which is a stronger and more representative check for this kind of "same API, many implementations" repo than isolated unit tests would be for the routing/handler layer.
+
+51. **Where unit-level tests _are_ warranted — pure logic inside `@bench/shared` (schema edge cases, repository row-mapping functions like `normalizeUser`/`buildUser`) — reach for `node:test` (Node's built-in, zero-dependency runner, available on Node 26 without adding a devDependency) or Vitest if the project already needs Vitest's broader tooling (mocking, coverage, watch UI) elsewhere. `node:test` is the lower-friction default for a `tsc`-only, no-bundler package like `@bench/shared` — it needs no config, no transform step, and runs directly against the compiled output or via a loader; Vitest earns its keep once you need its ergonomics (snapshot testing, richer mocking) badly enough to justify the extra dependency and config surface. (Node.js docs, `Test runner`.)
+
+52. **Build typed test fixtures from the same zod schemas the production code validates against — don't hand-write parallel "test data shapes" that can drift from the real contract.** A test fixture built with `zCreateUser.parse({...})` (or a valid literal that satisfies the schema, checked with `satisfies typeof zCreateUser["_output"]`) fails loudly the moment the schema changes underneath it, instead of silently testing against a stale shape. This is the same zod-at-boundaries discipline (rule 7) applied to test data instead of request data — the schema is still the one source of truth.
+
+53. **When a unit test needs a fake database, implement the exported repository interface directly rather than partially mocking a class.** `@bench/shared` exports `UserRepository` (`create`/`findById`/`update`/`delete`/`deleteAll`/`healthCheck`/`disconnect`) precisely as a contract every DB-backed class satisfies structurally — a test-only in-memory implementation of that same interface (`class FakeUserRepository implements UserRepository { ... }`) gives full type-checking on the fake (a signature drift in the interface is a compile error in the fake too) with none of the brittleness of mocking framework internals or reaching into a real class's private state.
+
+---
+
+## In this repo
+
+- **DI seams (`setIdGenerator`, `setRedisRepositoryFactory`) must be called _before_ `initializeDatabases()` — the factory map is lazily populated and cached on first access.** `getRepository()` in `shared/typescript/src/index.ts:581-588` builds each repository once, via `repositoryFactories`, and caches it in a module-level `Map`; if `initializeDatabases()` (which calls `getRepository` for every DB kind) runs before `setRedisRepositoryFactory` is called, the _default_ ioredis-backed repository gets constructed and cached first, and the later factory swap is a no-op. `servers/ts-bun-elysia/src/index.ts:15-18` gets the order right: `setIdGenerator(randomUUIDv7); setRedisRepositoryFactory(...)` both run, then `await initializeDatabases()` on line 18.
+
+- **Redis teardown canon is `disconnect()`, not `quit()`** — an immediate socket close, not a drain-and-wait for in-flight replies (`shared/typescript/src/index.ts:430-438`; ruled 2026-07-04, `PLAN.md:174`). `ts-deno-oak`'s previous `quit()` was drift, corrected to match the majority; if graceful (reply-draining) teardown is ever declared canon instead, the code comment at `index.ts:431-436` marks exactly where to flip it.
+
+- **`bson` is pinned to `7.2.0` for the _entire_ workspace** (`pnpm-workspace.yaml`'s `overrides` block) **because `mongodb` ≥7.4's `bson` (7.3.x) calls `node:v8`'s `isBuildingSnapshot()`, unimplemented in Bun 1.3.14, and crashes at import** — not at call time, at `import "mongodb"` time. Because pnpm's `overrides` are graph-path-scoped rather than workspace-member-scoped (rule 32), and `@bench/shared`'s single `mongodb` dependency is the one graph path every server (Node included) resolves through, this override necessarily moves the Node servers too, from `bson@7.3.1` to `7.2.0` — functionally equivalent for this repo's usage, and the tradeoff is written into the workspace file's own comment.
+
+- **`@bench/shared` is a deliberate single-file `src/index.ts` (21 KB, `shared/typescript/src/index.ts`) — this is not a "hasn't been split up yet" placeholder, it's the load-bearing fix for a cross-runtime `.d.ts` bug (rule 11).** A multi-file `tsc` build's emitted `.d.ts` tree needs `.js`-suffixed relative re-exports for NodeNext consumers, but Deno resolves that same `.js` specifier to the _runtime_ file and drops type-only members — collapsing to one file removes the cross-file re-export graph entirely, so `dist/index.js` + `dist/index.d.ts` are self-contained and every runtime reads the identical artifact the same way. Revisit only when TS 7.1 restores the programmatic API and a dts-emitting bundler (tsdown/rolldown-plugin-dts) becomes usable again (PLAN §4, `shared/typescript/src/index.ts:1-15`).
+
+- **biome config is duplicated per-package today (`biome.json` at repo root _and_ in every one of `shared/typescript/`, `servers/ts-express/`, `servers/ts-fastify/`, `servers/ts-nestjs/`, `servers/ts-bun-elysia/`, `servers/ts-bun-honojs/`) — byte-identical copies, not an `extends` chain.** PLAN.md's own target-architecture table (`PLAN.md:162`) calls this out as known drift-risk to fix: "single root config (today's per-server configs consolidate)." Until that consolidation lands, a rule change made in one copy and not propagated to the others is a real, easy-to-miss inconsistency — check all seven files if you touch lint/format rules.
+
+- **`module`/`moduleResolution: NodeNext` plus explicit `.js` relative-import specifiers is a Node-runtime-servers-only convention** — `ts-express`, `ts-fastify`, `ts-nestjs` (all import e.g. `"./app.js"`) — **not a repo-wide rule.** `ts-bun-elysia`/`ts-bun-honojs` use Bun's own idiomatic resolution (their entry files import `"./app"` without an extension, and Bun resolves it directly), and `ts-deno-oak` uses literal `.ts` specifiers (rule 10). Don't "fix" the non-Node servers to match Node's `.js` convention — that would break them.
+
+- **Postgres pool size is pinned at `max: 50` in `@bench/shared` (`shared/typescript/src/index.ts:178`) and is the cross-language fairness canon** — PLAN.md's own audit (`PLAN.md:72`) flags the _Python_ server's mismatched pool (20+40) as exactly the kind of asymmetry this repo is actively normalizing out (`PLAN.md:192`, "Normalize FastAPI: 1 worker, pg pool 50"). When touching pool config on any TS server, match this number — don't introduce a new one.
+
+- **`MAX_REQUEST_BYTES` (10 MB, `shared/typescript/src/index.ts:28`) is wired per-framework, not globally** — `express.json({ limit: MAX_REQUEST_BYTES })` (`ts-express/src/app.ts:27`, and identically in `ts-nestjs/src/main.ts:119`), Fastify's `bodyLimit` factory option (`ts-fastify/src/app.ts:22`), Bun's `maxRequestBodySize` (`ts-bun-elysia/src/index.ts:26`, `ts-bun-honojs/src/index.ts:26`). Adding a server (or a new body-consuming route) means wiring this constant through that framework's own knob — there's no shared middleware that does it automatically.
+
+- **Graceful-shutdown drain discipline is currently inconsistent across the Node servers — verify, don't assume, before citing any one of them as "the pattern."** `ts-express/src/index.ts:12-17` calls `server.close();` with no callback and no await, then immediately proceeds to `disconnectDatabases()` — it does not actually wait for the server to finish draining (rule 21) before tearing down DB connections. `ts-fastify/src/index.ts:13-18` and `ts-nestjs/src/main.ts` (`await app.close()`) both correctly await their framework's own async close, which _does_ drain in-flight requests first (rule 22). If asked to fix the Express server's shutdown, the correct change is wrapping `server.close()` in a promise as shown in rule 21 — not just adding `await` in front of the current call (which doesn't compile useful semantics onto a callback-only API).
+
+- **Bun servers' shutdown handlers never call `server.stop()` at all** (`ts-bun-elysia/src/index.ts:31-35`, and the same shape in `ts-bun-honojs`) — they tear down DB connections and `process.exit(0)` without ever asking `Bun.serve`'s returned server to stop accepting/draining connections first. PLAN.md's own audit (`PLAN.md:72`) names this explicitly as a fairness asymmetry ("Bun servers never stop `Bun.serve` on shutdown") already flagged for a fix (`PLAN.md:476`, "Bun shutdown fix"); treat any claim that this is "already fixed" as unverified until the actual shutdown function calls `.stop()` (rule 23).
+
+- **TypeScript 7.0 RC is pinned explicitly (`typescript@rc` = `typescript@7.0.1-rc`) precisely because `latest` still resolves to 6.0.3** — a blanket `pnpm update` without respecting the pin would silently downgrade the whole workspace off the RC; `just update`'s pin-awareness (CLAUDE.md, PLAN §10) exists specifically to protect this and the `drizzle-orm@rc` pin from that failure mode.
+
+---
+
+## Sources
+
+- TypeScript Handbook — tsconfig reference, Modules, Narrowing/`never`, `satisfies`: https://www.typescriptlang.org/docs/handbook/
+- Announcing TypeScript 7.0 RC, Microsoft DevBlogs (June 2026): https://devblogs.microsoft.com/typescript/announcing-typescript-7-0-rc/
+- Announcing TypeScript 7.0 Beta / Progress on TypeScript 7 (Dec 2025), Microsoft DevBlogs
+- typescript-eslint rule docs: `no-floating-promises` (https://typescript-eslint.io/rules/no-floating-promises/), `consistent-type-imports` (https://typescript-eslint.io/rules/consistent-type-imports/), `no-explicit-any`
+- Node.js docs: `http` (`server.close`, `closeIdleConnections`, `closeAllConnections`) — https://nodejs.org/api/http.html ; Streams (backpressure) — https://nodejs.org/api/stream.html ; Event loop/timers/microtasks guide; Test runner — https://nodejs.org/api/test.html
+- Bun docs: `Bun.serve`/`Server.stop` — https://bun.com/reference/bun/Server/stop, https://bun.sh/docs/api/http ; Node.js compatibility — https://bun.com/docs/runtime/nodejs-compat ; `node:v8` compat — https://bun.com/reference/node/v8
+- Deno docs: `Deno.serve` — https://docs.deno.com/api/deno/~/Deno.serve ; HTTP server graceful shutdown example — https://docs.deno.com/examples/http_server_graceful_shutdown/ ; Node and npm compatibility — https://docs.deno.com/runtime/fundamentals/node/ ; Dependency management — https://docs.deno.com/runtime/fundamentals/dependency_management/
+- oak framework docs (via Context7 `/oakserver/oak`): README "Closing the server", FAQ AbortController pattern
+- Fastify docs (via Context7 `/fastify/fastify`): `Reference/Server.md#close`, `Reference/Hooks.md` (`onClose`, `preClose`)
+- pnpm docs: Settings/`pnpm-workspace.yaml` reference — https://pnpm.io/settings ; Catalogs — https://pnpm.io/catalogs ; Supply-chain security / `minimumReleaseAge` — https://pnpm.io/supply-chain-security ; pnpm 11.0 release notes — https://pnpm.io/blog/releases/11.0
+- Drizzle ORM: latest releases / v1 roadmap — https://orm.drizzle.team/docs/latest-releases, https://orm.drizzle.team/roadmap
+- Effective TypeScript, Dan Vanderkam — Items 2 ("Know Which TypeScript Options You're Using"), 4 (annotate parameters/returns not variables), 5 ("Limit Use of the `any` Type"), 19 (avoid cargo-cult type parameters) — themes referenced from the book's published chapter summaries; re-verify specific item numbers against your edition
+- This repo, read directly: `PLAN.md` (§0.1 toolchain, §1.2 audit findings, §3/§4 architecture, §10 update policy); `pnpm-workspace.yaml`; `biome.json` (root + per-package); `shared/typescript/src/index.ts`; `shared/typescript/tsconfig.json`; `servers/ts-express/{src/index.ts,src/app.ts,tsconfig.json}`; `servers/ts-fastify/src/{index.ts,app.ts}`; `servers/ts-nestjs/src/main.ts`; `servers/ts-bun-elysia/src/index.ts`; `servers/ts-deno-oak/src/index.ts`
