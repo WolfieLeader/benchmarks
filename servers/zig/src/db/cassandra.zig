@@ -22,11 +22,17 @@ pub const Cassandra = struct {
     io: std.Io,
     mutex: std.Io.Mutex = .init,
 
-    pub fn init(io: std.Io, allocator: std.mem.Allocator, contact_points: []const u8, keyspace: []const u8) !Cassandra {
+    pub fn init(io: std.Io, allocator: std.mem.Allocator, contact_points: []const u8, local_dc: []const u8, keyspace: []const u8) !Cassandra {
         const cluster = c.cass_cluster_new();
         const cpz = try allocator.dupeZ(u8, contact_points);
         defer allocator.free(cpz);
         _ = c.cass_cluster_set_contact_points(cluster, cpz.ptr);
+        // DC-aware routing pinned to the local datacenter (mirrors the other
+        // servers, e.g. gocql's DCAwareRoundRobinPolicy); remote-DC fallback
+        // stays off (0 / cass_false).
+        if (local_dc.len > 0) {
+            _ = c.cass_cluster_set_load_balance_dc_aware_n(cluster, local_dc.ptr, local_dc.len, 0, c.cass_false);
+        }
         return .{ .cluster = cluster, .keyspace = try allocator.dupeZ(u8, keyspace), .allocator = allocator, .io = io };
     }
 

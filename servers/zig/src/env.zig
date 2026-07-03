@@ -28,9 +28,12 @@ pub const Env = struct {
         if (map.get("PORT")) |raw| {
             port = std.fmt.parseInt(u16, std.mem.trim(u8, raw, " "), 10) catch 26001;
         }
+        // Match the other servers: treat "localhost" as bind-all (0.0.0.0).
+        var host = get(map, "HOST", "0.0.0.0");
+        if (std.mem.eql(u8, host, "localhost")) host = "0.0.0.0";
         return .{
             .is_prod = std.mem.eql(u8, get(map, "ENV", "dev"), "prod"),
-            .host = get(map, "HOST", "0.0.0.0"),
+            .host = host,
             .port = port,
             .postgres_url = get(map, "POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/benchmarks"),
             .mongodb_url = get(map, "MONGODB_URL", "mongodb://localhost:27017"),

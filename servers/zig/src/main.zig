@@ -30,11 +30,18 @@ pub fn main(init: std.process.Init) !void {
         .postgres = try Postgres.init(io, allocator, env.postgres_url),
         .redis = try Redis.init(io, allocator, env.redis_url),
         .mongo = try Mongo.init(allocator, env.mongodb_url, env.mongodb_db),
-        .cassandra = try Cassandra.init(io, allocator, env.cassandra_contact_points, env.cassandra_keyspace),
+        .cassandra = try Cassandra.init(io, allocator, env.cassandra_contact_points, env.cassandra_local_dc, env.cassandra_keyspace),
     };
 
+    // Bind to the configured HOST (localhost already normalised to 0.0.0.0 in
+    // env); fall back to bind-all if it is not a valid IP literal.
+    const address: httpz.Config.Address = if (std.Io.net.IpAddress.parse(env.host, env.port)) |ip|
+        .{ .ip = ip }
+    else |_|
+        .all(env.port);
+
     var server = try Server.init(io, allocator, .{
-        .address = .all(env.port),
+        .address = address,
         .request = .{
             // Accept slightly-over-limit uploads so the handler can return 413
             // itself; parse form/multipart bodies.
@@ -68,7 +75,7 @@ pub fn main(init: std.process.Init) !void {
     installSignalHandlers();
     server_instance = &server;
 
-    std.log.info("Zig server listening on 0.0.0.0:{d}", .{env.port});
+    std.log.info("Zig server listening on {s}:{d}", .{ env.host, env.port });
     try server.listen();
 
     // Graceful teardown once listen() returns (SIGINT/SIGTERM -> stop()): the
