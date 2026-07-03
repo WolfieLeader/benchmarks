@@ -6,6 +6,7 @@ pub fn build(b: *std.Build) void {
 
     const httpz = b.dependency("httpz", .{ .target = target, .optimize = optimize });
     const pg = b.dependency("pg", .{ .target = target, .optimize = optimize });
+    const uuid = b.dependency("uuid", .{ .target = target, .optimize = optimize });
 
     const mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -18,6 +19,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "httpz", .module = httpz.module("httpz") },
             .{ .name = "pg", .module = pg.module("pg") },
+            .{ .name = "uuid", .module = uuid.module("uuid") },
         },
     });
 

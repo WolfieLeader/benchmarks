@@ -108,7 +108,7 @@ pub const Redis = struct {
 
     pub fn create(self: *Redis, arena: std.mem.Allocator, data: user.CreateUser) !User {
         var id_buf: [36]u8 = undefined;
-        uuid.v7(&id_buf);
+        uuid.v7(self.io, &id_buf);
         const id = try arena.dupe(u8, &id_buf);
         const key = try std.fmt.allocPrint(arena, key_prefix ++ "{s}", .{id});
 

@@ -74,7 +74,7 @@ pub const Cassandra = struct {
     pub fn create(self: *Cassandra, arena: std.mem.Allocator, data: user.CreateUser) !User {
         try self.ensureConnected();
         var id_buf: [36]u8 = undefined;
-        uuid.v7(&id_buf);
+        uuid.v7(self.io, &id_buf);
         const id = try arena.dupe(u8, &id_buf);
 
         var cass_uuid: c.CassUuid = undefined;

@@ -9,11 +9,12 @@ const User = user.User;
 /// (50) matches the other servers in the suite for fairness.
 pub const Postgres = struct {
     pool: *pg.Pool,
+    io: std.Io,
 
     pub fn init(io: std.Io, allocator: std.mem.Allocator, url: []const u8) !Postgres {
         const uri = try std.Uri.parse(url);
         const pool = try pg.Pool.initUri(io, allocator, uri, .{ .size = 50, .timeout = 10_000 });
-        return .{ .pool = pool };
+        return .{ .pool = pool, .io = io };
     }
 
     pub fn deinit(self: *Postgres) void {
@@ -27,7 +28,7 @@ pub const Postgres = struct {
 
     pub fn create(self: *Postgres, arena: std.mem.Allocator, data: user.CreateUser) !User {
         var id_buf: [36]u8 = undefined;
-        uuid.v7(&id_buf);
+        uuid.v7(self.io, &id_buf);
         const id = try arena.dupe(u8, &id_buf);
         _ = try self.pool.exec(
             "INSERT INTO users (id, name, email, favorite_number) VALUES ($1::uuid, $2, $3, $4)",
