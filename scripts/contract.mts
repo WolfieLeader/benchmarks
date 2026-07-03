@@ -1,7 +1,8 @@
 // Contract conformance harness (Phase 0A).
 //
 // Given an entry name (or `all`), this script:
-//   1. resolves entry -> image/port from config/config.json,
+//   1. resolves entry -> image/port from the discovered bench.json roster
+//      (scripts/lib.mts, PLAN §11.1); config.json still supplies the DB list,
 //   2. builds the server image if missing (or when --build is passed),
 //   3. starts the container on the running databases network with the same
 //      baked env the benchmark uses (DB host = compose service name),
@@ -14,15 +15,15 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
+import { repoRoot, SERVERS, type Server } from "./lib.mts";
 
-type ServerEntry = { name: string; image: string; port: number };
-type Config = { servers: ServerEntry[]; databases: string[] };
+// A fully-resolved server entry: the roster rows that carry both an image and a
+// port (i.e. the discovered servers, not the benchmark/root helper targets).
+type Entry = { name: string; image: string; port: number; dir: string };
+type Config = { databases: string[] };
 type EntryResult = { name: string; passed: number; failed: number; ok: boolean; note: string };
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(scriptDir, "..");
 const benchmarksDir = join(repoRoot, "benchmarks");
 const contractDir = join(repoRoot, "contract");
 const testFilesDir = join(repoRoot, "test-files");
@@ -44,12 +45,12 @@ function loadConfig(): Config {
   return JSON.parse(raw) as Config;
 }
 
-// image -> server source directory (Docker build context), derivable from the
-// image name and the http-servers/<lang>/<dir> layout.
-function serverDir(image: string): string {
-  if (image.startsWith("go-")) return join(repoRoot, "http-servers", "go", image.slice(3));
-  if (image.startsWith("python-")) return join(repoRoot, "http-servers", "python", image.slice(7));
-  return join(repoRoot, "http-servers", "typescript", image);
+// The conformance roster: discovered servers (bench.json) that carry an image and
+// a port. The benchmark/root helper rows in SERVERS have neither and drop out.
+function roster(): Entry[] {
+  return SERVERS.filter((s): s is Server & { image: string; port: number } => !!s.image && s.port !== undefined).map(
+    (s) => ({ name: s.name, image: s.image, port: s.port, dir: s.dir })
+  );
 }
 
 // Case-insensitive path handling: macOS filesystems are case-insensitive and
@@ -162,11 +163,10 @@ function imageExists(image: string): boolean {
   return spawnSync("docker", ["image", "inspect", image], { stdio: "ignore" }).status === 0;
 }
 
-function buildImage(image: string): void {
-  const dir = serverDir(image);
-  console.log(`\x1b[36m›\x1b[0m building image ${image} from ${dir} ...`);
-  const res = spawnSync("docker", ["build", "-t", image, dir], { stdio: "inherit" });
-  if (res.status !== 0) throw new HarnessError("build", `docker build failed for ${image}`);
+function buildImage(entry: Entry): void {
+  console.log(`\x1b[36m›\x1b[0m building image ${entry.image} from ${entry.dir} ...`);
+  const res = spawnSync("docker", ["build", "-t", entry.image, entry.dir], { stdio: "inherit" });
+  if (res.status !== 0) throw new HarnessError("build", `docker build failed for ${entry.image}`);
 }
 
 function startContainer(image: string, port: number, network: string): string {
@@ -283,14 +283,9 @@ class HarnessError extends Error {
 // Tracks the currently-running container so signal handlers can tear it down.
 let activeContainer = "";
 
-async function runEntry(
-  entry: ServerEntry,
-  network: string,
-  binPath: string,
-  databases: string[]
-): Promise<EntryResult> {
+async function runEntry(entry: Entry, network: string, binPath: string, databases: string[]): Promise<EntryResult> {
   console.log(`\n\x1b[1m━━ ${entry.name} (${entry.image}, port ${entry.port}) ━━\x1b[0m`);
-  if (!imageExists(entry.image) || forceBuild) buildImage(entry.image);
+  if (!imageExists(entry.image) || forceBuild) buildImage(entry);
 
   const id = startContainer(entry.image, entry.port, network);
   activeContainer = id;
@@ -336,13 +331,14 @@ async function main(): Promise<void> {
   const network = stack.network;
   console.log(`\x1b[36m›\x1b[0m databases healthy (project ${stack.project}); server network = ${network}`);
 
-  let entries: ServerEntry[];
+  const allEntries = roster();
+  let entries: Entry[];
   if (target === "all") {
-    entries = config.servers;
+    entries = allEntries;
   } else {
-    const match = config.servers.find((s) => s.name === target || s.image === target);
+    const match = allEntries.find((s) => s.name === target || s.image === target);
     if (!match) {
-      fail(`unknown entry "${target}". Known: ${config.servers.map((s) => s.name).join(", ")}, all`);
+      fail(`unknown entry "${target}". Known: ${allEntries.map((s) => s.name).join(", ")}, all`);
     }
     entries = [match];
   }

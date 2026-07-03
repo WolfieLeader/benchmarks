@@ -8,14 +8,12 @@
 // Run with Node 26 native type-stripping — erasable-syntax TS only, no build step.
 
 import { spawn, spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-
-const ts = (p: string): string => join(repoRoot, "http-servers", "typescript", p);
-const go = (p: string): string => join(repoRoot, "http-servers", "go", p);
-const py = (p: string): string => join(repoRoot, "http-servers", "python", p);
+const httpServersDir = join(repoRoot, "http-servers");
 
 export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "root";
 
@@ -26,23 +24,84 @@ export type Server = {
   image?: string; // docker image tag; present => included in `images`
   dev?: string; // dev command; present => included in `dev`
   goBin?: string; // eco "go": build output name (default "server")
+  port?: number; // host/container port (from the manifest; servers only)
 };
 
-// The roster — add a target = add one row. Order here is the report order.
-export const SERVERS: Server[] = [
-  { name: "express", dir: ts("node-express"), eco: "pnpm", image: "node-express", dev: "pnpm run dev" },
-  { name: "fastify", dir: ts("node-fastify"), eco: "pnpm", image: "node-fastify", dev: "pnpm run dev" },
-  { name: "nestjs", dir: ts("node-nestjs"), eco: "pnpm", image: "node-nestjs", dev: "pnpm run dev" },
-  { name: "honojs", dir: ts("bun-honojs"), eco: "bun", image: "bun-honojs", dev: "bun run dev" },
-  { name: "elysia", dir: ts("bun-elysia"), eco: "bun", image: "bun-elysia", dev: "bun run dev" },
-  { name: "oak", dir: ts("deno-oak"), eco: "deno", image: "deno-oak", dev: "deno task dev" },
-  { name: "chi", dir: go("chi"), eco: "go", image: "go-chi", dev: "air" },
-  { name: "gin", dir: go("gin"), eco: "go", image: "go-gin", dev: "air" },
-  { name: "fiber", dir: go("fiber"), eco: "go", image: "go-fiber", dev: "air" },
-  { name: "fastapi", dir: py("fastapi"), eco: "uv", image: "python-fastapi", dev: "uv run python -m src.main" },
+// Manifest runtime -> toolchain family, and family -> dev command. These are the
+// only manifest-derived mappings the scripts need; everything else on a discovered
+// row (name/dir/image/port) comes straight from bench.json.
+const RUNTIME_ECO: Record<string, Eco> = { node: "pnpm", bun: "bun", deno: "deno", go: "go", python: "uv" };
+const ECO_DEV: Partial<Record<Eco, string>> = {
+  pnpm: "pnpm run dev",
+  bun: "bun run dev",
+  deno: "deno task dev",
+  go: "air",
+  uv: "uv run python -m src.main"
+};
+
+type Manifest = {
+  name: string;
+  language: string;
+  runtime: string;
+  image: string;
+  port: number;
+  databases: string[];
+  experimental: boolean;
+  dev_port: number;
+};
+
+function fatal(msg: string): never {
+  console.error(`\x1b[31m✗\x1b[0m ${msg}`);
+  process.exit(1);
+}
+
+// Discover the server roster by scanning http-servers/**/bench.json — adding a
+// server = adding a folder with a manifest, zero central edits (PLAN §7.4). This
+// is the single source of truth for the roster; there is NO static fallback list.
+// Structural guardrails here are minimal (JSON parses, required fields present,
+// known runtime, unique names) so any script fails loud on a broken manifest;
+// full schema + config cross-checks live in scripts/check-config.mts.
+function discoverServers(): Server[] {
+  const found = readdirSync(httpServersDir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile() && e.name === "bench.json")
+    .map((e) => join(e.parentPath, e.name))
+    .sort();
+  if (found.length === 0) fatal(`no bench.json manifests found under ${relative(repoRoot, httpServersDir)}/`);
+
+  const servers: Server[] = [];
+  const seen = new Map<string, string>(); // name -> first manifest that declared it
+  for (const file of found) {
+    const rel = relative(repoRoot, file);
+    let m: Manifest;
+    try {
+      m = JSON.parse(readFileSync(file, "utf8")) as Manifest;
+    } catch (err) {
+      fatal(`malformed manifest ${rel}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    for (const key of ["name", "runtime", "image", "port"] as const) {
+      if (m[key] === undefined || m[key] === null) fatal(`manifest ${rel}: missing required field "${key}"`);
+    }
+    const eco = RUNTIME_ECO[m.runtime];
+    if (!eco) {
+      fatal(`manifest ${rel}: unknown runtime "${m.runtime}" (expected ${Object.keys(RUNTIME_ECO).join(", ")})`);
+    }
+    const prior = seen.get(m.name);
+    if (prior) fatal(`duplicate server name "${m.name}" in ${rel} and ${prior}`);
+    seen.set(m.name, rel);
+    servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, dev: ECO_DEV[eco] });
+  }
+  return servers;
+}
+
+// Non-server targets the scripts also drive: the Go load generator and the repo
+// root (prettier/config checks). These carry no bench.json manifest, so they are
+// static rows appended after discovery — not a roster fallback.
+const EXTRA_TARGETS: Server[] = [
   { name: "benchmark", dir: join(repoRoot, "benchmarks"), eco: "go", goBin: "benchmark" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
+
+export const SERVERS: Server[] = [...discoverServers(), ...EXTRA_TARGETS];
 
 export const c = {
   red: (s: string): string => `\x1b[31m${s}\x1b[0m`,
