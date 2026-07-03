@@ -1,4 +1,4 @@
-FROM node:25.6.0-alpine AS builder
+FROM node:26.4.0-alpine AS builder
 WORKDIR /app
 
 RUN npm i -g pnpm@10.29.1
@@ -8,7 +8,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-FROM node:25.6.0-alpine
+FROM node:26.4.0-alpine
 
 WORKDIR /app
 

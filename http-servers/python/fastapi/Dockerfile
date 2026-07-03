@@ -1,4 +1,4 @@
-FROM python:3.14.3-slim AS builder
+FROM python:3.14.6-slim AS builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-FROM python:3.14.3-slim
+FROM python:3.14.6-slim
 
 WORKDIR /app
 

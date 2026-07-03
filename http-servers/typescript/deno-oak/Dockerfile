@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-2.6.8 AS deps
+FROM denoland/deno:alpine-2.9.1 AS deps
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY src ./src
 
 RUN deno install
 
-FROM denoland/deno:alpine-2.6.8
+FROM denoland/deno:alpine-2.9.1
 
 WORKDIR /app
 
