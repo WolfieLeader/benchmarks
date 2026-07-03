@@ -1,7 +1,8 @@
 package conformance
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"net/http"
@@ -43,7 +44,9 @@ func validate(exp *Expect, resp *http.Response, body []byte) error {
 
 	if exp.Body != nil {
 		var actual any
-		if err := json.Unmarshal(body, &actual); err != nil {
+		// Duplicate keys in a response keep json/v1's last-wins tolerance so the
+		// referee's judgment is unchanged by the v2 move.
+		if err := json.Unmarshal(body, &actual, jsontext.AllowDuplicateNames(true)); err != nil {
 			return fmt.Errorf("parse response JSON: %w (body: %s)", err, truncate(body, 200))
 		}
 		strict := exp.Match != "subset"

@@ -2,7 +2,8 @@ package config
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"net/url"
@@ -73,7 +74,7 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 }
 
 func extractKeyOrder(data []byte, key string) ([]string, error) {
-	var root map[string]json.RawMessage
+	var root map[string]jsontext.Value
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse config for %s order: %w", key, err)
 	}
@@ -83,72 +84,32 @@ func extractKeyOrder(data []byte, key string) ([]string, error) {
 		return nil, nil
 	}
 
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	tok, err := dec.Token()
+	dec := jsontext.NewDecoder(bytes.NewReader(raw))
+	tok, err := dec.ReadToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", key, err)
 	}
-
-	delim, ok := tok.(json.Delim)
-	if !ok || delim != '{' {
+	if tok.Kind() != '{' {
 		return nil, fmt.Errorf("%s must be an object", key)
 	}
 
 	var order []string
-	for dec.More() {
-		keyTok, err := dec.Token()
+	for dec.PeekKind() != '}' {
+		keyTok, err := dec.ReadToken()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s key: %w", key, err)
 		}
-		k, ok := keyTok.(string)
-		if !ok {
-			return nil, fmt.Errorf("invalid %s key", key)
-		}
-		order = append(order, k)
-		if err := skipJSONValue(dec); err != nil {
-			return nil, err
+		order = append(order, keyTok.String())
+		if err := dec.SkipValue(); err != nil {
+			return nil, fmt.Errorf("failed to skip %s value: %w", key, err)
 		}
 	}
 
-	if _, err := dec.Token(); err != nil {
+	if _, err := dec.ReadToken(); err != nil {
 		return nil, fmt.Errorf("failed to close %s object: %w", key, err)
 	}
 
 	return order, nil
-}
-
-func skipJSONValue(dec *json.Decoder) error {
-	tok, err := dec.Token()
-	if err != nil {
-		return fmt.Errorf("failed to read value: %w", err)
-	}
-
-	delim, ok := tok.(json.Delim)
-	if !ok {
-		return nil
-	}
-
-	if delim != '{' && delim != '[' {
-		return nil
-	}
-
-	depth := 1
-	for depth > 0 {
-		next, err := dec.Token()
-		if err != nil {
-			return fmt.Errorf("failed to skip endpoint value: %w", err)
-		}
-		if d, ok := next.(json.Delim); ok {
-			switch d {
-			case '{', '[':
-				depth++
-			case '}', ']':
-				depth--
-			}
-		}
-	}
-
-	return nil
 }
 
 func applyDefaults(cfg *Config) error {

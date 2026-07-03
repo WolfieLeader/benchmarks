@@ -3,7 +3,7 @@ package conformance
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"maps"
 	"mime/multipart"
