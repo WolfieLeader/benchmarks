@@ -68,7 +68,7 @@ func createUser(c *gin.Context) {
 	repo := getRepository(c)
 
 	var data database.CreateUser
-	if err := c.ShouldBindJSON(&data); err != nil {
+	if err := utils.BindJSON(c, &data); err != nil {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
@@ -84,7 +84,7 @@ func createUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, user)
+	utils.WriteResponse(c, http.StatusCreated, user)
 }
 
 func getUser(c *gin.Context) {
@@ -101,14 +101,14 @@ func getUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	utils.WriteResponse(c, http.StatusOK, user)
 }
 
 func updateUser(c *gin.Context) {
 	repo := getRepository(c)
 
 	var data database.UpdateUser
-	if err := c.ShouldBindJSON(&data); err != nil {
+	if err := utils.BindJSON(c, &data); err != nil {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
@@ -129,7 +129,7 @@ func updateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	utils.WriteResponse(c, http.StatusOK, user)
 }
 
 func deleteUser(c *gin.Context) {
@@ -146,7 +146,7 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"success": true})
 }
 
 func deleteAllUsers(c *gin.Context) {
@@ -157,7 +157,7 @@ func deleteAllUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"success": true})
 }
 
 func resetDatabase(c *gin.Context) {
@@ -168,5 +168,5 @@ func resetDatabase(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	utils.WriteResponse(c, http.StatusOK, gin.H{"status": "ok"})
 }

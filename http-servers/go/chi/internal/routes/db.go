@@ -2,7 +2,7 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 
 	"chi-server/internal/config"
@@ -78,7 +78,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	var data database.CreateUser
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.UnmarshalRead(r.Body, &data, decodeOpts); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
@@ -118,7 +118,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	repo := getRepository(r)
 
 	var data database.UpdateUser
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.UnmarshalRead(r.Body, &data, decodeOpts); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}

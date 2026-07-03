@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 )
 
@@ -13,7 +13,7 @@ type ErrorResponse struct {
 func WriteResponse(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
+	if err := json.MarshalWrite(w, data); err != nil {
 		return
 	}
 }
@@ -34,7 +34,7 @@ func WriteError(w http.ResponseWriter, status int, message string, detail ...any
 			}
 		}
 	}
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+	if err := json.MarshalWrite(w, resp); err != nil {
 		return
 	}
 }
