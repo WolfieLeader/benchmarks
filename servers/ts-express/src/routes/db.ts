@@ -1,7 +1,14 @@
+import {
+  INTERNAL_ERROR,
+  INVALID_JSON_BODY,
+  makeError,
+  NOT_FOUND,
+  resolveRepository,
+  type UserRepository,
+  zCreateUser,
+  zUpdateUser
+} from "@bench/shared";
 import express, { type Router } from "express";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors.js";
-import { resolveRepository, type UserRepository } from "../database/repository.js";
-import { zCreateUser, zUpdateUser } from "../database/types.js";
 
 declare global {
   namespace Express {

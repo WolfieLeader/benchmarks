@@ -1,6 +1,5 @@
+import { disconnectDatabases, env, initializeDatabases } from "@bench/shared";
 import { createApp } from "./app.js";
-import { env } from "./config/env.js";
-import { disconnectDatabases, initializeDatabases } from "./database/repository.js";
 
 async function main() {
   await initializeDatabases();

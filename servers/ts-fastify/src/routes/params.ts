@@ -1,7 +1,5 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
-import { collectFormFields } from "../app.js";
-import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults.js";
 import {
+  DEFAULT_LIMIT,
   EXPECTED_FORM_CONTENT_TYPE,
   EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
@@ -11,8 +9,13 @@ import {
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
   makeError,
-  ONLY_TEXT_PLAIN
-} from "../consts/errors.js";
+  MAX_FILE_BYTES,
+  NULL_BYTE,
+  ONLY_TEXT_PLAIN,
+  SNIFF_LEN
+} from "@bench/shared";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { collectFormFields } from "../app.js";
 
 // @fastify/multipart (via busboy) defaults a file part with no declared
 // Content-Type to "text/plain" per RFC 2046, erasing the distinction the

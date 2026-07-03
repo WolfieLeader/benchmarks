@@ -1,18 +1,30 @@
+# Root-context build (PLAN §2.4). pnpm workspace: the frozen install needs every
+# member's package.json to resolve the single root lockfile. NestJS compiles with
+# tsc (esbuild/tsx cannot emit the decorator metadata Nest DI needs), so we build
+# both @bench/shared and the Nest app, then `pnpm deploy --prod` prunes to a lean
+# single-server image (dist + prod deps + injected @bench/shared, no dev tooling).
 FROM node:26.4.0-alpine AS builder
 WORKDIR /app
+ENV CI=true
+RUN npm i -g pnpm@11.9.0
 
-RUN npm i -g pnpm@10.29.1
-
-COPY servers/ts-nestjs/package.json servers/ts-nestjs/pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY shared/typescript/package.json ./shared/typescript/
+COPY servers/ts-express/package.json ./servers/ts-express/
+COPY servers/ts-fastify/package.json ./servers/ts-fastify/
+COPY servers/ts-nestjs/package.json ./servers/ts-nestjs/
+COPY servers/ts-bun-elysia/package.json ./servers/ts-bun-elysia/
+COPY servers/ts-bun-honojs/package.json ./servers/ts-bun-honojs/
+COPY servers/ts-deno-oak/package.json ./servers/ts-deno-oak/
 RUN pnpm install --frozen-lockfile
 
-COPY servers/ts-nestjs/tsconfig.json servers/ts-nestjs/tsconfig.build.json ./
-COPY servers/ts-nestjs/src ./src
-
-RUN pnpm build
+COPY shared/typescript ./shared/typescript
+COPY servers/ts-nestjs ./servers/ts-nestjs
+RUN pnpm --filter @bench/shared run build
+RUN pnpm --filter nestjs-server run build
+RUN pnpm --filter nestjs-server deploy --legacy --prod /deploy
 
 FROM node:26.4.0-alpine
-
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -27,9 +39,7 @@ ENV NODE_ENV=production \
     CASSANDRA_KEYSPACE=benchmarks \
     CASSANDRA_LOCAL_DATACENTER=datacenter1
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./
+COPY --from=builder /deploy ./
 
 RUN addgroup -g 1001 -S app-group && \
     adduser -S app-runner -u 1001 -G app-group
@@ -37,5 +47,4 @@ RUN addgroup -g 1001 -S app-group && \
 USER app-runner
 
 EXPOSE 3002
-
 CMD ["node", "dist/main.js"]

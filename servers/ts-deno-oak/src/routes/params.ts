@@ -1,6 +1,5 @@
-import { Router } from "@oak/oak";
-import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults.ts";
 import {
+  DEFAULT_LIMIT,
   EXPECTED_FORM_CONTENT_TYPE,
   EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
@@ -10,8 +9,12 @@ import {
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
   makeError,
-  ONLY_TEXT_PLAIN
-} from "../consts/errors.ts";
+  MAX_FILE_BYTES,
+  NULL_BYTE,
+  ONLY_TEXT_PLAIN,
+  SNIFF_LEN
+} from "@bench/shared";
+import { Router } from "@oak/oak";
 
 export const paramsRoutes = new Router();
 

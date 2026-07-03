@@ -2,16 +2,17 @@ import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
 import fastify, { type FastifyError, type FastifyInstance, type FastifyRequest } from "fastify";
-import { env } from "./config/env.js";
-import { MAX_FILE_BYTES, MAX_REQUEST_BYTES } from "./consts/defaults.js";
 import {
+  env,
   FILE_SIZE_EXCEEDS,
   INTERNAL_ERROR,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
   makeError,
+  MAX_FILE_BYTES,
+  MAX_REQUEST_BYTES,
   NOT_FOUND
-} from "./consts/errors.js";
+} from "@bench/shared";
 import { dbRoutes } from "./routes/db.js";
 import { paramsRoutes } from "./routes/params.js";
 

@@ -1,7 +1,19 @@
+import {
+  disconnectDatabases,
+  env,
+  initializeDatabases,
+  MAX_REQUEST_BYTES,
+  setIdGenerator,
+  setRedisRepositoryFactory
+} from "@bench/shared";
+import { randomUUIDv7 } from "bun";
 import { createApp } from "./app";
-import { env } from "./config/env";
-import { MAX_REQUEST_BYTES } from "./consts/defaults";
-import { disconnectDatabases, initializeDatabases } from "./database/repository";
+import { RedisUserRepository } from "./redis";
+
+// Wire the Bun-native adapters (PLAN §3) before opening any DB connection:
+// randomUUIDv7 for id generation, Bun.RedisClient-backed repository for Redis.
+setIdGenerator(randomUUIDv7);
+setRedisRepositoryFactory((url) => new RedisUserRepository(url));
 
 await initializeDatabases();
 

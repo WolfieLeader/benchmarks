@@ -5,11 +5,15 @@
     "format": "prettier --write \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
     "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
   },
+  "dependencies": {
+    "path-to-regexp": "^6.3.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "prettier": "3.9.4"
   },
-  "packageManager": "pnpm@10.29.1"
+  "packageManager": "pnpm@11.9.0",
+  "workspaces": ["shared/typescript", "servers/ts-express", "servers/ts-fastify", "servers/ts-nestjs", "servers/ts-bun-elysia", "servers/ts-bun-honojs", "servers/ts-deno-oak"]
 }
