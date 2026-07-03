@@ -1,0 +1,36 @@
+FROM oven/bun:1.3.14-alpine AS builder
+
+WORKDIR /app
+
+COPY servers/ts-bun-honojs/package.json servers/ts-bun-honojs/bun.lock* ./
+RUN bun install --frozen-lockfile --production
+
+COPY servers/ts-bun-honojs ./
+
+FROM oven/bun:1.3.14-alpine
+
+WORKDIR /app
+
+ENV ENV=prod \
+    HOST=0.0.0.0 \
+    PORT=3005 \
+    POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
+    MONGODB_URL=mongodb://mongodb:27017 \
+    MONGODB_DB=benchmarks \
+    REDIS_URL=redis://redis:6379 \
+    CASSANDRA_CONTACT_POINTS=cassandra \
+    CASSANDRA_KEYSPACE=benchmarks \
+    CASSANDRA_LOCAL_DATACENTER=datacenter1
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/package.json ./
+
+RUN addgroup -g 1001 -S app-group && \
+    adduser -S app-runner -u 1001 -G app-group
+
+USER app-runner
+
+EXPOSE 3005
+
+CMD ["bun", "run", "src/index.ts"]

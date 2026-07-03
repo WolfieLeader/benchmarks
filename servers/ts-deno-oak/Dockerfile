@@ -1,0 +1,35 @@
+FROM denoland/deno:alpine-2.9.1 AS deps
+
+WORKDIR /app
+
+ENV DENO_DIR=/deno-dir
+
+COPY servers/ts-deno-oak/deno.json ./
+COPY servers/ts-deno-oak/src ./src
+
+RUN deno install
+
+FROM denoland/deno:alpine-2.9.1
+
+WORKDIR /app
+
+ENV DENO_DIR=/deno-dir \
+    ENV=prod \
+    HOST=0.0.0.0 \
+    PORT=3004 \
+    POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
+    MONGODB_URL=mongodb://mongodb:27017 \
+    MONGODB_DB=benchmarks \
+    REDIS_URL=redis://redis:6379 \
+    CASSANDRA_CONTACT_POINTS=cassandra \
+    CASSANDRA_KEYSPACE=benchmarks \
+    CASSANDRA_LOCAL_DATACENTER=datacenter1
+
+COPY --from=deps /deno-dir /deno-dir
+COPY --from=deps /app /app
+
+USER deno
+
+EXPOSE 3004
+
+CMD ["deno", "run", "--allow-all", "src/index.ts"]

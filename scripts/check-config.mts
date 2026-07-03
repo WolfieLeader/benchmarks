@@ -2,7 +2,7 @@
 //
 // Three checks, all reported together (never bail on the first error):
 //   (a) config/config.json           validates against config/config.schema.json
-//   (b) http-servers/**/bench.json    each validates against config/bench.schema.json
+//   (b) servers/*/bench.json          each validates against config/bench.schema.json
 //   (c) cross-consistency            every config.json server has a matching manifest
 //       and vice versa (name/image/port equality); every manifest database is one
 //       of config.json's databases.
@@ -20,7 +20,7 @@ import { Ajv, type ErrorObject } from "ajv";
 import addFormats from "ajv-formats";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const httpServersDir = join(repoRoot, "http-servers");
+const serversDir = join(repoRoot, "servers");
 const rel = (p: string): string => relative(repoRoot, p);
 
 const problems: string[] = [];
@@ -77,25 +77,22 @@ type ConfigServer = { name: string; image: string; port: number };
 const configServers = (config as { servers?: ConfigServer[] } | null)?.servers ?? [];
 const configDatabases = (config as { databases?: string[] } | null)?.databases ?? [];
 
-// ── (b) http-servers/**/bench.json ──────────────────────────────────────────
+// ── (b) servers/*/bench.json ─────────────────────────────────────────────────
 const benchSchemaPath = join(repoRoot, "config", "bench.schema.json");
-// Fixed two-level walk (http-servers/<lang>/<entry>/bench.json) — never a
-// recursive scan, so installed dependency trees (node_modules/.venv/dist)
+// Fixed one-level walk (servers/<entry>/bench.json, flat layout PLAN §2.1) —
+// never a recursive scan, so installed dependency trees (node_modules/.venv/dist)
 // can't inject stray bench.json files. Deliberately NOT shared with lib.mts:
 // importing lib would run its fail-fast discovery at module load, killing this
 // script before it can report a malformed manifest gracefully.
 const manifestFiles: string[] = [];
-for (const lang of readdirSync(httpServersDir, { withFileTypes: true })) {
-  if (!lang.isDirectory()) continue;
-  for (const entry of readdirSync(join(httpServersDir, lang.name), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const manifest = join(httpServersDir, lang.name, entry.name, "bench.json");
-    if (existsSync(manifest)) manifestFiles.push(manifest);
-  }
+for (const entry of readdirSync(serversDir, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const manifest = join(serversDir, entry.name, "bench.json");
+  if (existsSync(manifest)) manifestFiles.push(manifest);
 }
 manifestFiles.sort();
 
-if (manifestFiles.length === 0) add(`no bench.json manifests found under ${rel(httpServersDir)}/`);
+if (manifestFiles.length === 0) add(`no bench.json manifests found under ${rel(serversDir)}/`);
 
 type Manifest = { name: string; image: string; port: number; databases: string[] };
 const manifests: { file: string; data: Manifest }[] = [];

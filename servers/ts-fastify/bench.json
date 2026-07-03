@@ -1,0 +1,11 @@
+{
+  "$schema": "../../config/bench.schema.json",
+  "name": "ts-fastify",
+  "language": "typescript",
+  "runtime": "node",
+  "image": "bench/ts-fastify",
+  "port": 3003,
+  "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "experimental": false,
+  "dev_port": 3003
+}

@@ -1,17 +1,15 @@
 @_default:
     just --list
 
-ts_dir := "http-servers/typescript"
-go_dir := "http-servers/go"
-py_dir := "http-servers/python"
+servers_dir := "servers"
 
 # Run benchmark suite (use --help for flags)
 benchmark *args:
-    cd benchmarks && GOTOOLCHAIN=go1.27rc1 go run ./cmd/main.go {{args}}
+    cd benchmark && GOTOOLCHAIN=go1.27rc1 go run ./cmd/main.go {{args}}
 
 alias benchmarks := benchmark
 
-# Start a dev server (honojs, elysia, oak, express, nestjs, fastify, chi, gin, fiber, fastapi)
+# Start a dev server (ts-bun-honojs, ts-bun-elysia, ts-deno-oak, ts-express, ts-nestjs, ts-fastify, go-chi, go-gin, go-fiber, py-fastapi)
 [group('dev')]
 dev server:
     node scripts/dev.mts {{server}}
@@ -61,32 +59,32 @@ images entry='all':
 # Remove all Docker images (best effort)
 [group('docker')]
 remove-images:
-    -docker rmi bun-honojs bun-elysia deno-oak node-express node-nestjs node-fastify python-fastapi go-chi go-gin go-fiber
+    -docker rmi bench/ts-bun-honojs bench/ts-bun-elysia bench/ts-deno-oak bench/ts-express bench/ts-nestjs bench/ts-fastify bench/py-fastapi bench/go-chi bench/go-gin bench/go-fiber
 
 # Remove build artifacts and node_modules
 clean:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -d "{{py_dir}}" || ! -d "{{ts_dir}}" || ! -d "{{go_dir}}" ]]; then
+    if [[ ! -d "{{servers_dir}}" ]]; then
         echo "Refusing to clean: expected repo layout not found" && exit 1
     fi
     echo "Cleaning build artifacts..."
     rm -rf \
-        "{{py_dir}}/fastapi/.venv" \
-        "{{py_dir}}/fastapi/__pycache__" \
-        "{{py_dir}}/fastapi/src/__pycache__" \
-        "{{ts_dir}}/bun-honojs/node_modules" \
-        "{{ts_dir}}/bun-elysia/node_modules" \
-        "{{ts_dir}}/node-express/node_modules" \
-        "{{ts_dir}}/node-nestjs/node_modules" \
-        "{{ts_dir}}/node-fastify/node_modules" \
-        "{{ts_dir}}/deno-oak/node_modules" \
-        "{{go_dir}}/chi/bin" \
-        "{{go_dir}}/chi/tmp" \
-        "{{go_dir}}/gin/bin" \
-        "{{go_dir}}/gin/tmp" \
-        "{{go_dir}}/fiber/bin" \
-        "{{go_dir}}/fiber/tmp"
+        "{{servers_dir}}/py-fastapi/.venv" \
+        "{{servers_dir}}/py-fastapi/__pycache__" \
+        "{{servers_dir}}/py-fastapi/src/__pycache__" \
+        "{{servers_dir}}/ts-bun-honojs/node_modules" \
+        "{{servers_dir}}/ts-bun-elysia/node_modules" \
+        "{{servers_dir}}/ts-express/node_modules" \
+        "{{servers_dir}}/ts-nestjs/node_modules" \
+        "{{servers_dir}}/ts-fastify/node_modules" \
+        "{{servers_dir}}/ts-deno-oak/node_modules" \
+        "{{servers_dir}}/go-chi/bin" \
+        "{{servers_dir}}/go-chi/tmp" \
+        "{{servers_dir}}/go-gin/bin" \
+        "{{servers_dir}}/go-gin/tmp" \
+        "{{servers_dir}}/go-fiber/bin" \
+        "{{servers_dir}}/go-fiber/tmp"
     echo "Clean complete!"
 
 # Type check a target (or 'all')
@@ -128,14 +126,14 @@ sqlc target='all':
     set -euo pipefail
     gen_one() {
         case "$1" in
-            chi)   (cd {{go_dir}}/chi/internal/database/sqlc && sqlc generate) ;;
-            gin)   (cd {{go_dir}}/gin/internal/database/sqlc && sqlc generate) ;;
-            fiber) (cd {{go_dir}}/fiber/internal/database/sqlc && sqlc generate) ;;
+            go-chi)   (cd {{servers_dir}}/go-chi/internal/database/sqlc && sqlc generate) ;;
+            go-gin)   (cd {{servers_dir}}/go-gin/internal/database/sqlc && sqlc generate) ;;
+            go-fiber) (cd {{servers_dir}}/go-fiber/internal/database/sqlc && sqlc generate) ;;
             *) echo "Unknown target: $1" && exit 1 ;;
         esac
     }
     if [ "{{target}}" = "all" ]; then
-        for t in chi gin fiber; do
+        for t in go-chi go-gin go-fiber; do
             gen_one "$t"
         done
     else
