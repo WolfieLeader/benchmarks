@@ -1,5 +1,13 @@
 import "reflect-metadata";
-import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, NotFoundException } from "@nestjs/common";
+import {
+  type ArgumentsHost,
+  BadRequestException,
+  Catch,
+  type ExceptionFilter,
+  HttpException,
+  NotFoundException,
+  PayloadTooLargeException
+} from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
 import express from "express";
@@ -19,6 +27,22 @@ import {
 } from "./consts/errors";
 import { disconnectDatabases, initializeDatabases } from "./db/database/repository";
 
+// A BadRequestException whose response still carries Nest's default
+// `error: "Bad Request"` — i.e. framework-generated, not an app-level 400.
+function isDefaultBadRequest(exception: HttpException): boolean {
+  const res = exception.getResponse();
+  return typeof res === "object" && res !== null && (res as { error?: unknown }).error === "Bad Request";
+}
+
+// The parse-error detail carried on the exception's response `message`.
+function messageOf(exception: HttpException): string | undefined {
+  const res = exception.getResponse();
+  if (typeof res === "object" && res !== null && typeof (res as { message?: unknown }).message === "string") {
+    return (res as { message: string }).message;
+  }
+  return exception.message || undefined;
+}
+
 @Catch()
 class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
@@ -30,6 +54,23 @@ class GlobalExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    // multer's LIMIT_FILE_SIZE is transformed into a PayloadTooLargeException by
+    // @nestjs/platform-express's FileInterceptor before it reaches this filter.
+    if (exception instanceof PayloadTooLargeException) {
+      response.status(413).json(makeError(FILE_SIZE_EXCEEDS, messageOf(exception)));
+      return;
+    }
+
+    // Body/JSON parse failures surface as a framework-default BadRequestException
+    // (getResponse().error === "Bad Request"). Every app-level 400 is thrown with
+    // a specific error string via makeError, so a still-default "Bad Request"
+    // means the parser rejected the payload.
+    if (exception instanceof BadRequestException && isDefaultBadRequest(exception)) {
+      response.status(400).json(makeError(INVALID_JSON_BODY, messageOf(exception)));
+      return;
+    }
+
+    // Fallback: a raw body-parser SyntaxError (if it ever escapes Nest's parser).
     if (exception instanceof SyntaxError && (exception as { type?: string }).type === "entity.parse.failed") {
       response.status(400).json(makeError(INVALID_JSON_BODY, exception.message));
       return;

@@ -68,6 +68,7 @@ export class ParamsController {
   )
   fileParams(@Req() req: Request, @UploadedFile() file?: Express.Multer.File) {
     this.paramsService.validateMultipartContentType(req.get("content-type"));
-    return this.paramsService.processUploadedFile(file);
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    return this.paramsService.processUploadedFile(file, rawBody, req.get("content-type") ?? "");
   }
 }
