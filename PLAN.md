@@ -186,7 +186,7 @@ Two repository implementations because runtimes differ:
 
 - **async** (asyncpg/SQLAlchemy, motor, redis.asyncio, scylla-driver) → FastAPI, and Django's non-ORM DBs
 - **sync** (psycopg3, pymongo, redis-py, cassandra-driver) → Flask (gunicorn, sync workers)
-- **Django is batteries-included** (locked decision): Django ORM + its migrations for Postgres; Mongo/Redis/Cassandra via the shared layer (Django has no first-party support for them). Run under ASGI (uvicorn) with async views where idiomatic.
+- **Django is batteries-included** (locked decision, clarified 2026-07-03): Django ORM + its migrations for Postgres, **and its first-party Redis cache backend (`django.core.cache.backends.redis`, since 4.0) for the Redis routes** — contract-checked in the lane: cache.set/get/delete + read-modify-write cover our CRUD; if some case can't be expressed through the cache abstraction, escalate (fallback = shared sync client). The cache framework's idiomatic overhead (serialization, key prefixing) is Django paying for its batteries, same as its ORM — representative, not unfair. Mongo/Cassandra via the shared layer (genuinely no first-party support). Run under ASGI (uvicorn) with async views where idiomatic.
 - Normalize FastAPI: 1 worker, pg pool 50.
 
 ### Rust / Kotlin / Zig
