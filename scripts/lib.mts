@@ -42,7 +42,7 @@ process.env.GOTOOLCHAIN ??= "go1.27rc1";
 // only ~/go/bin binaries in play are Go tools, so the wider scope is inert here.
 process.env.PATH = `${join(homedir(), "go", "bin")}:${process.env.PATH ?? ""}`;
 
-export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "root";
+export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "root";
 
 export type Server = {
   name: string; // CLI target key (e.g. "express", "chi")
@@ -57,13 +57,14 @@ export type Server = {
 // Manifest runtime -> toolchain family, and family -> dev command. These are the
 // only manifest-derived mappings the scripts need; everything else on a discovered
 // row (name/dir/image/port) comes straight from bench.json.
-const RUNTIME_ECO: Record<string, Eco> = { node: "pnpm", bun: "bun", deno: "deno", go: "go", python: "uv" };
+const RUNTIME_ECO: Record<string, Eco> = { node: "pnpm", bun: "bun", deno: "deno", go: "go", python: "uv", zig: "zig" };
 const ECO_DEV: Partial<Record<Eco, string>> = {
   pnpm: "pnpm run dev",
   bun: "bun run dev",
   deno: "deno task dev",
   go: "air",
-  uv: "uv run python -m src.main"
+  uv: "uv run python -m src.main",
+  zig: "zig build run"
 };
 
 type Manifest = {

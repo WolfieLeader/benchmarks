@@ -18,6 +18,8 @@ function installCmd(s: Server): string {
       return "go mod tidy";
     case "uv":
       return "uv sync";
+    case "zig":
+      return "zig build --fetch"; // resolve build.zig.zon dependencies
   }
 }
 

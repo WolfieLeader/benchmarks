@@ -60,6 +60,15 @@ function checks(s: Server): Record<CheckKind, Step | null> {
         format: st("format", "uv run ruff format --check ."),
         lint: st("lint", "uv run ruff check .")
       };
+    case "zig":
+      // `zig build` compiles the whole program — it is both the type/build check
+      // and the linter (PLAN §3: "compiler is the linter"). fmt scopes to our
+      // sources so vendored deps (zig-pkg) and caches are not format-checked.
+      return {
+        typecheck: st("typecheck", "zig build"),
+        format: st("format", "zig fmt --check src build.zig"),
+        lint: null
+      };
     case "root":
       // Root only carries prettier; its `lint` script IS the format check.
       return { typecheck: null, format: st("format", "pnpm run lint"), lint: null };

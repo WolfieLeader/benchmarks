@@ -48,6 +48,7 @@ target/
 # Zig
 .zig-cache/
 zig-out/
+zig-pkg/
 
 # Kotlin / Gradle (keep the wrapper jar)
 .gradle/

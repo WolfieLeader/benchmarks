@@ -123,6 +123,10 @@ function updateCmd(s: Server): string {
       return "go get -u ./... && go mod tidy";
     case "uv":
       return "uv sync --upgrade && uv sync";
+    case "zig":
+      // Zig deps are commit-pinned in build.zig.zon (like the Go toolchain pin);
+      // a blanket update leaves them, so this just re-resolves the pins.
+      return "zig build --fetch";
   }
 }
 
