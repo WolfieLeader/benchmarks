@@ -582,10 +582,11 @@ How the plan is actually executed (decided 2026-07-03, in effect from Phase 0A):
 ### Merge protocol — every PR, in order
 
 1. Implementer **self-verifies**: build + vet + lint clean; the relevant gates green (conformance runs, guard checks).
-2. **Fresh-context high-effort review** of the branch diff; all gating findings fixed by the implementer and re-verified.
-3. Lead **critiques the final diff directly** — reads the actual code, not the agents' summaries.
-4. Lead **independently re-runs every gate**, including the failure modes (non-zero exit on failure, vacuous-green guards firing) — agent claims are never trusted on their face; "looks correct" is not evidence.
-5. Only then: push branch, open PR, merge. `main` stays green and correct at every commit.
+2. **Rebase onto fresh `main` before review** — the branch is rebased (conflicts resolved deliberately, full rebased diff re-read, gates re-run if code moved) so the reviewer always diffs against current main. This is a hard rule born from two real incidents: a rebase auto-merge silently dropped an import, and a stale-base branch nearly reverted a roster decision merged to main mid-slice. Auto-merge output is never trusted unread.
+3. **Fresh-context high-effort review** of the branch diff; all gating findings fixed by the implementer and re-verified.
+4. Lead **critiques the final diff directly** — reads the actual code, not the agents' summaries.
+5. Lead **independently re-runs every gate**, including the failure modes (non-zero exit on failure, vacuous-green guards firing) — agent claims are never trusted on their face; "looks correct" is not evidence.
+6. Only then: push branch, open PR, merge. `main` stays green and correct at every commit.
 
 ### Verification rules
 
@@ -599,6 +600,8 @@ How the plan is actually executed (decided 2026-07-03, in effect from Phase 0A):
 - **Popular production libraries over hand-rolled** primitives everywhere — this benchmark represents real production stacks. JWT: `golang-jwt/jwt` (Go), `jose` (TS), PyJWT/joserfc (Python), `jsonwebtoken` (Rust), the idiomatic pick per remaining language. UUID: `google/uuid` (Go), `uuid` (TS) — Bun-native `randomUUIDv7` stays an injectable adapter per §3.
 - Commits are authored as the repo owner with plain messages — no AI attribution of any kind.
 - Small diffs; no features/abstractions/defensive code beyond what the slice needs; validate at system boundaries.
+- **Correctness over speed** (Sensei, 2026-07-03): parallelism is welcome only where it costs nothing in correctness, best practices, optimizations, or idioms. Lanes run in parallel when they are DAG-independent and worktree-isolated with the contract gate as the referee; anything touching global state (deps, toolchain, layout, the contract itself, scripts/) runs serially through the full protocol. Never trade a review or gate re-run for wall-clock.
+- Implementer briefs carry an explicit decision boundary: what the agent may decide alone vs. what must be escalated (contract semantics, user-environment changes, scope crossing into another slice — always escalate; internal naming, mechanical structure — decide and report).
 
 ---
 

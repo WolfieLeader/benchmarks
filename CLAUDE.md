@@ -28,7 +28,8 @@ just benchmark              # the actual benchmark TUI/run
 ## Working method (agents)
 
 - **Never push or commit to `main`.** Branch `phase<N>/<slug>`, one PR per reviewable slice; plain commit messages, repo-default author, **no AI attribution of any kind**.
-- Merge protocol (PLAN §11.2): implementer self-verifies → fresh-context high-effort review → fixes → lead re-verifies independently → PR → merge. Gates: `just verify` green + `just contract` green for every touched server.
+- Merge protocol (PLAN §11.2): implementer self-verifies → **rebase onto fresh main (re-read the rebased diff — auto-merge is never trusted unread)** → fresh-context high-effort review → fixes → lead re-verifies independently → PR → merge. Gates: `just verify` green + `just contract` green for every touched server.
+- Correctness over speed: parallel lanes only when DAG-independent + worktree-isolated; global-state slices (deps, toolchain, layout, contract, scripts/) go serial. Never skip a review or gate re-run for wall-clock.
 - Implementer subagents run Opus @ medium effort; reviewer subagents Opus @ high effort, fresh context, correctness over style.
 - Verification is primary-source: re-run the suite, check exit codes, read the handler. Reproduce bugs before fixing; prove fixes with the same repro.
 
