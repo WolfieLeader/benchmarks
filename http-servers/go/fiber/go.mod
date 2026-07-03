@@ -1,6 +1,6 @@
 module fiber-server
 
-go 1.25.7
+go 1.27rc1
 
 require (
 	github.com/go-playground/validator/v10 v10.30.3

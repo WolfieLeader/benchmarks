@@ -1,6 +1,6 @@
 module benchmark-client
 
-go 1.25.7
+go 1.27rc1
 
 require (
 	github.com/InfluxCommunity/influxdb3-go v0.14.0
