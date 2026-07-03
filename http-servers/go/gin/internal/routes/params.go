@@ -57,6 +57,12 @@ func handleBodyParams(c *gin.Context) {
 		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
+	if body == nil {
+		// JSON null decodes into a nil map without error; reject it like any
+		// other non-object body.
+		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, "expected a JSON object")
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"body": body})
 }
 

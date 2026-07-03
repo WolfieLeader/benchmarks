@@ -56,6 +56,11 @@ func handleBodyParams(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
+	if body == nil {
+		// JSON null decodes into a nil map without error; reject it like any
+		// other non-object body.
+		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, "expected a JSON object")
+	}
 	return c.JSON(fiber.Map{"body": body})
 }
 
