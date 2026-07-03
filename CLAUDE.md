@@ -2,7 +2,7 @@
 
 # HTTP Benchmarks
 
-Same 16-route API implemented across many frameworks/languages (10 servers today → 20 per plan), benchmarked by a custom Go client (`benchmarks/`) that is also the orchestrator and the conformance runner. Currently mid-expansion — **PLAN.md is the authoritative roadmap** (locked decisions §0, working method §11.2, execution DAG §11.1).
+Same 16-route API implemented across many frameworks/languages (10 servers today → 21 per plan), benchmarked by a custom Go client (`benchmarks/`) that is also the orchestrator and the conformance runner. Currently mid-expansion — **PLAN.md is the authoritative roadmap** (locked decisions §0, working method §11.2, execution DAG §11.1).
 
 ## Sources of truth
 
