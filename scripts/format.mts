@@ -17,6 +17,8 @@ function formatCmd(s: Server): string {
       return "golangci-lint fmt ./...";
     case "uv":
       return "uv run ruff format .";
+    case "zig":
+      return "zig fmt src build.zig";
     case "root":
       return "pnpm run format"; // prettier --write
   }

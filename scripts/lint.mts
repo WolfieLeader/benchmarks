@@ -19,6 +19,8 @@ function lintCmd(s: Server): string {
       return "golangci-lint run ./...";
     case "uv":
       return "uv run ruff check .";
+    case "zig":
+      return "zig build"; // the compiler is the linter (PLAN §3)
     case "root":
       return "pnpm run lint"; // prettier --check
   }

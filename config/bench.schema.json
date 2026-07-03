@@ -8,8 +8,8 @@
   "properties": {
     "$schema": { "type": "string" },
     "name": { "type": "string", "minLength": 1 },
-    "language": { "type": "string", "enum": ["typescript", "go", "python"] },
-    "runtime": { "type": "string", "enum": ["node", "bun", "deno", "go", "python"] },
+    "language": { "type": "string", "enum": ["typescript", "go", "python", "zig"] },
+    "runtime": { "type": "string", "enum": ["node", "bun", "deno", "go", "python", "zig"] },
     "image": { "type": "string", "minLength": 1 },
     "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
     "databases": {
