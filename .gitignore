@@ -53,3 +53,6 @@ results/
 *.db
 *.sqlite
 *.sqlite3
+
+# Claude Code agent worktrees (session-local)
+.claude/worktrees/
