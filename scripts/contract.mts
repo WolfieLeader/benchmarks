@@ -14,8 +14,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { connect } from "node:net";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type ServerEntry = { name: string; image: string; port: number };
@@ -28,13 +27,9 @@ const benchmarksDir = join(repoRoot, "benchmarks");
 const contractDir = join(repoRoot, "contract");
 const testFilesDir = join(repoRoot, "test-files");
 
-// Published host ports for the running databases (infra/compose/databases.yml).
-const DB_HOST_PORTS: Record<string, number> = {
-  postgres: 5432,
-  mongodb: 27017,
-  redis: 6379,
-  cassandra: 9042
-};
+// The compose file our databases stack is defined in — used to pick OUR stack
+// when other compose projects on this host also run a postgres service.
+const dbComposeFile = join(repoRoot, "infra", "compose", "databases.yml");
 
 const HEALTH_TIMEOUT_MS = 45_000;
 const HEALTH_INTERVAL_MS = 300;
@@ -57,52 +52,97 @@ function serverDir(image: string): string {
   return join(repoRoot, "http-servers", "typescript", image);
 }
 
-function tcpReachable(port: number, timeoutMs: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host: "127.0.0.1", port });
-    const done = (ok: boolean) => {
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once("connect", () => done(true));
-    socket.once("timeout", () => done(false));
-    socket.once("error", () => done(false));
-  });
+// Case-insensitive path comparison: macOS filesystems are case-insensitive and
+// compose records whatever casing it was invoked from (e.g. ~/dev vs ~/Dev).
+function samePath(a: string, b: string): boolean {
+  return resolve(a).toLowerCase() === resolve(b).toLowerCase();
 }
 
-async function dbPreflight(databases: string[]): Promise<void> {
-  const unreachable: string[] = [];
-  for (const db of databases) {
-    const port = DB_HOST_PORTS[db];
-    if (port === undefined) fail(`unknown database "${db}" in config — no host port mapping`);
-    if (!(await tcpReachable(port, 2000))) unreachable.push(`${db} (:${port})`);
-  }
-  if (unreachable.length > 0) {
-    fail(`databases not reachable: ${unreachable.join(", ")}\n  Start them with:  just db-up`);
-  }
-}
+type DbStack = { project: string; network: string };
 
 // The server container reaches the DBs by compose service name (postgres,
-// mongodb, ...), so it must join the network the DB containers live on.
-// Detect it from the running postgres service container instead of hardcoding
-// the compose project name (which differs between `just db-up` and the client).
-function detectDbNetwork(): string {
+// mongodb, ...), so it must join the network OUR DB containers live on.
+// Other compose projects on this host may also run a postgres service (other
+// repos, the Phase 2 metrics-postgres), so "first postgres container" is not
+// safe: match on the com.docker.compose.project.config_files label pointing at
+// our infra/compose/databases.yml, and fail loud on zero or ambiguous matches.
+function detectDbStack(): DbStack {
   const ps = spawnSync(
     "docker",
-    ["ps", "--filter", "label=com.docker.compose.service=postgres", "--format", "{{.Names}}"],
+    ["ps", "--filter", "label=com.docker.compose.service=postgres", "--format", "{{.ID}}"],
     { encoding: "utf8" }
   );
-  const name = ps.stdout.trim().split("\n")[0]?.trim();
-  if (!name) fail("could not find the running postgres container to detect its network — is `just db-up` up?");
-  const inspect = spawnSync(
-    "docker",
-    ["inspect", name, "--format", "{{range $k,$v := .NetworkSettings.Networks}}{{$k}}\n{{end}}"],
-    { encoding: "utf8" }
-  );
-  const network = inspect.stdout.trim().split("\n")[0]?.trim();
-  if (!network) fail(`could not detect the docker network for container ${name}`);
-  return network;
+  const ids = ps.stdout.trim().split("\n").filter(Boolean);
+  if (ids.length === 0) {
+    fail("no running postgres container found — start the databases with:  just db-up");
+  }
+
+  type Candidate = { name: string; project: string; configFiles: string; network: string };
+  const candidates: Candidate[] = [];
+  for (const id of ids) {
+    const inspect = spawnSync(
+      "docker",
+      [
+        "inspect",
+        id,
+        "--format",
+        `{{.Name}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}`
+      ],
+      { encoding: "utf8" }
+    );
+    const [name = "", project = "", configFiles = "", network = ""] = inspect.stdout.trim().split("\t");
+    candidates.push({ name: name.replace(/^\//, ""), project, configFiles, network });
+  }
+
+  // config_files is a comma-separated list; ours is a single file.
+  const ours = candidates.filter((c) => c.configFiles.split(",").some((f) => samePath(f.trim(), dbComposeFile)));
+
+  if (ours.length === 0) {
+    const list = candidates.map((c) => `    ${c.name} (project=${c.project}, config=${c.configFiles})`).join("\n");
+    fail(
+      `found running postgres container(s), but none belong to this repo's databases stack (${dbComposeFile}):\n${list}\n  Start ours with:  just db-up`
+    );
+  }
+  if (ours.length > 1) {
+    const list = ours.map((c) => `    ${c.name} (project=${c.project}, network=${c.network})`).join("\n");
+    fail(`multiple postgres containers match ${dbComposeFile} — ambiguous stack, stop the extras:\n${list}`);
+  }
+  const stack = ours[0];
+  if (!stack.network) fail(`could not detect the docker network for container ${stack.name}`);
+  return { project: stack.project, network: stack.network };
+}
+
+// Preflight the SAME stack whose network the server will join: every database
+// service must have a running, healthy container in that compose project.
+function dbPreflight(stack: DbStack, databases: string[]): void {
+  const bad: string[] = [];
+  for (const db of databases) {
+    const ps = spawnSync(
+      "docker",
+      [
+        "ps",
+        "--filter",
+        `label=com.docker.compose.project=${stack.project}`,
+        "--filter",
+        `label=com.docker.compose.service=${db}`,
+        "--format",
+        "{{.ID}}"
+      ],
+      { encoding: "utf8" }
+    );
+    const id = ps.stdout.trim().split("\n")[0]?.trim();
+    if (!id) {
+      bad.push(`${db} (no running container in project ${stack.project})`);
+      continue;
+    }
+    const health = spawnSync("docker", ["inspect", id, "--format", "{{.State.Health.Status}}"], {
+      encoding: "utf8"
+    }).stdout.trim();
+    if (health !== "healthy") bad.push(`${db} (health: ${health || "unknown"})`);
+  }
+  if (bad.length > 0) {
+    fail(`databases not ready: ${bad.join(", ")}\n  Start them with:  just db-up`);
+  }
 }
 
 function imageExists(image: string): boolean {
@@ -192,6 +232,7 @@ function runConformance(binPath: string, port: number): Promise<{ code: number; 
       { cwd: benchmarksDir }
     );
     let buf = "";
+    let settled = false;
     const relay = (chunk: Buffer, out: NodeJS.WriteStream) => {
       const s = chunk.toString();
       buf += s;
@@ -199,7 +240,17 @@ function runConformance(binPath: string, port: number): Promise<{ code: number; 
     };
     child.stdout.on("data", (c) => relay(c, process.stdout));
     child.stderr.on("data", (c) => relay(c, process.stderr));
+    // Spawn failure (ENOENT/EACCES) emits 'error' instead of 'close'; resolve
+    // as a failure so the caller's finally still tears the container down.
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      console.error(`\x1b[31m✗ failed to run conformance binary: ${err.message}\x1b[0m`);
+      resolve({ code: 1, passed: 0, failed: 0 });
+    });
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
       const m = buf.match(/(\d+)\s+passed,\s+(\d+)\s+failed/);
       const passed = m ? Number(m[1]) : 0;
       const failed = m ? Number(m[2]) : 0;
@@ -234,7 +285,8 @@ async function runEntry(
     console.log(`\x1b[36m›\x1b[0m container ${id.slice(0, 12)} up; waiting for health ...`);
     await waitHealthy(entry.port, databases);
     const { code, passed, failed } = await runConformance(binPath, entry.port);
-    return { name: entry.name, passed, failed, ok: code === 0, note: code === 0 ? "" : `${failed} failed` };
+    const note = code === 0 ? "" : failed > 0 ? `${failed} failed` : "conformance run error";
+    return { name: entry.name, passed, failed, ok: code === 0, note };
   } finally {
     stopContainer(id);
     activeContainer = "";
@@ -266,9 +318,10 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const databases = config.databases;
 
-  await dbPreflight(databases);
-  const network = detectDbNetwork();
-  console.log(`\x1b[36m›\x1b[0m databases reachable; server network = ${network}`);
+  const stack = detectDbStack();
+  dbPreflight(stack, databases);
+  const network = stack.network;
+  console.log(`\x1b[36m›\x1b[0m databases healthy (project ${stack.project}); server network = ${network}`);
 
   let entries: ServerEntry[];
   if (target === "all") {
@@ -311,6 +364,15 @@ function teardownAndExit(code: number): never {
 }
 process.on("SIGINT", () => teardownAndExit(130));
 process.on("SIGTERM", () => teardownAndExit(143));
+// Safety net: no synchronous throw in an event callback may ever leak a container.
+process.on("uncaughtException", (err) => {
+  console.error(err);
+  teardownAndExit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error(reason);
+  teardownAndExit(1);
+});
 
 main().catch((err) => {
   console.error(err);
