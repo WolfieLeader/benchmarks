@@ -44,7 +44,7 @@ just benchmark              # the actual benchmark TUI/run
 ## Toolchain quirks (PLAN §0.1 has the full list)
 
 - Go 1.27rc1 is a **separate binary** `~/go/bin/go1.27rc1` (stable `go` untouched); Rust proxies live in `/opt/homebrew/opt/rustup/bin` (keg-only, no `~/.cargo/bin`); Deno upgrades via `deno upgrade`, not brew; Kotlin builds via Gradle wrapper with a pinned JDK toolchain (launcher JVM is newer than Spring's ceiling).
-- pnpm workspace + Deno: root `deno.json` mirrors the workspace with `nodeModulesDir: "manual"`; **`pnpm install` must run before any Deno command**.
+- pnpm workspace + Deno: no root `deno.json` — root `package.json` `workspaces` is the Deno workspace mirror (produces `deno.lock`), with `nodeModulesDir: "manual"` in the member `deno.json`; **`pnpm install` must run before any Deno command**.
 - macOS: no `timeout` (use `gtimeout`/`curl --max-time`); paths are case-insensitive (compare accordingly).
 
 ## Never
