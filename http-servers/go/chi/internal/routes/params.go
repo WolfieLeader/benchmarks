@@ -80,6 +80,7 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//nolint:gosec // G124: benchmark fixture cookie on a local HTTP-only rig; Secure/SameSite deliberately omitted for response parity across all server implementations
 	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"cookie": cookie})
 }
@@ -94,6 +95,7 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// ParseForm does not read multipart bodies; parse them explicitly so
 		// FormValue sees the fields.
+		//nolint:gosec // G120: parsing is bounded by consts.MaxFileBytes; form fields are small
 		if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
 			utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
 			return
@@ -123,6 +125,7 @@ func handleFileParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//nolint:gosec // G120: parsing is bounded by consts.MaxFileBytes; total upload size is enforced explicitly below
 	if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "too large") {
 			utils.WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)

@@ -15,6 +15,9 @@ const (
 	GrafanaProject        = "benchmark-grafana"
 	HealthCheckInterval   = 2 * time.Second
 	DefaultHealthyTimeout = 120 * time.Second
+
+	composeCmd  = "compose"
+	projectFlag = "-p"
 )
 
 type ComposeManager struct {
@@ -52,9 +55,9 @@ func (m *ComposeManager) StopGrafana(ctx context.Context) error {
 
 func (m *ComposeManager) composeUp(ctx context.Context, composePath, project string) error {
 	args := []string{
-		"compose",
+		composeCmd,
 		"-f", composePath,
-		"-p", project,
+		projectFlag, project,
 		"up", "-d",
 	}
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
@@ -67,9 +70,9 @@ func (m *ComposeManager) composeUp(ctx context.Context, composePath, project str
 
 func (m *ComposeManager) composeDown(ctx context.Context, composePath, project string) error {
 	args := []string{
-		"compose",
+		composeCmd,
 		"-f", composePath,
-		"-p", project,
+		projectFlag, project,
 		"down", "-v",
 	}
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
@@ -123,8 +126,8 @@ type composeService struct {
 
 func (m *ComposeManager) checkServicesHealth(ctx context.Context, requiredServices []string) (bool, error) {
 	args := []string{
-		"compose",
-		"-p", DatabaseProject,
+		composeCmd,
+		projectFlag, DatabaseProject,
 		"ps", "--format", "json",
 	}
 

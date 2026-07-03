@@ -27,7 +27,7 @@ const (
 	defaultEnv                    = "dev"
 	defaultHost                   = "0.0.0.0"
 	defaultPort                   = 5001
-	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:5432/benchmarks"
+	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:5432/benchmarks" //nolint:gosec // G101: local dev default connection string, not a real credential
 	defaultMongoDbUrl             = "mongodb://localhost:27017"
 	defaultMongoDbDatabase        = "benchmarks"
 	defaultRedisUrl               = "redis://localhost:6379"
