@@ -130,14 +130,40 @@ are never committed.
 All 16 routes with meaningful variations, plus the negative and security cases:
 
 - **400** — malformed JSON; non-object JSON bodies (array/string/number/bool/null smuggling);
-  wrong content-type on form/file; invalid email; out-of-range / malformed
-  `favoriteNumber`; empty name; case-mismatched (PascalCase) field names.
-- **404** — unknown user id; unknown database name.
+  wrong content-type on form/file; invalid email; out-of-range / fractional / negative /
+  malformed `favoriteNumber`; empty name; case-mismatched (PascalCase) field names;
+  malformed JSON on `PATCH`.
+- **404** — unknown user id; unknown database name; nonexistent-but-well-formed id on
+  `GET` / `PATCH` / `DELETE`.
 - **413** — oversized file upload (synthesized).
 - **415** — wrong declared content-type; sniffed binary; and the anti-sniffing case
   (binary content lying as `text/plain`).
+- **Content-Type** — every error response asserts its `Content-Type`: JSON error bodies are
+  `application/json` (asserted via the substring/"contains" header match, so both bare and
+  `; charset=...` forms pass), and the 503 unknown-db health is `text/plain`. Success bodies
+  assert it on `GET /` (JSON) and the `/health` routes (text/plain).
+- **boundary values** — `favoriteNumber` at the inclusive edges: `0` and `100` accepted and
+  echoed (`0` distinct from absent); `-1` and `3.5` rejected. (Integral floats like `7.0`
+  and numeric strings are intentionally not asserted — servers diverge there.)
+- **Unicode** — a multi-byte value (Latin-accented + CJK + emoji + RTL) round-trips
+  byte-for-byte through the `/params/body` echo and through DB create → store → retrieve.
 - **path safety** — encoded traversal input returns a normal response, never a file read.
-- **JSON parse semantics** — duplicate keys resolve last-wins (echoed on `/params/body`);
-  field names are case-sensitive so PascalCase keys fail required-field validation (400).
+- **JSON parse semantics** — duplicate keys resolve last-wins, proven on both `/params/body`
+  and the DB create path; field names are case-sensitive so PascalCase keys fail
+  required-field validation (400) on create.
+- **lifecycle** — `reset` provably clears prior rows (create → reset → read is 404).
 
 No JWT cases yet — those endpoints arrive in a later phase.
+
+### Deliberately not asserted (servers diverge — canon rulings pending)
+
+- **405 method-not-allowed** — a known path with the wrong method is not uniform: go-chi and
+  ts-deno-oak return `405` + `Allow` (empty body); py-fastapi returns `405 {"error":"Method
+Not Allowed"}` (no `Allow`); the other eight fall through to `404 {"error":"not found"}`.
+- **PATCH with PascalCase field names** — zig rejects unknown JSON fields at parse (`400`),
+  while every other server ignores/strips them, making the update a no-op that returns the
+  existing row (`200`).
+- **error `details` on 415/413** — genuinely optional (`$optional`): go-chi/go-fiber/go-gin/zig
+  omit it, the rest include a detail string. Left as `$optional`, not tightened to `$absent`.
+- **name/email length maxima** — no server-level max; only the DB `varchar(255)` bounds them,
+  so over-long names diverge (postgres errors, other stores accept).

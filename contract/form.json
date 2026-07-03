@@ -36,6 +36,7 @@
       "body": { "name": "John" },
       "expect": {
         "status": 400,
+        "headers": { "Content-Type": "application/json" },
         "body": {
           "error": "invalid form data",
           "details": "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
