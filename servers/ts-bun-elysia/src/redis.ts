@@ -1,7 +1,10 @@
+import { type CreateUser, buildUser, type UpdateUser, type User, type UserRepository } from "@bench/shared";
 import { RedisClient, randomUUIDv7 } from "bun";
-import type { UserRepository } from "./repository";
-import { buildUser, type CreateUser, type UpdateUser, type User } from "./types";
 
+// Bun-native Redis adapter (PLAN §3): the entrypoint injects this via
+// `setRedisRepositoryFactory` so the Bun entry keeps `Bun.RedisClient` +
+// `randomUUIDv7` while sharing everything else (@bench/shared). It implements the
+// shared `UserRepository` contract and reuses the shared `buildUser`/types.
 export class RedisUserRepository implements UserRepository {
   private client: RedisClient;
   private prefix = "user:";

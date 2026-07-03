@@ -1,7 +1,5 @@
-import { Hono } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
-import { DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
 import {
+  DEFAULT_LIMIT,
   EXPECTED_FORM_CONTENT_TYPE,
   EXPECTED_MULTIPART_CONTENT_TYPE,
   FILE_NOT_FOUND,
@@ -11,8 +9,13 @@ import {
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
   makeError,
-  ONLY_TEXT_PLAIN
-} from "../consts/errors";
+  MAX_FILE_BYTES,
+  NULL_BYTE,
+  ONLY_TEXT_PLAIN,
+  SNIFF_LEN
+} from "@bench/shared";
+import { Hono } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
 
 export const paramsRoutes = new Hono();
 

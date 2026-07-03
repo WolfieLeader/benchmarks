@@ -1,6 +1,5 @@
+import { env, INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "@bench/shared";
 import { Elysia } from "elysia";
-import { env } from "./config/env";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "./consts/errors";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
