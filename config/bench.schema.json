@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Server manifest (bench.json)",
+  "description": "Per-server manifest next to each Dockerfile — the roster's single source of truth (PLAN §7.4).",
+  "type": "object",
+  "required": ["name", "language", "runtime", "image", "port", "databases", "experimental", "dev_port"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "language": { "type": "string", "enum": ["typescript", "go", "python"] },
+    "runtime": { "type": "string", "enum": ["node", "bun", "deno", "go", "python"] },
+    "image": { "type": "string", "minLength": 1 },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "databases": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "experimental": { "type": "boolean" },
+    "dev_port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+  }
+}
