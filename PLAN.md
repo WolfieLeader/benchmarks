@@ -470,6 +470,95 @@ Echo → Rust (axum, actix) → Python (django, flask) → Kotlin (ktor, spring-
 
 ---
 
+## 11.1 Dependency graph & parallel execution
+
+The phase list above reads linearly, but the real structure is a DAG with two serial choke points and several wide fan-outs. This section is the map for running work concurrently (multiple agents / worktrees, one PR per lane per §0.2) instead of phase-by-phase.
+
+### The DAG
+
+```
+A  contract gate (0A) ── serial root, single-threaded
+│      (contract/ cases + Go conformance cmd → then contract.mts harness)
+│   B  scripts + manifest + config-validation + Deno/Cassandra spikes (0B)
+│   │     ↑ overlaps A; feeds both tracks (manifest format, verify gate)
+▼   ▼
+C  RESTRUCTURE (0C) ── serial barrier: renames every path, nothing straddles it
+│
+├───────────────── SERVER TRACK ─────────────────┐   ├──── CLIENT TRACK ────┐
+│  D_ts ─┐                                        │   │  P1 client v2        │
+│  D_go ─┼─ 3 parallel worktrees (islands)        │   │   └─ P2 metrics PG   │
+│  D_py ─┘   each: move-only → then D_swap        │   │        (needs P1)    │
+│     │                                           │   └──────────┬───────────┘
+│     ├─ E  hono multi-runtime (needs D_ts)       │              │
+│     └─ P3 web endpoints (needs shared web utils │              │
+│           per lang; per-server parallel)        │              │
+│                                                 │              │
+│  P4 NEW SERVERS ── widest fan-out ──────────────┤              │
+│     zig    (no shared → starts right after C)   │              │
+│     echo   (needs D_go)                         │              │
+│     rust   (builds own shared crate in-lane)    │              │
+│     kotlin (builds own shared module in-lane)   │              │
+│     django/flask (need bench-shared = D_py)     │              │
+└─────────────────────────┬───────────────────────┘              │
+                          P5 Grafana redesign ← needs P2 + P4 (join point)
+```
+
+### Two hard serialization points
+
+1. **Contract gate (A) is the root.** One gate, built once, green on the current 10 before anything else — inherently single-threaded. Internal order: `contract/` JSON cases + Go conformance command first, then `contract.mts` (the harness *invokes* the command). `scripts/` is created here for `contract.mts`; 0B fills out the rest. `contract.mts` may start with explicit entries and switch to manifest discovery once B lands.
+2. **Restructure (C) is a stop-the-world barrier.** It renames every path, so no branch may straddle it — a pre-move branch that also edits a file whose directory is renamed produces conflicts git can't auto-resolve. Land C as its own small, fast-merged PR; rebase everything else on top. **All parallel lanes sit entirely after C.**
+
+### The reordering that matters
+
+The linear list implies all of `0D` finishes before Phase 1. It should not. **After C, fork two independent tracks that share no files** (`apps/servers/**` + `shared/**` vs `apps/benchmark/**`):
+
+- **Server track**: D_ts / D_go / D_py (parallel) → D_swap → E → P3 → P4
+- **Client track**: P1 → P2
+
+Running them concurrently roughly halves the 0→2 wall clock. They rejoin only at **P5** (needs P2's tags/schema + P4's servers to prove scale).
+
+### Parallel lanes
+
+| Lane | Isolation | Can start when | Fan-out |
+| --- | --- | --- | --- |
+| Contract gate (A) | — | now | 1 (serial) |
+| Scripts/manifest (B) | own PR | overlaps A | 1 |
+| Restructure (C) | own PR | A green | 1 (barrier) |
+| Shared extract D_ts / D_go / D_py | worktree ×3 | after C | **3** |
+| Behaviour swaps (D_swap) | per-lang | after that lang's move-only | folds into each D lane |
+| Hono multi-runtime (E) | worktree | after D_ts | 1 |
+| Client v2 (P1) | worktree | **after C — parallel to all of D** | 1 |
+| Metrics PG (P2) | worktree | after P1 (schema design earlier) | 1 |
+| Web endpoints (P3) | per-server | after shared web utils per lang | per-server |
+| New servers (P4) | worktree ×5 | see below | **up to 5** |
+| Grafana (P5) | worktree | after P2 **and** P4 | 1 |
+
+### New-server fan-out (Phase 4) — the widest lane
+
+Each new server is a language island in its own worktree. Start conditions differ:
+
+- **Zig** — needs **nothing shared**; only C + the web-suite contract cases. It's the **longest single task** (MongoDB via libmongoc C-interop) with the **fewest deps** → **start it earliest**, right after C.
+- **Echo** — needs `shared/go` (D_go) done.
+- **django / flask** — need `bench-shared` (D_py) done.
+- **Rust (axum, actix)** and **Kotlin (ktor, spring-boot)** — their shared crate/module does **not** exist yet (0D only extracts TS/Go/Py); it's built **inside the lane**. So within each: `shared + first server` is serial, then the second server parallelizes. Across all five languages: fully parallel.
+- New servers implement the **full** surface incl. the `web` suite, so they depend on the **endpoint contract cases** (P3's JSON, writable early) — *not* on P3 being implemented in the old servers.
+
+### Two laws for safe fan-out
+
+1. **Freeze shared before fanning out its consumers.** A server lane is safe only because it *reads* `shared/<lang>` and never mutates it. Two lanes both editing the same shared package recreate the copy-paste problem in reverse. So: *extract shared → freeze → fan out consumers.* This is exactly why servers can't parallelize before their language's `D` lane lands.
+2. **Root workspace files are the hidden contention.** Adding a member edits a shared root file (`go.work`, `Cargo.toml` members, `settings.gradle`, uv/pnpm members, `deno.json`). Two lanes each appending a line there conflict trivially. Serialize those one-line edits (or accept the trivial conflict) — they are not a reason to serialize the lanes themselves.
+
+### Critical path / long poles
+
+Two chains, both startable right after C, determine total wall clock:
+
+- **Zig** (server track long pole — C toolchain in Docker, libmongoc).
+- **P1 → P2 → P5** (client → metrics → Grafana).
+
+Everything else — TS/Go/Py shared, echo, rust, kotlin, django/flask, endpoints in existing servers — fits in the shadow of those two if fanned out. **Front-load both**: kick Zig and P1 the moment restructure merges.
+
+---
+
 ## 12. Risks & open items
 
 - **Deno × pnpm workspace friction**: Deno needs a mirrored `deno.json` workspace list + `--node-modules-dir=manual`; verified in docs, not in this repo — prototype first in Phase 0B before the full restructure.
