@@ -34,13 +34,16 @@ type failure struct {
 // sequentially, against baseURL with strict assertions. It prints a concise
 // report and returns a process exit code (0 = all passed, 1 = any failure or
 // setup error). It performs plain HTTP only — no docker, orchestrator, or metrics.
-func Run(ctx context.Context, baseURL, contractDir string) int {
+func Run(ctx context.Context, baseURL, contractDir, testFilesDir string) int {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	if contractDir == "" {
 		contractDir = DefaultContractDir
+	}
+	if testFilesDir == "" {
+		testFilesDir = DefaultTestFiles
 	}
 
 	suites, err := loadSuites(contractDir)
@@ -63,13 +66,13 @@ func Run(ctx context.Context, baseURL, contractDir string) int {
 		for i := range suite.Cases {
 			c := &suite.Cases[i]
 			if len(c.Flow) > 0 {
-				p, f, fails := runFlow(ctx, httpClient, baseURL, suite.Name, c)
+				p, f, fails := runFlow(ctx, httpClient, baseURL, testFilesDir, suite.Name, c)
 				passed += p
 				failed += f
 				failures = append(failures, fails...)
 				continue
 			}
-			if err := runCase(ctx, httpClient, baseURL, nil, c); err != nil {
+			if err := runCase(ctx, httpClient, baseURL, testFilesDir, nil, c); err != nil {
 				failed++
 				failures = append(failures, failure{suite.Name, c.Name, err})
 				cli.Failf("%s", c.Name)
@@ -78,6 +81,13 @@ func Run(ctx context.Context, baseURL, contractDir string) int {
 				cli.Successf("%s", c.Name)
 			}
 		}
+	}
+
+	// Guard against a vacuous green: zero executed cases is a setup error
+	// (empty suites, wrong --contract-dir, schema drift), never a pass.
+	if passed+failed == 0 {
+		cli.Failf("no contract cases were executed — check --contract-dir and suite contents")
+		return 1
 	}
 
 	printSummary(passed, failed, failures)
@@ -89,13 +99,13 @@ func Run(ctx context.Context, baseURL, contractDir string) int {
 
 // runFlow executes an ordered set of steps sharing one capture map. A failed
 // step aborts the remaining steps in the flow (they depend on it).
-func runFlow(ctx context.Context, hc *http.Client, baseURL, suite string, group *Case) (passed, failed int, failures []failure) {
+func runFlow(ctx context.Context, hc *http.Client, baseURL, testFilesDir, suite string, group *Case) (passed, failed int, failures []failure) {
 	captured := make(map[string]string)
 	cli.Linef("%s %s", cli.SymbolDot, group.Name)
 	for i := range group.Flow {
 		step := &group.Flow[i]
 		label := group.Name + "/" + step.Name
-		if err := runCase(ctx, hc, baseURL, captured, step); err != nil {
+		if err := runCase(ctx, hc, baseURL, testFilesDir, captured, step); err != nil {
 			failed++
 			failures = append(failures, failure{suite, label, err})
 			cli.Failf("  %s", label)
@@ -113,10 +123,10 @@ func runFlow(ctx context.Context, hc *http.Client, baseURL, suite string, group 
 	return passed, failed, failures
 }
 
-func runCase(ctx context.Context, hc *http.Client, baseURL string, captured map[string]string, c *Case) error {
+func runCase(ctx context.Context, hc *http.Client, baseURL, testFilesDir string, captured map[string]string, c *Case) error {
 	resolved := resolveCase(c, captured)
 
-	req, err := buildRequest(ctx, baseURL, DefaultTestFiles, &resolved)
+	req, err := buildRequest(ctx, baseURL, testFilesDir, &resolved)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
@@ -176,9 +186,41 @@ func loadSuites(dir string) ([]Suite, error) {
 		if suite.Name == "" {
 			suite.Name = strings.TrimSuffix(name, ".json")
 		}
+		if err := validateSuite(name, &suite); err != nil {
+			return nil, err
+		}
 		suites = append(suites, suite)
 	}
 	return suites, nil
+}
+
+func validateSuite(file string, suite *Suite) error {
+	if len(suite.Cases) == 0 {
+		return fmt.Errorf("%s: suite contains zero cases", file)
+	}
+	for i := range suite.Cases {
+		c := &suite.Cases[i]
+		if len(c.Flow) == 0 && len(c.Capture) > 0 {
+			return fmt.Errorf("%s: case %q uses capture outside a flow — captures only carry across flow steps", file, c.Name)
+		}
+		if err := validateExpect(file, c.Name, &c.Expect); err != nil {
+			return err
+		}
+		for j := range c.Flow {
+			step := &c.Flow[j]
+			if err := validateExpect(file, c.Name+"/"+step.Name, &step.Expect); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateExpect(file, name string, exp *Expect) error {
+	if len(exp.StatusAnyOf) > 0 && (exp.Body != nil || exp.Text != nil) {
+		return fmt.Errorf("%s: case %q combines statusAnyOf with a body/text assertion — bodies differ per status, assert one or the other", file, name)
+	}
+	return nil
 }
 
 func printSummary(passed, failed int, failures []failure) {

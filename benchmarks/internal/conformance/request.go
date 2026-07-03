@@ -36,6 +36,12 @@ func buildRequest(ctx context.Context, baseURL, testFilesDir string, c *Case) (*
 		Url:     fullURL,
 		Method:  method(c.Method),
 		Headers: headers,
+		// Populate expectations so client.BuildRequest derives the same Accept
+		// header the benchmark path sends (text/plain vs application/json).
+		ExpectedBody: c.Expect.Body,
+	}
+	if c.Expect.Text != nil {
+		tc.ExpectedText = *c.Expect.Text
 	}
 
 	switch {

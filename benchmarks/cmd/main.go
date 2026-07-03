@@ -35,7 +35,7 @@ func run() int {
 
 	// Conformance mode runs plain HTTP against a base URL — no config, docker, or metrics.
 	if cliOpts != nil && cliOpts.Conformance {
-		return conformance.Run(ctx, cliOpts.BaseURL, cliOpts.ContractDir)
+		return conformance.Run(ctx, cliOpts.BaseURL, cliOpts.ContractDir, cliOpts.TestFilesDir)
 	}
 
 	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)

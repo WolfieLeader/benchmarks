@@ -64,10 +64,10 @@
     },
     {
       "name": "url_path_traversal_input_is_safe",
-      "note": "SECURITY: encoded traversal input must resolve to a normal route response, never a filesystem read. chi keeps %2f literal and echoes the segment verbatim.",
+      "note": "SECURITY: encoded traversal input must resolve to a normal 200/404, never a filesystem read (PLAN.md section 8). Routers legitimately differ: chi/fiber keep %2f literal and echo it (200); gin decodes it and finds no route (404).",
       "method": "GET",
       "path": "/params/url/..%2f..%2fetc%2fpasswd",
-      "expect": { "status": 200, "body": { "dynamic": "..%2f..%2fetc%2fpasswd" } }
+      "expect": { "statusAnyOf": [200, 404] }
     },
 
     {
@@ -173,12 +173,12 @@
       "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
-      "name": "body_accepts_top_level_null",
-      "note": "SURPRISE: JSON null decodes into a nil map without error, so chi returns 200 with body:null rather than rejecting it. Documents current behavior.",
+      "name": "body_rejects_top_level_null",
+      "note": "SECURITY: JSON null smuggling must be rejected like any other non-object body (PLAN.md section 8).",
       "method": "POST",
       "path": "/params/body",
       "rawBody": "null",
-      "expect": { "status": 200, "body": { "body": null } }
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
     }
   ]
 }

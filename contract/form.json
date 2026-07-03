@@ -16,6 +16,13 @@
       "expect": { "status": 200, "body": { "name": "Jane", "age": 30 } }
     },
     {
+      "name": "form_multipart_happy_path",
+      "method": "POST",
+      "path": "/params/form",
+      "multipart": { "fields": { "name": "Multi", "age": "42" } },
+      "expect": { "status": 200, "body": { "name": "Multi", "age": 42 } }
+    },
+    {
       "name": "form_defaults_when_fields_missing",
       "method": "POST",
       "path": "/params/form",

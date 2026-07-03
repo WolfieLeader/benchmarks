@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -17,7 +18,11 @@ var (
 
 // validate checks status, headers, and body (text or strict JSON with matchers).
 func validate(exp *Expect, resp *http.Response, body []byte) error {
-	if resp.StatusCode != exp.Status {
+	if len(exp.StatusAnyOf) > 0 {
+		if !slices.Contains(exp.StatusAnyOf, resp.StatusCode) {
+			return fmt.Errorf("status: got %d, want one of %v (body: %s)", resp.StatusCode, exp.StatusAnyOf, truncate(body, 200))
+		}
+	} else if resp.StatusCode != exp.Status {
 		return fmt.Errorf("status: got %d, want %d (body: %s)", resp.StatusCode, exp.Status, truncate(body, 200))
 	}
 

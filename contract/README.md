@@ -15,8 +15,11 @@ go run ./cmd/main.go --conformance --base-url=http://localhost:5001
 
 Every case runs **once, sequentially, with strict full-body assertions**, against a
 plain base URL (no docker/orchestrator/metrics). The command exits non-zero on any
-failure. The `scripts/contract.mts` harness (later slice) wraps this by starting a
-server container first, then invoking the command against its port.
+failure — including when zero cases execute (wrong dir, empty suites). The
+`scripts/contract.mts` harness (later slice) wraps this by starting a server
+container first, then invoking the command against its port. Both lookup dirs
+default relative to `benchmarks/` and can be overridden for other working
+directories: `--contract-dir=` (cases) and `--test-files-dir=` (upload fixtures).
 
 ## File layout
 
@@ -59,6 +62,9 @@ group of steps that share captured variables.
   // --- response assertion ---
   "expect": {
     "status": 200,
+    "statusAnyOf": [200, 404],            // any listed status passes (overrides status);
+                                          //   cannot be combined with body/text — use only when
+                                          //   routers legitimately differ (e.g. traversal safety)
     "headers": { "Content-Type": "application/json" }, // substring ("contains") match
     "text": "OK",                         // exact text body (trimmed); mutually exclusive with body
     "body": { "hello": "world" },         // JSON body assertion (see matchers below)
@@ -67,6 +73,7 @@ group of steps that share captured variables.
 
   // --- sequencing ---
   "capture": { "id": "id" },              // after success, capture response.id into {id}
+                                          //   only valid on steps inside a flow (load error otherwise)
   "flow": [ Case, ... ]                   // ordered steps sharing one capture map
 }
 ```
@@ -121,7 +128,7 @@ are never committed.
 
 All 16 routes with meaningful variations, plus the negative and security cases:
 
-- **400** — malformed JSON; non-object JSON bodies (array/string/number/bool smuggling);
+- **400** — malformed JSON; non-object JSON bodies (array/string/number/bool/null smuggling);
   wrong content-type on form/file; invalid email; out-of-range / malformed
   `favoriteNumber`; empty name.
 - **404** — unknown user id; unknown database name.
