@@ -428,6 +428,12 @@ class RedisUserRepository implements UserRepository {
   }
 
   async disconnect(): Promise<void> {
+    // Canon note (0D extraction): pre-extraction, the ioredis servers closed with
+    // `disconnect()` (immediate close) except ts-deno-oak, which used `quit()`
+    // (graceful — flushes pending replies before closing). This shared impl keeps
+    // the majority behavior, so deno-oak's shutdown teardown drifts from quit()
+    // to disconnect(). Reported to the lead per the contract-drift rule; flip to
+    // `await this.client.quit()` here if graceful teardown is declared canon.
     this.client.disconnect();
   }
 }
