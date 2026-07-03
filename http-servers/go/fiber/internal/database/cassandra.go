@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gocql/gocql"
+	"github.com/apache/cassandra-gocql-driver/v2"
 	"github.com/google/uuid"
 )
 
@@ -67,7 +67,7 @@ func (r *CassandraRepository) Create(ctx context.Context, data *CreateUser) (*Us
 		params = []any{idStr, data.Name, data.Email}
 	}
 
-	if err := r.session.Query(query, params...).WithContext(ctx).Exec(); err != nil {
+	if err := r.session.Query(query, params...).ExecContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -83,7 +83,7 @@ func (r *CassandraRepository) FindById(ctx context.Context, id string) (*User, e
 	var userId, name, email string
 	var favoriteNumber *int
 
-	if err := r.session.Query(query, id).WithContext(ctx).Scan(&userId, &name, &email, &favoriteNumber); err != nil {
+	if err := r.session.Query(query, id).ScanContext(ctx, &userId, &name, &email, &favoriteNumber); err != nil {
 		if errors.Is(err, gocql.ErrNotFound) {
 			return nil, nil
 		}
@@ -133,7 +133,7 @@ func (r *CassandraRepository) Update(ctx context.Context, id string, data *Updat
 	params = append(params, id)
 	query := "UPDATE users SET " + strings.Join(setClauses, ", ") + " WHERE id = ?"
 
-	if err := r.session.Query(query, params...).WithContext(ctx).Exec(); err != nil {
+	if err := r.session.Query(query, params...).ExecContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -154,7 +154,7 @@ func (r *CassandraRepository) Delete(ctx context.Context, id string) (bool, erro
 	}
 
 	query := `DELETE FROM users WHERE id = ?`
-	if err := r.session.Query(query, id).WithContext(ctx).Exec(); err != nil {
+	if err := r.session.Query(query, id).ExecContext(ctx); err != nil {
 		return false, err
 	}
 
@@ -166,7 +166,7 @@ func (r *CassandraRepository) DeleteAll(ctx context.Context) error {
 		return err
 	}
 
-	return r.session.Query(`TRUNCATE users`).WithContext(ctx).Exec()
+	return r.session.Query(`TRUNCATE users`).ExecContext(ctx)
 }
 
 func (r *CassandraRepository) HealthCheck(ctx context.Context) (bool, error) {
@@ -174,7 +174,7 @@ func (r *CassandraRepository) HealthCheck(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	err := r.session.Query(`SELECT now() FROM system.local`).WithContext(ctx).Exec()
+	err := r.session.Query(`SELECT now() FROM system.local`).ExecContext(ctx)
 	return err == nil, err
 }
 

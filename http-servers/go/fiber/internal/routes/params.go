@@ -14,7 +14,7 @@ import (
 	"fiber-server/internal/consts"
 	"fiber-server/internal/utils"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func RegisterParams(r fiber.Router) {
@@ -27,7 +27,7 @@ func RegisterParams(r fiber.Router) {
 	r.Post("/file", handleFileParams)
 }
 
-func handleSearchParams(c *fiber.Ctx) error {
+func handleSearchParams(c fiber.Ctx) error {
 	q := cmp.Or(strings.TrimSpace(c.Query("q")), "none")
 
 	limit := consts.DefaultLimit
@@ -41,19 +41,19 @@ func handleSearchParams(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"search": q, "limit": limit})
 }
 
-func handleUrlParams(c *fiber.Ctx) error {
+func handleUrlParams(c fiber.Ctx) error {
 	dynamic := c.Params("dynamic")
 	return c.JSON(fiber.Map{"dynamic": dynamic})
 }
 
-func handleHeaderParams(c *fiber.Ctx) error {
+func handleHeaderParams(c fiber.Ctx) error {
 	header := cmp.Or(strings.TrimSpace(c.Get("X-Custom-Header")), "none")
 	return c.JSON(fiber.Map{"header": header})
 }
 
-func handleBodyParams(c *fiber.Ctx) error {
+func handleBodyParams(c fiber.Ctx) error {
 	var body map[string]any
-	if err := c.BodyParser(&body); err != nil {
+	if err := c.Bind().Body(&body); err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 	if body == nil {
@@ -64,13 +64,13 @@ func handleBodyParams(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"body": body})
 }
 
-func handleCookieParams(c *fiber.Ctx) error {
+func handleCookieParams(c fiber.Ctx) error {
 	cookie := cmp.Or(strings.TrimSpace(c.Cookies("foo")), "none")
 	c.Cookie(&fiber.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HTTPOnly: true, Path: "/"})
 	return c.JSON(fiber.Map{"cookie": cookie})
 }
 
-func handleFormParams(c *fiber.Ctx) error {
+func handleFormParams(c fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "application/x-www-form-urlencoded") && !strings.HasPrefix(ct, "multipart/form-data") {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
@@ -89,7 +89,7 @@ func handleFormParams(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"name": name, "age": age})
 }
 
-func handleFileParams(c *fiber.Ctx) error {
+func handleFileParams(c fiber.Ctx) error {
 	ct := strings.ToLower(c.Get("Content-Type"))
 	if !strings.HasPrefix(ct, "multipart/form-data") {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)

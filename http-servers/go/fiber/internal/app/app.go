@@ -9,9 +9,9 @@ import (
 	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 )
 
 type App struct {
@@ -25,6 +25,11 @@ func New() *App {
 	// AllowDuplicateNames keeps decoding aligned with every other server in the
 	// suite: duplicate keys take the last value (JSON.parse semantics in the
 	// JS/Python stacks), where json/v2 alone would reject them by default.
+	// No StructValidator here, deliberately: with it nil, c.Bind().Body() only
+	// decodes (manual mode — bind errors return to the handler, no auto-400),
+	// and validation stays in the handlers via go-playground like every other
+	// server. Setting one would make Bind() auto-validate and change the
+	// status/shape of error responses on the body routes.
 	r := fiber.New(fiber.Config{
 		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
 		JSONDecoder: func(data []byte, v any) error {
@@ -41,17 +46,17 @@ func New() *App {
 	}
 	r.Use(recover.New())
 
-	r.Get("/", func(c *fiber.Ctx) error {
+	r.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{"hello": "world"})
 	})
-	r.Get("/health", func(c *fiber.Ctx) error {
+	r.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
 
 	routes.RegisterParams(r.Group("/params"))
 	routes.RegisterDb(r.Group("/db"), env)
 
-	r.Use(func(c *fiber.Ctx) error {
+	r.Use(func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": consts.ErrNotFound})
 	})
 
