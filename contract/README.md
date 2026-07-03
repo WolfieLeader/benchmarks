@@ -87,16 +87,17 @@ the actual object must contain exactly the expected keys — no more, no less. S
 
 String values in `expect.body` may be **matcher tokens** instead of literals:
 
-| Token       | Passes when the value is…                          |
-| ----------- | -------------------------------------------------- |
-| `$present`  | present (any value)                                |
-| `$string`   | a JSON string                                      |
-| `$number`   | a JSON number                                      |
-| `$bool`     | a JSON boolean                                     |
-| `$uuid`     | a canonical UUID string                            |
-| `$objectid` | a 24-char hex Mongo ObjectId                       |
-| `$id`       | a UUID **or** an ObjectId (use for `id` fields)    |
-| `$absent`   | **as an object key**: that key must NOT be present |
+| Token       | Passes when the value is…                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `$present`  | present (any value)                                                                                                                                                                  |
+| `$string`   | a JSON string                                                                                                                                                                        |
+| `$number`   | a JSON number                                                                                                                                                                        |
+| `$bool`     | a JSON boolean                                                                                                                                                                       |
+| `$uuid`     | a canonical UUID string                                                                                                                                                              |
+| `$objectid` | a 24-char hex Mongo ObjectId                                                                                                                                                         |
+| `$id`       | a UUID **or** an ObjectId (use for `id` fields)                                                                                                                                      |
+| `$absent`   | **as an object key**: that key must NOT be present                                                                                                                                   |
+| `$optional` | **as an object key**: the key MAY be absent; if present, any non-null value passes. Never an unexpected key under strict matching — use for contract-optional fields like `details`. |
 
 Any other string is compared literally.
 

@@ -19,12 +19,11 @@ export function createApp() {
       });
   }
 
-  app.get("/", () => ({ hello: "world" }));
-  app.get("/health", () => "OK");
-
-  app.group("/params", (app) => app.use(paramsRouter));
-  app.group("/db", (app) => app.use(dbRouter));
-
+  // Registered before the routes so it also catches body PARSE errors on grouped
+  // routes: Elysia only applies onError to routes defined after it. The db
+  // router's scoped REPOSITORY_NOT_FOUND returns undefined so its own scoped
+  // handler still runs; any other unknown code gets the contract's 500 JSON
+  // shape instead of Elysia's plain-text default.
   app.onError(({ code, set, error }) => {
     if (code === "NOT_FOUND") {
       set.status = 404;
@@ -34,9 +33,16 @@ export function createApp() {
       set.status = 400;
       return makeError(INVALID_JSON_BODY, (error as Error).message);
     }
+    if (code === "REPOSITORY_NOT_FOUND") return;
     set.status = 500;
     return makeError(INTERNAL_ERROR, (error as Error).message);
   });
+
+  app.get("/", () => ({ hello: "world" }));
+  app.get("/health", () => "OK");
+
+  app.group("/params", (app) => app.use(paramsRouter));
+  app.group("/db", (app) => app.use(dbRouter));
 
   return app;
 }

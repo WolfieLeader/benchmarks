@@ -44,7 +44,7 @@
       "multipart": {
         "file": { "field": "file", "filename": "logo.png", "contentType": "image/png", "text": "still just text" }
       },
-      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed" } }
+      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed", "details": "$optional" } }
     },
     {
       "name": "file_anti_sniffing_binary_lying_as_text",
@@ -54,7 +54,7 @@
       "multipart": {
         "file": { "field": "file", "filename": "sneaky.txt", "contentType": "text/plain", "source": "binary.bin" }
       },
-      "expect": { "status": 415, "body": { "error": "file does not look like plain text" } }
+      "expect": { "status": 415, "body": { "error": "file does not look like plain text", "details": "$optional" } }
     },
     {
       "name": "file_rejects_sniffed_binary_without_declared_type",
@@ -64,7 +64,7 @@
       "multipart": {
         "file": { "field": "file", "filename": "blob", "source": "binary.bin" }
       },
-      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed" } }
+      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed", "details": "$optional" } }
     },
     {
       "name": "file_rejects_oversized_payload",
@@ -74,7 +74,7 @@
       "multipart": {
         "file": { "field": "file", "filename": "big.txt", "contentType": "text/plain", "sizeBytes": 1100000 }
       },
-      "expect": { "status": 413, "body": { "error": "file size exceeds limit" } }
+      "expect": { "status": 413, "body": { "error": "file size exceeds limit", "details": "$optional" } }
     }
   ]
 }
