@@ -1,0 +1,10 @@
+{
+  "name": "ts-deno-oak",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bench/shared": "workspace:*",
+    "path-to-regexp": "^6.3.0"
+  }
+}

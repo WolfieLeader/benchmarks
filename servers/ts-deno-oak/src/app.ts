@@ -1,6 +1,5 @@
+import { env, INTERNAL_ERROR, makeError, NOT_FOUND } from "@bench/shared";
 import { Application, Router } from "@oak/oak";
-import { env } from "./config/env.ts";
-import { INTERNAL_ERROR, makeError, NOT_FOUND } from "./consts/errors.ts";
 import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
 

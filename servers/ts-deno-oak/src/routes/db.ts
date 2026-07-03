@@ -1,7 +1,14 @@
+import {
+  INTERNAL_ERROR,
+  INVALID_JSON_BODY,
+  makeError,
+  NOT_FOUND,
+  resolveRepository,
+  type UserRepository,
+  zCreateUser,
+  zUpdateUser
+} from "@bench/shared";
 import { Router } from "@oak/oak";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors.ts";
-import { resolveRepository, type UserRepository } from "../database/repository.ts";
-import { zCreateUser, zUpdateUser } from "../database/types.ts";
 
 type DbState = { repository: UserRepository };
 

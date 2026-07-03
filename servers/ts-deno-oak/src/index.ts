@@ -1,6 +1,5 @@
+import { disconnectDatabases, env, initializeDatabases } from "@bench/shared";
 import { createApp } from "./app.ts";
-import { env } from "./config/env.ts";
-import { disconnectDatabases, initializeDatabases } from "./database/repository.ts";
 
 await initializeDatabases();
 
