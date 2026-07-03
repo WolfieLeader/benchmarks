@@ -264,12 +264,14 @@ Blocking C clients are fine under http.zig's thread-per-worker model — no arch
 Two rules replace the current ad-hoc list:
 
 1. **Inside containers, every server listens on the same canonical port: `8080`** (via `PORT` env in the Dockerfile). The benchmark client maps a host port dynamically (frees us from hardcoded 8080 and enables parallel servers later). Config drops per-server `port`.
-2. **All host ports live in the `2LRFF` block** (revised 2026-07-03 — the old 3011–8020 span collided with common dev tooling; 20000–29999 collides with nothing). Five digits, each position meaningful, derivable never looked up:
+2. **All host ports follow `PORT = 20000 + L×1000 + R×100 + FF`** (revised 2026-07-03 — the old 3011–8020 span collided with common dev tooling; this block collides with nothing). Read as digits `2LRFF` for L ≤ 9; L runs 0–29 (ports 20000–49151, capped under the macOS ephemeral floor 49152), so there is room for ~30 languages without ever renumbering an assigned one:
 
 ```
-2 L R FF      2  = the bench block (everything this repo binds on the host)
+2 L R FF      base = 20000 (everything this repo binds on the host)
               L  = language     0=infra/DBs · 1=Go · 2=TS · 3=Python · 4=Rust
-                                5=Kotlin · 6=Zig · 7+=future (.NET, Swift, …)
+                                5=Kotlin · 6=Zig · 7=C#/.NET · 8=Java · 9=Swift
+                                10+=next (30xxx: PHP, Ruby, Elixir, C++, …) —
+                                assigned on first server, never reused
               R  = runtime      TS: 0=node 1=bun 2=deno · others: 0
               FF = framework    stable per framework ACROSS runtimes (hono is
                                 always 05, whatever the runtime)
@@ -287,6 +289,8 @@ Zig    = 26001 zig
 ```
 
 DB containers keep their canonical ports **inside** the docker network (server containers connect by service name:5432 etc. — unchanged); only the host-published mappings move to 2000X, so no other project's stack can ever collide. Local-dev connection strings (env defaults) follow the host ports. Dev-port and DB-host renumbering executes at 0E alongside the hono split; framework numbers are assigned once here and never reused.
+
+**Future-roster shortlist** (candidates discussed 2026-07-03, industry-recognition based — NOT commitments; each addition is its own Phase-4-style lane and claims its L/FF on merge): C#/ASP.NET Core (L=7), Java/Spring Boot + Quarkus (L=8), Swift/Vapor or Hummingbird (L=9), then PHP/Laravel, Ruby/Rails, Elixir/Phoenix, C++/Drogon (L=10+ in the 30xxx block). Within existing languages the recognized next candidates: Koa (TS), Tornado/Sanic (Python), Beego (Go), Rocket/Warp/Poem (Rust), http4k (Kotlin), zap (Zig). Framework FF numbers are claimed at merge time, never pre-assigned beyond this note.
 
 Image naming: `bench/<entry>` — the folder name is the entry is the image (e.g. `bench/ts-bun-honojs`, `bench/go-echo`).
 
