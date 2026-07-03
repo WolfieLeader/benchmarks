@@ -110,14 +110,16 @@ Folder = entry = image (`servers/go-chi` ↔ entry `go-chi` ↔ image `bench/go-
 
 No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and rejected): there is no build graph to optimize, just "N apps → 1 shared package" per language. The hermetic-build tools are rejected because — (1) the languages are **islands** (no Go→Rust cross-target deps), so Bazel's one-cross-language-graph superpower has nothing to bite on; (2) they **contradict the "idiomatic everywhere" decision** — replacing `cargo`/`bun`/`deno`/`gradle`/`zig build` with `BUILD` files makes each server _non-idiomatic_, the exact anti-pattern the repo avoids, and less representative as a benchmark; (3) **poor/no rules for the exotic members** (Zig especially; Bun/Deno fight rules_js/pnpm), meaning custom-rule maintenance for the hardest part; (4) **incrementality is already per-language** (build caches for Go/cargo/Gradle/tsc/Zig) and outputs are Docker images from idiomatic Dockerfiles; (5) it's a **hobby project** (CI was already cut as overkill — these are a far bigger tax). They'd only pay off at large-team scale with genuinely cross-language shared builds and remote-execution needs — none present.
 
-| Language   | Mechanism                | Notes                                                                                                                                                                                                                                                               |
-| ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TypeScript | **pnpm workspace**       | Bun consumes pnpm-installed `node_modules` fine. **Deno does not read `pnpm-workspace.yaml`** — add a root `deno.json` with a mirrored `workspace` list and run with `--node-modules-dir=manual` (verified against Deno docs; expect first-run friction — see §12). |
-| Go         | **`go.work`**            | spans `shared/go` + each server + `benchmark/`                                                                                                                                                                                                                      |
-| Python     | **uv workspace**         | `[tool.uv.workspace]`; fastapi/django/flask depend on `bench-shared`                                                                                                                                                                                                |
-| Rust       | **Cargo workspace**      | shared crate + axum + actix                                                                                                                                                                                                                                         |
-| Kotlin     | **Gradle multi-project** | `:shared`, `:ktor`, `:spring-boot`                                                                                                                                                                                                                                  |
-| Zig        | none needed              | single self-contained app                                                                                                                                                                                                                                           |
+| Language   | Mechanism                                    | Notes                                                                                                                                                                                                                                                                                                                                                             |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TypeScript | **pnpm workspace** (the only workspace)      | The one language where a workspace earns its keep: shared's runtime deps (drizzle/mongodb/ioredis/cassandra-driver) install once and resolve via `workspace:*`; `file:`/`link:` would re-create version-skew duplication. Bun consumes pnpm-installed `node_modules` fine. **Deno does not read `pnpm-workspace.yaml`** — root `deno.json` mirrors the workspace with `nodeModulesDir: "manual"` (spiked in 0B). **0D acceptance: shared TS code must be proven consumed from all three runtimes (node/bun/deno) via the contract gate before the lane closes.** |
+| Go         | **`go.mod` `replace` per module**            | `replace <shared-module> => ../../shared/go` committed in each server + `benchmark/`; `go.work` stays optional local DX (gitignored), never load-bearing                                                                                                                                                                                                            |
+| Python     | **uv path sources**                          | `[tool.uv.sources] bench-shared = { path = "../../shared/python" }` per server                                                                                                                                                                                                                                                                                      |
+| Rust       | **Cargo path deps**                          | `shared = { path = "../../shared/rust" }` — fully idiomatic; no workspace needed (one shared lockfile/target dir is the only thing it would add)                                                                                                                                                                                                                    |
+| Kotlin     | **Gradle multi-project**                     | `:shared`, `:ktor`, `:spring-boot` — Gradle has no idiomatic no-workspace alternative                                                                                                                                                                                                                                                                               |
+| Zig        | none needed                                  | single self-contained app                                                                                                                                                                                                                                                                                                                                           |
+
+(Revised 2026-07-03, supersedes "workspaces for all five": each language uses its most idiomatic sharing mechanism — a workspace only where it solves a real problem (TS). Docker root-context builds are unaffected: each Dockerfile COPYs `shared/<lang>` + its app and relative paths resolve identically in-image.)
 
 ### 2.3 Task scripts — thin justfile over typed `.mts` orchestrators
 
@@ -262,21 +264,29 @@ Blocking C clients are fine under http.zig's thread-per-worker model — no arch
 Two rules replace the current ad-hoc list:
 
 1. **Inside containers, every server listens on the same canonical port: `8080`** (via `PORT` env in the Dockerfile). The benchmark client maps a host port dynamically (frees us from hardcoded 8080 and enables parallel servers later). Config drops per-server `port`.
-2. **Dev ports** (`just dev <entry>`) follow `<language-block> + <framework><runtime>` so they're derivable, never looked up:
+2. **All host ports live in the `2LRFF` block** (revised 2026-07-03 — the old 3011–8020 span collided with common dev tooling; 20000–29999 collides with nothing). Five digits, each position meaningful, derivable never looked up:
 
 ```
-TS    = 3000 + framework×10 + runtime      runtime: 1=node 2=bun 3=deno
-        express=1x, nestjs=2x, fastify=3x, oak=4x, hono=5x, elysia=6x
-        → ts-express 3011 · ts-nestjs 3021 · ts-fastify 3031 · ts-deno-oak 3043
-          ts-honojs 3051 · ts-bun-honojs 3052 · ts-deno-honojs 3053 · ts-bun-elysia 3062
-Python= 4010 py-fastapi · 4020 py-django · 4030 py-flask
-Go    = 5000 go-stdlib · 5010 go-chi · 5020 go-gin · 5030 go-fiber · 5040 go-echo
-Rust  = 6010 rs-axum · 6020 rs-actix
-Zig   = 7010
-Kotlin= 8010 kt-ktor · 8020 kt-spring-boot
+2 L R FF      2  = the bench block (everything this repo binds on the host)
+              L  = language     0=infra/DBs · 1=Go · 2=TS · 3=Python · 4=Rust
+                                5=Kotlin · 6=Zig · 7+=future (.NET, Swift, …)
+              R  = runtime      TS: 0=node 1=bun 2=deno · others: 0
+              FF = framework    stable per framework ACROSS runtimes (hono is
+                                always 05, whatever the runtime)
+
+Infra  = 20001 postgres · 20002 mongodb · 20003 redis · 20004 cassandra
+         20090 grafana · 20091 metrics-postgres
+Go     = 21001 go-stdlib · 21002 go-chi · 21003 go-gin · 21004 go-fiber · 21005 go-echo
+TS     = node  22001 ts-express · 22002 ts-nestjs · 22003 ts-fastify · 22005 ts-honojs
+         bun   22105 ts-bun-honojs · 22106 ts-bun-elysia
+         deno  22204 ts-deno-oak · 22205 ts-deno-honojs
+Python = 23001 py-fastapi · 23002 py-django · 23003 py-flask
+Rust   = 24001 rs-axum · 24002 rs-actix
+Kotlin = 25001 kt-ktor · 25002 kt-spring-boot
+Zig    = 26001 zig
 ```
 
-(Host-side reserved: 3000 Grafana, 5433 metrics-postgres — no collisions with the scheme.)
+DB containers keep their canonical ports **inside** the docker network (server containers connect by service name:5432 etc. — unchanged); only the host-published mappings move to 2000X, so no other project's stack can ever collide. Local-dev connection strings (env defaults) follow the host ports. Dev-port and DB-host renumbering executes at 0E alongside the hono split; framework numbers are assigned once here and never reused.
 
 Image naming: `bench/<entry>` — the folder name is the entry is the image (e.g. `bench/ts-bun-honojs`, `bench/go-echo`).
 
@@ -447,10 +457,10 @@ Benchmark credibility note: pre-release/current toolchains are allowed for explo
 
 **Phase 0C — Restructure only**
 
-1. Move folders to flat `servers/` (prefixed names, §2.1), `benchmark/`, `shared/`, and workspace roots.
-2. Add pnpm/go.work/uv/cargo/gradle workspace wiring and Docker root-context builds.
+1. Move folders to flat `servers/` (prefixed names, §2.1), `benchmark/`, `shared/` scaffolding.
+2. Docker root-context builds. (Sharing wiring — TS-only pnpm workspace + per-language path deps per §2.2 — lands in 0D when `shared/` has members; wiring an empty shared at 0C would bind nothing and force lockfile churn in a move-only slice.)
 3. Update ignore files, Dockerfile paths, README setup, and scripts to the new layout.
-4. Run `just verify` and `just contract` for all existing entries. This PR should be mostly moves and path updates, not driver swaps.
+4. Run `just verify` and `just contract` for all existing entries. This PR should be mostly moves and path updates, not driver swaps. **(Done 2026-07-03, PR #18.)**
 
 **Phase 0D — Shared extraction, one language at a time**
 
@@ -558,7 +568,7 @@ Each new server is a language island in its own worktree. Start conditions diffe
 ### Two laws for safe fan-out
 
 1. **Freeze shared before fanning out its consumers.** A server lane is safe only because it _reads_ `shared/<lang>` and never mutates it. Two lanes both editing the same shared package recreate the copy-paste problem in reverse. So: _extract shared → freeze → fan out consumers._ This is exactly why servers can't parallelize before their language's `D` lane lands.
-2. **Root workspace files are the hidden contention.** Adding a member edits a shared root file (`go.work`, `Cargo.toml` members, `settings.gradle`, uv/pnpm members, `deno.json`). Two lanes each appending a line there conflict trivially. Serialize those one-line edits (or accept the trivial conflict) — they are not a reason to serialize the lanes themselves.
+2. **Root sharing files are the hidden contention.** With §2.2's per-language path deps (go.mod `replace`, uv sources, cargo paths are all per-server files — no contention), the only shared root files left are `pnpm-workspace.yaml` + the mirrored `deno.json` (TS) and `settings.gradle` (Kotlin). Two lanes each appending a member line there conflict trivially. Serialize those one-line edits (or accept the trivial conflict) — they are not a reason to serialize the lanes themselves.
 
 ### Critical path / long poles
 
