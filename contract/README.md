@@ -97,6 +97,7 @@ String values in `expect.body` may be **matcher tokens** instead of literals:
 | `$objectid` | a 24-char hex Mongo ObjectId                       |
 | `$id`       | a UUID **or** an ObjectId (use for `id` fields)    |
 | `$absent`   | **as an object key**: that key must NOT be present |
+| `$optional` | **as an object key**: the key MAY be absent; if present, any non-null value passes. Never an unexpected key under strict matching — use for contract-optional fields like `details`. |
 
 Any other string is compared literally.
 

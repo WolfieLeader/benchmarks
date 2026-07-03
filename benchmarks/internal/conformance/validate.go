@@ -65,9 +65,10 @@ func headerContains(h http.Header, key, want string) bool {
 }
 
 // matchJSON compares an expected value against an actual value. String matcher
-// tokens ($uuid, $objectid, $id, $string, $number, $bool, $present, $absent) are
-// recognized; every other value is compared exactly. When strict is true, object
-// comparison rejects unexpected keys.
+// tokens ($uuid, $objectid, $id, $string, $number, $bool, $present, $absent,
+// $optional) are recognized; every other value is compared exactly. When strict
+// is true, object comparison rejects unexpected keys — but an expected $optional
+// key never counts as unexpected (it is in want) and its absence is never missing.
 func matchJSON(want, got any, strict bool) error {
 	switch w := want.(type) {
 	case string:
@@ -78,11 +79,24 @@ func matchJSON(want, got any, strict bool) error {
 			return fmt.Errorf("expected object, got %T", got)
 		}
 		for k, wv := range w {
-			if s, isStr := wv.(string); isStr && s == "$absent" {
-				if _, exists := g[k]; exists {
-					return fmt.Errorf("key %q: expected absent, but present", k)
+			if s, isStr := wv.(string); isStr {
+				switch s {
+				case "$absent":
+					if _, exists := g[k]; exists {
+						return fmt.Errorf("key %q: expected absent, but present", k)
+					}
+					continue
+				case "$optional":
+					// The key MAY be absent; if present, any non-null value passes.
+					gv, exists := g[k]
+					if !exists {
+						continue
+					}
+					if gv == nil {
+						return fmt.Errorf("key %q: $optional present but null", k)
+					}
+					continue
 				}
-				continue
 			}
 			gv, exists := g[k]
 			if !exists {
@@ -137,6 +151,8 @@ func matchScalarToken(want string, got any) error {
 		return nil
 	case "$absent":
 		return errors.New("$absent used as a value (only valid as an object key)")
+	case "$optional":
+		return errors.New("$optional used as a value (only valid as an object key)")
 	case "$string":
 		if _, ok := got.(string); !ok {
 			return fmt.Errorf("expected string, got %T", got)
