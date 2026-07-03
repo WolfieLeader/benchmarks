@@ -10,21 +10,6 @@ Thumbs.db
 !.vscode/settings.json
 .idea/
 
-# AI / Code Agents
-.agents/
-.claude/
-.opencode/
-.cursor/
-.cursorignore
-.copilot/
-plan.md
-skill.md
-agents.md
-claude.md
-codex.md
-gemini.md
-gemini.*
-
 # Typescript
 node_modules/
 dist/
