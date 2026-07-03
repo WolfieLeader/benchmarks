@@ -25,6 +25,11 @@ func New() *App {
 	// AllowDuplicateNames keeps decoding aligned with every other server in the
 	// suite: duplicate keys take the last value (JSON.parse semantics in the
 	// JS/Python stacks), where json/v2 alone would reject them by default.
+	// No StructValidator here, deliberately: with it nil, c.Bind().Body() only
+	// decodes (manual mode — bind errors return to the handler, no auto-400),
+	// and validation stays in the handlers via go-playground like every other
+	// server. Setting one would make Bind() auto-validate and change the
+	// status/shape of error responses on the body routes.
 	r := fiber.New(fiber.Config{
 		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
 		JSONDecoder: func(data []byte, v any) error {
