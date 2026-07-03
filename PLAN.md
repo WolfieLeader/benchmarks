@@ -10,8 +10,8 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 | --- | --- |
 | Run scope | **Selectable suites** — config defines endpoint suites + server groups; CLI picks. Full matrix possible, not default. |
 | TS sharing | **Max sharing of infrastructure** — one shared DB layer / schemas / consts for all TS apps; handlers stay idiomatic per framework (see "Framework idioms" below). |
-| New servers | **All in one wave** — Django, Flask, Zig, Kotlin (Ktor + Spring Boot), Rust (Axum + Actix), Go Echo. |
-| Contract tests | **Before adding servers** — conformance suite is the gate for every new server. |
+| New servers | **Full target roster, implemented incrementally** — Django, Flask, Zig, Kotlin (Ktor + Spring Boot), Rust (Axum + Actix), Go Echo. Each lands only after the contract gate exists. |
+| Contract tests | **First implementation slice** — build the conformance/contract gate against the current 10 servers before folder moves, shared extraction, driver swaps, or new servers. Every later server/refactor must pass it. |
 | "Playground" | Folded into the `POST /validate` endpoint (heavy validation à la Zod in every language). Not a separate feature. |
 | Framework idioms | **Idiomatic code and ecosystem conventions everywhere** — each framework/language is written the way its community writes production code (Django ORM, NestJS DI + modules, Spring annotations, Cargo/Gradle layouts, etc.). **Sharing stops where idiom starts**: shared packages hold infrastructure (DB clients, schemas, validation rules, constants, config); routing/handlers/app structure are per-framework and idiomatic. |
 | Zig | **One server** (http.zig), **all 4 databases**, no shared layer (single implementation). |
@@ -20,23 +20,23 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 | TS postgres driver | Switch `pg` → **`postgres` (postgres.js)** via `drizzle-orm/postgres-js`. |
 | Go version | **1.27rc1** (confirmed available) via `toolchain` directive, everywhere. |
 | Task runner | **just stays** (no Makefile). We need a command runner, not a build system — incremental builds belong to each language's toolchain. Note `just` install in README for contributors. |
-| Lint/format | **Strict on correctness, default on style** — formatters at ecosystem defaults (they ARE the convention), linters strict and merge-gating via `just verify` + CI. **One config per language** at the language root (no per-server copies). All lint/format tools pinned to **latest versions**. |
+| Lint/format | **Strict on correctness, default on style** — formatters at ecosystem defaults (they ARE the convention), linters strict and merge-gating via `just verify` / `just contract`. **One config per language** at the language root (no per-server copies). All lint/format tools pinned to **latest versions**. |
 | Metrics stack | **Switch InfluxDB → dedicated PostgreSQL** (metrics instance, separate from the benchmarked one); **keep Grafana**, upgrade to 13.x. Researched decision — see §9.1. |
 | Client queue | **No broker** (no Kafka/Rabbit/NATS/BullMQ) — in-process bounded channels; see §7.5. |
 | Client & orchestration | **Keep the custom Go client as both generator and orchestrator** (validation + sequences + lifecycle are the project's value); **no local K8s** (noise + complexity for zero benefit single-node); generator correctness guarded by a **cross-validation gate vs oha/k6**; see §7.6. |
 | Client flags | **Minimal — flags select, config configures.** `config/config.json` is the single source of behavior, schema-validated at startup; see §7.4. |
-| Git workflow | **Feature branches + PRs, no direct pushes to `main`.** One PR per phase-slice, reviewed (incl. a fresh-context reviewer for risky diffs); see §0.2. |
+| Git workflow | **Feature branches + PRs, no direct pushes to `main`.** One PR per small phase-slice, reviewed (incl. a fresh-context reviewer for risky diffs); see §0.2. |
 | Toolchains | Installed & pinned per §0.1 — notably **Go 1.27rc1 as a separate `go1.27rc1` binary** (stable Go untouched), Node via **fnm**, Rust via keg-only **brew rustup** (PATH quirk), Kotlin via **Gradle wrapper** (no system compiler). |
 
 ---
 
 ## 0.1 Prerequisites & toolchain notes (installed 2026-07-03, macOS arm64)
 
-All toolchains installed and verified. Operational specifics that affect how the repo is built — capture these in the justfile/CI/README during Phase 0:
+All toolchains installed and verified. Operational specifics that affect how the repo is built — capture these in the scripts/justfile/README during Phase 0:
 
 - **Go 1.27rc1 — separate binary, not a replacement.** Installed via `go install golang.org/dl/go1.27rc1@latest && go1.27rc1 download` → `~/go/bin/go1.27rc1`; stable `go` (1.26.4, Homebrew) is untouched. **Justfile Go recipes call `go1.27rc1` explicitly** (deterministic, no surprise GOTOOLCHAIN fetch). Belt-and-suspenders: go.mod also gets `toolchain go1.27rc1`, so plain `go` with default `GOTOOLCHAIN=auto` auto-downloads the same toolchain — both paths resolve to the same rc.
 - **Node 26.4.0 via fnm** (`fnm install 26 && fnm default 26`). Each TS app pins with a `.node-version` file (fnm auto-switches on `cd` if `--use-on-cd` is enabled). Node 26 is Current (LTS ~Oct 2026) — fine for a benchmark rig.
-- **Rust 1.96.1 via Homebrew `rustup`** (the `rustup` formula, **not** `brew install rust`). Formula is **keg-only and no longer ships `rustup-init`**; bootstrap was `rustup default stable`. Proxies (`cargo`/`rustc`/`rustfmt`/`cargo-clippy`) live in **`/opt/homebrew/opt/rustup/bin`**, which must be on `PATH` (there is **no `~/.cargo/bin`**). README setup + CI must export this path.
+- **Rust 1.96.1 via Homebrew `rustup`** (the `rustup` formula, **not** `brew install rust`). Formula is **keg-only and no longer ships `rustup-init`**; bootstrap was `rustup default stable`. Proxies (`cargo`/`rustc`/`rustfmt`/`cargo-clippy`) live in **`/opt/homebrew/opt/rustup/bin`**, which must be on `PATH` (there is **no `~/.cargo/bin`**). README setup and scripts must export this path; CI should do the same if added later.
 - **Zig 0.16.0 via `brew install zig`** — brew is exactly at 0.16.0 (no lag). Pulls llvm@21/lld@21 as deps.
 - **Deno 2.9.1 via `brew install deno`** — but **upgrade with `deno upgrade`, not brew**.
 - **Kotlin: no system compiler.** `brew install gradle` → **Gradle 9.6.1 bundles Kotlin 2.3.21**; projects build via the Gradle wrapper (`./gradlew`). ⚠️ Gradle's launcher JVM is now **openjdk 26** (brew dep), but Spring Boot's supported ceiling is lower — **Kotlin projects pin a supported JDK via Gradle's `toolchain` block** rather than inheriting 26. JDK 21 is also present.
@@ -45,8 +45,8 @@ All toolchains installed and verified. Operational specifics that affect how the
 ## 0.2 Git workflow
 
 - **`main` is protected in practice**: no direct feature pushes. Only the planning docs already on `main` were pushed directly (pre-decision); from here, all changes land via PR.
-- **One PR per reviewable slice**, roughly per phase-step (e.g. `phase0/restructure`, `phase0/shared-ts`, `phase0/conformance`, `phase1/client-metrics-pg`). Branch naming: `phase<N>/<slug>`.
-- **Gate is local, not CI** (hobby project — GitHub Actions is overkill): run `just verify` (typecheck + fmt + lint) and — once it exists — `just conformance <touched server>` before opening/merging a PR. Optional convenience: a local `pre-push` git hook that runs `just verify`.
+- **One PR per reviewable slice**, smaller than the old phase buckets (e.g. `phase0/contract-current`, `phase0/scripts`, `phase0/restructure`, `phase0/shared-ts-extract`, `phase0/ts-postgres-driver`, `phase1/client-metrics-pg`). Branch naming: `phase<N>/<slug>`.
+- **Gate is local-first**: run `just verify` (typecheck + format-check + lint) and — once it exists — `just contract <touched server>` before opening/merging a PR. Optional convenience: a local `pre-push` git hook that runs the same gates. A tiny CI can be added later if useful, but it should only run the same commands rather than inventing a second gate.
 - **Risky/security-sensitive PRs get a fresh-context review** (correctness + requirement gaps), per the repo's working agreement.
 
 ---
@@ -97,7 +97,8 @@ shared/
   python/                       # bench-shared: async + sync repository impls
   rust/                         # shared crate (workspace member)
   kotlin/                       # shared Gradle module
-  contract/                     # language-neutral API spec + conformance cases (JSON)
+contract/                       # language-neutral API spec + conformance cases (JSON)
+scripts/                        # typed orchestration scripts; justfile stays thin
 config/  infra/  grafana/  test-files/  results/
 ```
 
@@ -116,19 +117,21 @@ No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and reject
 
 ### 2.3 Task scripts — thin justfile over typed `.mts` orchestrators
 
-The current justfile hides big per-framework bash `case` blocks inside `install`/`update`/`verify`/`dev`/`images` — hard to read, hard to extend as the roster grows to 20+ servers. Move that dispatch into a **`scripts/` folder of typed `.mts` orchestrators** (pattern proven in the user's `lets-go` repo), keeping `just` as a thin entrypoint:
+The current justfile hides big per-framework bash `case` blocks inside `install`/`update`/`verify`/`dev`/`images` — hard to read, hard to extend as the roster grows to 20+ servers. Move dispatch and orchestration into a **`scripts/` folder of typed `.mts` scripts** (pattern proven in the user's `lets-go` repo), keeping `just` as a thin command menu:
 
 - Run via **Node 26 native TypeScript type-stripping** — `node scripts/verify.mts`, **no tsx, no build step**.
 - Each script is a **declarative table** (e.g. `CHECKS` / `TARGETS`) that shells out to per-language/per-server commands, runs them **concurrently**, and prints **one grouped report** instead of bailing on first failure (`a && b && c` hides later errors).
 - Adding a server/target = **one row**, not a new bash branch — mirrors the manifest-driven discovery in §7.4 (scripts can even read the same `bench.json` manifests, so the roster has one source of truth).
 - Recipes become one-liners: `verify target='all': node scripts/verify.mts {{target}}`. Complex flags/logic live in typed TS, not brittle just/bash.
-- Scope: `verify`, `install`, `update` (pin-aware, §10), `images`, `dev` dispatch. Genuinely-simple recipes (`db-up`, `grafana-up`) stay inline in the justfile.
+- Scope: many small scripts, not one giant dispatcher: `verify.mts`, `format.mts`, `lint.mts`, `install.mts`, `update.mts` (pin-aware, §10), `images.mts`, `dev.mts`, `contract.mts`, `check-config.mts`, and later report/dashboard helpers. Genuinely-simple recipes (`db-up`, `grafana-up`) stay inline in the justfile.
+- `verify` must be non-mutating: it runs format **checks**, type/build checks, and linters. Write-formatting stays available as `just fmt <target>` / `scripts/format.mts`, but it is not part of the merge gate.
+- **`scripts/contract.mts` is the server contract harness**: given an entry or manifest, it builds or finds the server image, starts the server in a container with the same env/DB dependencies used by benchmarks, waits for `/health`, runs the Go client's conformance command against the mapped port, streams a concise failure report, and tears the container down. `just contract <entry>` is the normal gate; `just conformance <entry>` can remain as an alias if desired.
 
 ### 2.4 Docker build contexts
 
 Shared folders force build context above the app dir. Convention: **build from repo root**, `docker build -f apps/servers/go/chi/Dockerfile .` — each Dockerfile copies `shared/<lang>` + its app. `just images` updated accordingly. `.dockerignore` at root keeps contexts small.
 
-**Ignore files must grow with the new languages** (Phase 0 task). Root context = a root `.dockerignore` is load-bearing (a fat context slows every image build). Both `.gitignore` and root `.dockerignore` need the per-language artifacts:
+**Ignore files must grow with the new languages** (Phase 0C task). Root context = a root `.dockerignore` is load-bearing (a fat context slows every image build). Both `.gitignore` and root `.dockerignore` need the per-language artifacts:
 
 | Source | Artifacts to ignore |
 | --- | --- |
@@ -138,15 +141,15 @@ Shared folders force build context above the app dir. Convention: **build from r
 | Python | `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/` |
 | Go | `bin/`, `tmp/` (air live-reload) |
 | TS/Deno | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual` |
-| Benchmark output | **do not blanket-ignore `results/`** — `results/*.json` is versioned source of truth (§9.1); ignore only scratch/tmp run dirs if any |
+| Benchmark output | **split published vs scratch** — version curated `results/published/**/*.json`; ignore scratch/local run output (`results/runs/`, tmp dirs) so machine-specific runs do not churn the repo |
 
-`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, `results/`, and *other apps' source* (a given image needs only `shared/<lang>` + its own app dir) to keep each build context minimal.
+`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`apps/servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
 
 ---
 
 ## 3. Shared code strategy per language
 
-**Guiding principle — share infrastructure, keep app code idiomatic.** The shared packages contain what is framework-independent by nature: DB clients + repositories, data types, validation schemas/rules, constants, env parsing. Everything the framework has an opinion about — routing, handlers, middleware wiring, DI, project layout — is written per-framework in that framework's canonical production style. If sharing a piece would force a framework out of its idiom (NestJS services/DI, Django ORM views, Spring controllers), it is not shared. Each language follows its ecosystem's conventions and tooling, under one policy — **formatters at defaults, linters strict, one config per language root, latest tool versions, all merge-gating through `just verify` + CI**:
+**Guiding principle — share infrastructure, keep app code idiomatic.** The shared packages contain what is framework-independent by nature: DB clients + repositories, data types, validation schemas/rules, constants, env parsing. Everything the framework has an opinion about — routing, handlers, middleware wiring, DI, project layout — is written per-framework in that framework's canonical production style. If sharing a piece would force a framework out of its idiom (NestJS services/DI, Django ORM views, Spring controllers), it is not shared. Each language follows its ecosystem's conventions and tooling, under one policy — **formatters at defaults, linters strict, one config per language root, latest tool versions, all merge-gating through `just verify` + `just contract`**:
 
 | Language | Formatter (ecosystem defaults) | Linter (strict) |
 | --- | --- | --- |
@@ -159,7 +162,7 @@ Shared folders force build context above the app dir. Convention: **build from r
 
 ### TypeScript — `@bench/shared`
 
-- **DB clients + repositories**: single implementation; `pg` → `postgres` (postgres.js) through `drizzle-orm/postgres-js` (postgres.js officially supports Node/Deno/Bun). Mongo (`mongodb`), Redis (`ioredis`), Cassandra (`cassandra-driver`).
+- **DB clients + repositories**: single implementation. Extract first with the existing behavior/driver under the contract gate; switch `pg` → `postgres` (postgres.js) through `drizzle-orm/postgres-js` in a separate PR so a driver swap is not hidden inside a move-only refactor. Mongo (`mongodb`), Redis (`ioredis`), Cassandra (`cassandra-driver`).
 - **Runtime adapters**: portable impl is the default; Bun-native bits (`Bun.RedisClient`, `randomUUIDv7`) become injectable adapters chosen by the entrypoint, so Bun entries keep their native edge while sharing everything else.
 - **Zod schemas, env parsing, consts/errors**: moved verbatim (already byte-identical).
 - **Build split — servers use `tsc`, shared uses tsdown.** The **shared package** builds with **tsdown** (rolldown/oxc-based, tsup successor) → **ESM + `.d.ts`**, not consumed as raw source: Bun/Deno/tsx *could* import source directly, but NestJS builds via tsc and wants real declaration files, and the TS 7 native `tsc` typecheck resolves cleaner against emitted `.d.ts` than deep source across workspace refs. One built artifact → every runtime consumes the shared layer identically (reinforces "same code everywhere"). The **server apps compile/typecheck with `tsc`** (TS 7) against that built `.d.ts` — NestJS emits to `dist/`, the others typecheck `--noEmit` and run via their runtime (tsx/Bun/Deno). Cost: a build step in shared (tsdown `--watch` in dev). tsdown pinned like the rest.
@@ -344,15 +347,22 @@ K8s becomes the right tool only if benchmarking ever goes distributed/multi-node
 
 ---
 
-## 8. Contract conformance suite (gate for every server)
+## 8. Contract conformance suite (first gate)
 
-Extend the Go client with a **`conformance` command** (reuses the existing request builder + validator):
+Build the contract gate **before** restructuring or extracting shared code. It should pass against the current 10 servers in the current layout first; after that it becomes the safety net for every move, driver swap, endpoint addition, and new server.
+
+Two pieces work together:
+
+- **Go client conformance command**: reuses the existing request builder + validator and runs the contract against a base URL.
+- **`scripts/contract.mts` container harness**: builds or finds a server image, starts it with benchmark-equivalent env and DB dependencies, waits for readiness, invokes the Go conformance command against the mapped host port, reports failures, and tears the container down.
+
+Behavior:
 
 - Runs every endpoint + every variation **once, sequentially, strict full-body assertions**.
 - Adds **negative cases** the benchmark never exercises: 400 invalid JSON / non-object body / bad form, 404 unknown user + unknown database, 413 oversized file, 415 wrong content type, malformed `favoriteNumber`, invalid email, JWT 401.
 - Adds **security-behavior cases** — the contract's security properties, asserted per server: file upload must inspect actual content, not trust the `Content-Type` header (**anti-sniffing**: an image/binary sent with `Content-Type: text/plain` must be rejected 415 `"file does not look like plain text"` — already part of the contract, now explicitly tested with a binary fixture in `test-files/`); size caps enforced pre-read (413); JSON body type enforcement (no array/null smuggling); JWT signature + expiry actually verified (tampered/expired token → 401); path params handled safely (`/params/url/..%2f` style inputs return a normal 200/404, never traversal).
-- Cases live in `shared/contract/` (language-neutral JSON), consumed by both benchmark and conformance modes.
-- `just conformance <entry>` — CI-friendly exit code. **No server ships without passing.** Also the smoke test for risky runtime×driver combos (cassandra-driver × Bun/Deno).
+- Cases live in top-level `contract/` (language-neutral JSON), consumed by both benchmark and conformance modes.
+- `just contract <entry>` is the normal gate; `just conformance <entry>` may remain as an alias. Exit code is CI-friendly even if the project stays local-first. **No server ships without passing.** Also the smoke test for risky runtime×driver combos (cassandra-driver × Bun/Deno).
 - This is what makes "idiomatic everywhere" safe: implementations may differ in style as much as their frameworks demand, but the observable contract may not — the suite is the referee.
 
 ---
@@ -371,13 +381,13 @@ What we actually do is **not classic time-series**: we write event data once per
 
 **Why Postgres specifically, in one paragraph**: the workload is *small-scale relational OLAP* — millions of rows at most, queried by exact `run_id`/`server`/`endpoint` equality, needing exact percentiles and rankings. That is the textbook profile of a boring SQL database. Postgres does it *exactly* (`percentile_cont`, window functions), is already operated in this repo, costs one small container, has the most battle-tested Grafana datasource in existence, and imposes zero data-model contortions (no tags-vs-fields, no cardinality budgets, no retention windows). Every alternative is either a specialized engine whose specialization we don't use (ClickHouse: columnar scale; Influx/VM: high-frequency ingest with recent-data bias) or fails a hard requirement (live queries, history, exact quantiles). When no requirement demands a specialized tool, the general boring one wins.
 
-**Decisions**: (1) metrics go to a **dedicated `metrics-postgres` container** in the grafana compose stack — *never* the benchmarked postgres instance, which must stay uncontaminated; (2) the writer swap is contained — `internal/influx` becomes `internal/metrics` with the same call sites; (3) schema: `runs`, `request_events` (sampled), `endpoint_stats`, `sequence_stats`, `resource_samples` — tags become plain indexed columns, killing the fake-timestamp hack for free; (4) `results/*.json` stays the durable, versioned source of truth.
+**Decisions**: (1) metrics go to a **dedicated `metrics-postgres` container** in the grafana compose stack — *never* the benchmarked postgres instance, which must stay uncontaminated; (2) the writer swap is contained — `internal/influx` becomes `internal/metrics` with the same call sites; (3) schema: `runs`, `request_events` (sampled drilldown only), `endpoint_stats`, `sequence_stats`, `resource_samples` — tags become plain indexed columns, killing the fake-timestamp hack for free; (4) exact percentiles/rankings are computed from the full in-memory/full-run result set before any event sampling, then written to aggregate tables; sampled raw events are never the source of truth for p95/p99; (5) curated `results/published/**/*.json` stays the durable, versioned source for published results, while scratch run output stays ignored.
 
 ### 9.2 How we query & present results
 
-- **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput); raw `request_events` is drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
+- **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput) for official numbers; raw `request_events` is sampled drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
 - **Real timestamps** on rows; `run_id` remains the primary selector everywhere (indexed column, not a tag).
-- **Presentation layers** (in order of truth): 1) `results/<timestamp>/*.json` — durable, versioned, source of truth; 2) terminal summary tables (exists, gets RPS + capacity added); 3) Grafana dashboards (live exploration, §9.3); 4) *(Phase 4 nice-to-have)* a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
+- **Presentation layers** (in order of truth): 1) curated `results/published/**/*.json` — durable, versioned, source of truth for published numbers; 2) scratch `results/runs/<timestamp>/**` — local run artifacts, ignored by git unless intentionally promoted; 3) terminal summary tables (exists, gets RPS + capacity added); 4) Grafana dashboards (live exploration, §9.3); 5) *(Phase 5 nice-to-have)* a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
 
 ### 9.3 Grafana dashboards
 
@@ -408,37 +418,64 @@ What we actually do is **not classic time-series**: we write event data once per
 | Tooling | **Latest versions, pinned**: just, biome, prettier, golangci-lint, ruff, pyright, rustfmt/clippy (ride the Rust toolchain), ktlint, detekt, sqlc, drizzle-kit, uv, pnpm — checked/bumped in Phase 0 alongside runtime deps |
 | `just update` | run across all stacks as part of Phase 0; extend it to also cover the lint/format tooling above. **Must be pin-aware**: blanket "update to latest" resolves the `latest` dist-tag and would **clobber deliberate prerelease pins** (`typescript@7.0.1-rc` — `latest` is still 6.0.3; Go 1.27rc1; drizzle + drizzle-kit 1.0-rc) and **lockstep sets** (elysia + `@elysiajs/node`). Pinned/prerelease deps are exempt from auto-bump and tracked in a short "pinned deps" list in the README. |
 
+Benchmark credibility note: pre-release/current toolchains are allowed for exploration, but published results must label them clearly. If a pre-release runtime materially affects a headline comparison (Go 1.27rc1, TypeScript RC tooling, Node Current), either include the stable baseline in the published run or mark the run as "current/prerelease toolchain" so readers do not mistake it for the mainstream stable stack.
+
 ---
 
 ## 11. Execution phases
 
-**Phase 0 — Foundation (~40% of effort)**
-0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just conformance`, optional `pre-push` hook — no CI) per §0.2.
-1. Folder restructure (`apps/`, `shared/`) + workspaces (pnpm/go.work/uv/cargo/gradle) + Docker root-context builds + justfile rework → thin recipes over `scripts/*.mts` orchestrators (§2.3; Go recipes call `go1.27rc1`; Rust PATH per §0.1) + lint/format consolidation (one strict config per language, latest tool versions incl. TS 7 RC typecheck gate + tsdown-built shared)
-2. Shared extraction: TS (`@bench/shared`, pg→postgres, runtime adapters), Go (shared module), Python (async+sync)
-3. Hono multi-runtime entrypoints (node/bun/deno) + port convention + single-process FastAPI + pool normalization + Bun shutdown fix
-4. **Conformance suite** + negative cases → run against all entries (validates the extraction was a pure move; smoke-tests risky runtime×driver combos)
+**Phase 0A — Safety gate first**
+0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just contract`, optional `pre-push` hook) per §0.2.
+1. Add top-level `contract/` cases for the current API and implement the Go client conformance command against a base URL.
+2. Add `scripts/contract.mts` and `just contract <entry>` to build/run one existing server in a container, wait for health, execute the conformance command, and tear down.
+3. Run the contract gate against all current 10 entries before any restructure. This is the baseline that protects every later refactor.
+
+**Phase 0B — Scripts and manifest foundation**
+1. Create `scripts/` and move justfile logic into small typed `.mts` scripts: `verify`, `format`, `lint`, `install`, `update`, `images`, `dev`, `check-config`, `contract`.
+2. Make `just verify` non-mutating: type/build checks + format-check + lint. Keep write-formatting in `just fmt`.
+3. Add manifest discovery (`bench.json`) and config validation without changing server behavior yet. This makes later server additions one manifest + one script table row.
+4. Prototype the risky TS workspace/runtime assumptions before the full restructure: Deno workspace + `--node-modules-dir=manual`, and Bun/Deno Cassandra client smoke tests.
+
+**Phase 0C — Restructure only**
+1. Move folders to `apps/`, `shared/`, `contract/`, and workspace roots.
+2. Add pnpm/go.work/uv/cargo/gradle workspace wiring and Docker root-context builds.
+3. Update ignore files, Dockerfile paths, README setup, and scripts to the new layout.
+4. Run `just verify` and `just contract` for all existing entries. This PR should be mostly moves and path updates, not driver swaps.
+
+**Phase 0D — Shared extraction, one language at a time**
+1. TypeScript shared extraction with the current driver first; contract all affected entries.
+2. Go shared extraction; contract all affected entries.
+3. Python shared extraction; contract FastAPI.
+4. Only after move-only extraction is stable, do behavior-affecting swaps as separate slices: TS `pg` → `postgres`, TS 7 RC typecheck gate, tsdown-built shared package, FastAPI worker/pool normalization, Bun shutdown fix.
+
+**Phase 0E — Hono multi-runtime and fairness cleanup**
+1. Convert Hono into one app with node/bun/deno entrypoints.
+2. Apply the dev/container port convention.
+3. Run contract gates for Hono on all runtimes and smoke-test risky runtime×driver combos.
 
 **Phase 1 — Client v2**
-testcontainers-go · RPS · open model + ramping + backpressure accounting · no-silent-drops rules · suites/groups selection · new tags · DB-container sampling · runtime config validation
+testcontainers-go · RPS · open model + ramping + backpressure accounting · no-silent-drops rules · suites/groups selection · new tags · DB-container sampling · runtime config validation · cross-validation against oha/k6.
 
-**Phase 2 — New endpoints**
-`web` suite (html/jwt/validate/compute) in all existing servers + config cases + conformance cases
+**Phase 2 — Metrics storage**
+Influx → dedicated metrics Postgres · aggregate tables from full result sets · sampled raw event drilldown · Grafana datasource migration · keep old dashboards working until the new ones are ready.
 
-**Phase 3 — New servers** (each gated by conformance)
+**Phase 3 — New endpoints**
+`web` suite (html/jwt/validate/compute) in all existing servers + config cases + contract cases. Add the contract cases first, then implement endpoint support per server.
+
+**Phase 4 — New servers** (each gated by `just contract`)
 Echo → Rust (axum, actix) → Python (django, flask) → Kotlin (ktor, spring-boot) → Zig (postgres+redis first, then mongo via libmongoc, cassandra via zig-cassandra/cpp-driver)
 
-**Phase 4 — Grafana redesign**
-5 dashboards, tag-driven, zero per-server hardcoding · README refresh (stack map, results)
+**Phase 5 — Grafana/reporting redesign**
+5 dashboards, tag-driven, zero per-server hardcoding · published-results static report · README refresh (stack map, results)
 
 ---
 
 ## 12. Risks & open items
 
-- **Deno × pnpm workspace friction**: Deno needs a mirrored `deno.json` workspace list + `--node-modules-dir=manual`; verified in docs, not in this repo — prototype first in Phase 0.
-- **cassandra-driver on Bun/Deno unverified upstream** — conformance decides (affects bun-elysia, bun/deno-hono, deno-oak).
+- **Deno × pnpm workspace friction**: Deno needs a mirrored `deno.json` workspace list + `--node-modules-dir=manual`; verified in docs, not in this repo — prototype first in Phase 0B before the full restructure.
+- **cassandra-driver on Bun/Deno unverified upstream** — the contract gate decides (affects bun-elysia, bun/deno-hono, deno-oak).
 - **Zig MongoDB via libmongoc** is the single biggest new-server effort item (C toolchain in Docker build).
 - **Bun/NestJS regressions** — NestJS stays Node-only for now; revisit when official support lands.
-- **Metrics migration Influx→Postgres** happens in Phase 1 with the writer swap — until then dashboards keep working on Influx; `results/*.json` is the source of truth throughout. ClickHouse remains the documented exit if event volume ever outgrows Postgres (§9.1).
+- **Metrics migration Influx→Postgres** happens in Phase 2 with the writer swap — until then dashboards keep working on Influx; curated `results/published/**/*.json` is the source of truth for published numbers and scratch `results/runs/**` remains local. ClickHouse remains the documented exit if event volume ever outgrows Postgres (§9.1).
 - **Run-time budget**: 20 servers × 5 suites × 4 DBs is hours — selectable suites is the mitigation; a `quick` suite preset for development, full matrix for publish runs.
 - **Benchmark fairness on one machine**: generator, DBs, and SUT share the host. Out of scope for this plan, but resource-limit the generator and document the caveat in README.
