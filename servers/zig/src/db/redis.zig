@@ -242,25 +242,22 @@ pub const Redis = struct {
             const next = (try readBulk(&reader.interface, arena)) orelse return error.Protocol;
             const key_count = try readArrayHeader(&reader.interface);
 
-            var keys: [128][]const u8 = undefined;
-            var kn: usize = 0;
+            // COUNT is only a hint, so a single SCAN batch can return more keys
+            // than any fixed size; collect the whole batch in an arena-backed
+            // list (argv[0] = "DEL") so no key is ever silently dropped.
+            var del_argv: std.ArrayList([]const u8) = .empty;
+            try del_argv.append(arena, "DEL");
             var i: i64 = 0;
             while (i < key_count) : (i += 1) {
                 const k = (try readBulk(&reader.interface, arena)) orelse return error.Protocol;
-                if (kn < keys.len) {
-                    keys[kn] = k;
-                    kn += 1;
-                }
+                try del_argv.append(arena, k);
             }
-            if (kn > 0) {
-                var del_argv: [129][]const u8 = undefined;
-                del_argv[0] = "DEL";
-                @memcpy(del_argv[1 .. 1 + kn], keys[0..kn]);
+            if (del_argv.items.len > 1) {
                 var dwbuf: [8192]u8 = undefined;
                 var drbuf: [64]u8 = undefined;
                 var dwriter = conn.stream.writer(self.io, &dwbuf);
                 var dreader = conn.stream.reader(self.io, &drbuf);
-                try sendCommand(&dwriter.interface, del_argv[0 .. 1 + kn]);
+                try sendCommand(&dwriter.interface, del_argv.items);
                 _ = try readInteger(&dreader.interface);
             }
 
