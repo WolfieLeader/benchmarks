@@ -99,6 +99,53 @@ paramsRouter.post("/form", (req: Request, res: Response) => {
   handleForm(req, res);
 });
 
+// Multer (via busboy) defaults a file part with no declared Content-Type to
+// "text/plain" per RFC 2046, which erases the distinction the contract draws
+// between an explicitly-declared text/plain part and an undeclared one. Capture
+// the raw multipart body alongside multer so the file part's declared type can
+// be read back from the wire — the tee attaches its `data` listener before
+// multer pipes the request, so both consumers see every chunk.
+function captureRawBody(req: Request, _res: Response, next: NextFunction) {
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk: Buffer) => chunks.push(chunk));
+  req.on("end", () => {
+    (req as RawBodyRequest).rawBody = Buffer.concat(chunks);
+  });
+  next();
+}
+
+type RawBodyRequest = Request & { rawBody?: Buffer };
+
+// The declared Content-Type of the file part (the part with a filename), or
+// null when the part carried no Content-Type header at all.
+function declaredFileContentType(rawBody: Buffer | undefined, requestContentType: string): string | null {
+  if (!rawBody) return null;
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(requestContentType);
+  const boundary = (boundaryMatch?.[1] ?? boundaryMatch?.[2])?.trim();
+  if (!boundary) return null;
+
+  const raw = rawBody.toString("latin1");
+  for (const segment of raw.split(`--${boundary}`)) {
+    const headerEnd = segment.indexOf("\r\n\r\n");
+    if (headerEnd === -1) continue;
+    const headers = segment.slice(0, headerEnd);
+    if (!/content-disposition:[^\r\n]*\bfilename=/i.test(headers)) continue;
+    const typeMatch = /\r\ncontent-type:\s*([^\r\n]+)/i.exec(`\r\n${headers}`);
+    return typeMatch?.[1]?.trim() ?? null;
+  }
+  return null;
+}
+
+function looksLikeText(bytes: Buffer): boolean {
+  if (bytes.includes(NULL_BYTE)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => {
   const contentType = req.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("multipart/form-data")) {
@@ -106,51 +153,62 @@ paramsRouter.post("/file", (req: Request, res: Response, next: NextFunction) => 
     return;
   }
 
-  upload.single("file")(req, res, (err?: unknown) => {
-    if (err) {
-      next(err);
-      return;
-    }
+  captureRawBody(req, res, () => {
+    upload.single("file")(req, res, (err?: unknown) => {
+      if (err) {
+        next(err);
+        return;
+      }
 
-    const file = req.file;
-    if (!file) {
-      res.status(400).json(makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"));
-      return;
-    }
+      const file = req.file;
+      if (!file) {
+        res.status(400).json(makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"));
+        return;
+      }
 
-    if (!file.mimetype?.startsWith("text/plain")) {
-      res.status(415).json(makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`));
-      return;
-    }
+      const head = file.buffer.subarray(0, SNIFF_LEN);
+      const declared = declaredFileContentType((req as RawBodyRequest).rawBody, req.get("content-type") ?? "");
+      if (declared !== null) {
+        // Trust the declared type for the allow-decision; a lie is caught by the
+        // content inspection below (-> FILE_NOT_TEXT).
+        if (!declared.toLowerCase().startsWith("text/plain")) {
+          res.status(415).json(makeError(ONLY_TEXT_PLAIN, `received mimetype: ${declared}`));
+          return;
+        }
+      } else if (!looksLikeText(head)) {
+        // No declared type: sniff the bytes; non-text is rejected as a type error.
+        res.status(415).json(makeError(ONLY_TEXT_PLAIN, "received mimetype: unknown"));
+        return;
+      }
 
-    if (file.size > MAX_FILE_BYTES) {
-      res.status(413).json(makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`));
-      return;
-    }
+      if (file.size > MAX_FILE_BYTES) {
+        res.status(413).json(makeError(FILE_SIZE_EXCEEDS, `file size ${file.size} exceeds limit ${MAX_FILE_BYTES}`));
+        return;
+      }
 
-    const head = file.buffer.subarray(0, SNIFF_LEN);
-    if (head.includes(NULL_BYTE)) {
-      res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes in header"));
-      return;
-    }
+      if (head.includes(NULL_BYTE)) {
+        res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes in header"));
+        return;
+      }
 
-    if (file.buffer.includes(NULL_BYTE)) {
-      res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes"));
-      return;
-    }
+      if (file.buffer.includes(NULL_BYTE)) {
+        res.status(415).json(makeError(FILE_NOT_TEXT, "file contains null bytes"));
+        return;
+      }
 
-    let content: string;
-    try {
-      content = new TextDecoder("utf-8", { fatal: true }).decode(file.buffer);
-    } catch {
-      res.status(415).json(makeError(FILE_NOT_TEXT, "file is not valid UTF-8"));
-      return;
-    }
+      let content: string;
+      try {
+        content = new TextDecoder("utf-8", { fatal: true }).decode(file.buffer);
+      } catch {
+        res.status(415).json(makeError(FILE_NOT_TEXT, "file is not valid UTF-8"));
+        return;
+      }
 
-    res.json({
-      filename: file.originalname,
-      size: file.buffer.length,
-      content
+      res.json({
+        filename: file.originalname,
+        size: file.buffer.length,
+        content
+      });
     });
   });
 });
