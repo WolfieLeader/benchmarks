@@ -105,9 +105,19 @@ paramsRouter.post("/form", (req: Request, res: Response) => {
 // the raw multipart body alongside multer so the file part's declared type can
 // be read back from the wire — the tee attaches its `data` listener before
 // multer pipes the request, so both consumers see every chunk.
+// Retention is capped: the declared-type headers sit in the first bytes of the
+// part, and multer 413s anything past MaxFileBytes anyway — without the cap a
+// malicious oversized upload would be buffered in full alongside multer's copy.
+const maxRawBodyBytes = 2 * 1024 * 1024;
+
 function captureRawBody(req: Request, _res: Response, next: NextFunction) {
   const chunks: Buffer[] = [];
-  req.on("data", (chunk: Buffer) => chunks.push(chunk));
+  let captured = 0;
+  req.on("data", (chunk: Buffer) => {
+    if (captured >= maxRawBodyBytes) return;
+    captured += chunk.length;
+    chunks.push(chunk);
+  });
   req.on("end", () => {
     (req as RawBodyRequest).rawBody = Buffer.concat(chunks);
   });

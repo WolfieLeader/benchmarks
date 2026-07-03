@@ -44,8 +44,8 @@
 | `http-servers/typescript/node-nestjs`  | Node >=25.6.0   | NestJS 11.1.13  | 3002 |
 | `http-servers/typescript/node-fastify` | Node >=25.6.0   | Fastify 5.7.4   | 3003 |
 | `http-servers/typescript/deno-oak`     | Deno 2.6.8      | Oak 17.2.0      | 3004 |
-| `http-servers/typescript/bun-honojs`   | Bun 1.3.8       | Hono 4.11.7     | 3005 |
-| `http-servers/typescript/bun-elysia`   | Bun 1.3.8       | Elysia 1.4.22   | 3006 |
+| `http-servers/typescript/bun-honojs`   | Bun 1.3.14       | Hono 4.11.7     | 3005 |
+| `http-servers/typescript/bun-elysia`   | Bun 1.3.14       | Elysia 1.4.22   | 3006 |
 | `http-servers/go/chi`                  | Go 1.25.7       | Chi 5.2.4       | 5001 |
 | `http-servers/go/gin`                  | Go 1.25.7       | Gin 1.11.0      | 5002 |
 | `http-servers/go/fiber`                | Go 1.25.7       | Fiber 2.52.11   | 5003 |
