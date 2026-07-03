@@ -74,6 +74,9 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 }
 
 func extractKeyOrder(data []byte, key string) ([]string, error) {
+	// Deliberate: json/v2's default rejects duplicate top-level keys (v1 was
+	// last-wins). Stricter-and-better for this trusted, repo-owned config file —
+	// a duplicated key is a mistake we want surfaced, so no AllowDuplicateNames.
 	var root map[string]jsontext.Value
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse config for %s order: %w", key, err)
