@@ -62,17 +62,17 @@ bump; each tracks the newest release of its dist-tag channel via
 | `typescript`  | `7.0.1-rc`   | `rc`    | TypeScript 7 native `tsc` (`latest` is still 6.x) |
 | `drizzle-orm` | `1.0.0-rc.4` | `rc`    | drizzle 1.0 RC (`latest` is still 0.45.x)         |
 
-Held back: `bson` is overridden to `7.2.0` on the Bun servers (`bun-elysia`,
-`bun-honojs`; package.json `overrides`). bson 7.3.x calls
+Held back: `bson` is overridden to `7.2.0` on the Bun servers (`ts-bun-elysia`,
+`ts-bun-honojs`; package.json `overrides`). bson 7.3.x calls
 `v8.startupSnapshot.isBuildingSnapshot()` at import time, which Bun 1.3.14
 ships as a throwing stub (`NotImplementedError`), crashing the server on boot.
 7.2.0 sits inside mongodb's own `^7.2.0` range; drop the override once Bun
 implements it.
 
 NestJS dev mode tradeoff: under TS7 `nest start --watch` is gone, so
-`node-nestjs`'s `dev` compiles with `tsc` then runs `node --watch dist/main.js`.
+`ts-nestjs`'s `dev` compiles with `tsc` then runs `node --watch dist/main.js`.
 That restarts the server on rebuild but does not watch-recompile sources — edit,
-re-run `tsc` (or `just dev node-nestjs`) to pick up changes.
+re-run `tsc` (or `just dev ts-nestjs`) to pick up changes.
 
 ## Quick Start 🚀
 

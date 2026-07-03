@@ -9,7 +9,7 @@ benchmark *args:
 
 alias benchmarks := benchmark
 
-# Start a dev server (honojs, elysia, oak, express, nestjs, fastify, chi, gin, fiber, fastapi)
+# Start a dev server (ts-bun-honojs, ts-bun-elysia, ts-deno-oak, ts-express, ts-nestjs, ts-fastify, go-chi, go-gin, go-fiber, py-fastapi)
 [group('dev')]
 dev server:
     node scripts/dev.mts {{server}}
