@@ -17,7 +17,7 @@ import (
 
 const (
 	// DefaultContractDir is resolved relative to the client's working directory
-	// (benchmarks/), matching how config and test-files are located.
+	// (benchmark/), matching how config and test-files are located.
 	DefaultContractDir = "../contract"
 	DefaultTestFiles   = "../test-files"
 	DefaultBaseURL     = "http://localhost:8080"

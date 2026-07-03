@@ -18,16 +18,16 @@
   <img src="./assets/mongodb.svg" alt="MongoDB" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/redis.svg" alt="Redis" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/cassandra.svg" alt="Cassandra" height="28" style="display:inline-block; vertical-align:middle;" />
-  <a href="./http-servers/typescript/node-express"><img src="./assets/express.svg" alt="Express" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/typescript/node-fastify"><img src="./assets/fastify.svg" alt="Fastify" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/typescript/node-nestjs"><img src="./assets/nestjs.svg" alt="NestJS" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/typescript/bun-honojs"><img src="./assets/honojs.svg" alt="Hono" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/typescript/bun-elysia"><img src="./assets/elysiajs.svg" alt="Elysia" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/typescript/deno-oak"><img src="./assets/oak.svg" alt="Oak" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/go/chi"><img src="./assets/chi.svg" alt="Chi" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/go/gin"><img src="./assets/gin.svg" alt="Gin" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/go/fiber"><img src="./assets/fiber.svg" alt="Fiber" height="28" style="display:inline-block; vertical-align:middle;" /></a>
-  <a href="./http-servers/python/fastapi"><img src="./assets/fastapi.svg" alt="FastAPI" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-express"><img src="./assets/express.svg" alt="Express" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-fastify"><img src="./assets/fastify.svg" alt="Fastify" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-nestjs"><img src="./assets/nestjs.svg" alt="NestJS" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-bun-honojs"><img src="./assets/honojs.svg" alt="Hono" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-bun-elysia"><img src="./assets/elysiajs.svg" alt="Elysia" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/ts-deno-oak"><img src="./assets/oak.svg" alt="Oak" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/go-chi"><img src="./assets/chi.svg" alt="Chi" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/go-gin"><img src="./assets/gin.svg" alt="Gin" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/go-fiber"><img src="./assets/fiber.svg" alt="Fiber" height="28" style="display:inline-block; vertical-align:middle;" /></a>
+  <a href="./servers/py-fastapi"><img src="./assets/fastapi.svg" alt="FastAPI" height="28" style="display:inline-block; vertical-align:middle;" /></a>
 </p>
 </div>
 
@@ -37,19 +37,19 @@
 
 ## Stack Map 📦
 
-| Folder                                 | Runtime       | Framework       | Port |
-| -------------------------------------- | ------------- | --------------- | ---- |
-| `benchmarks`                           | Go 1.25.7     | -               | -    |
-| `http-servers/typescript/node-express` | Node 26.4.0   | Express 5.2.1   | 3001 |
-| `http-servers/typescript/node-nestjs`  | Node 26.4.0   | NestJS 11.1.27  | 3002 |
-| `http-servers/typescript/node-fastify` | Node 26.4.0   | Fastify 5.9.0   | 3003 |
-| `http-servers/typescript/deno-oak`     | Deno 2.9.1    | Oak 17.2.0      | 3004 |
-| `http-servers/typescript/bun-honojs`   | Bun 1.3.14    | Hono 4.12.27    | 3005 |
-| `http-servers/typescript/bun-elysia`   | Bun 1.3.14    | Elysia 1.4.29   | 3006 |
-| `http-servers/go/chi`                  | Go 1.26.4     | Chi 5.3.0       | 5001 |
-| `http-servers/go/gin`                  | Go 1.26.4     | Gin 1.12.0      | 5002 |
-| `http-servers/go/fiber`                | Go 1.26.4     | Fiber 2.52.13   | 5003 |
-| `http-servers/python/fastapi`          | Python 3.14.6 | FastAPI >=0.128 | 4001 |
+| Folder                  | Runtime       | Framework       | Port |
+| ----------------------- | ------------- | --------------- | ---- |
+| `benchmark`             | Go 1.25.7     | -               | -    |
+| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1   | 3001 |
+| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27  | 3002 |
+| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0   | 3003 |
+| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0      | 3004 |
+| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27    | 3005 |
+| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29   | 3006 |
+| `servers/go-chi`        | Go 1.26.4     | Chi 5.3.0       | 5001 |
+| `servers/go-gin`        | Go 1.26.4     | Gin 1.12.0      | 5002 |
+| `servers/go-fiber`      | Go 1.26.4     | Fiber 2.52.13   | 5003 |
+| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128 | 4001 |
 
 ### Pinned dependencies 📌
 

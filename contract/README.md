@@ -9,7 +9,7 @@ They are consumed by the Go benchmark client's conformance mode:
 
 ```sh
 just benchmark --conformance --base-url=http://localhost:5001
-# or, from benchmarks/:
+# or, from benchmark/:
 go run ./cmd/main.go --conformance --base-url=http://localhost:5001
 ```
 
@@ -18,7 +18,7 @@ plain base URL (no docker/orchestrator/metrics). The command exits non-zero on a
 failure — including when zero cases execute (wrong dir, empty suites). The
 `scripts/contract.mts` harness (later slice) wraps this by starting a server
 container first, then invoking the command against its port. Both lookup dirs
-default relative to `benchmarks/` and can be overridden for other working
+default relative to `benchmark/` and can be overridden for other working
 directories: `--contract-dir=` (cases) and `--test-files-dir=` (upload fixtures).
 
 ## File layout
