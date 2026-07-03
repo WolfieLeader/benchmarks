@@ -14,6 +14,17 @@ import (
 
 const writeBatchSize = 5000
 
+const (
+	tagRunId          = "run_id"
+	tagServer         = "server"
+	tagEndpoint       = "endpoint"
+	tagMethod         = "method"
+	tagSource         = "source"
+	tagDatabase       = "database"
+	fieldServerOffset = "server_offset_ms"
+	fieldLatencyNs    = "latency_ns"
+)
+
 func (c *Client) WriteEndpointLatencies(runId, server string, results []client.TimedResult) {
 	if c == nil {
 		return
@@ -36,16 +47,16 @@ func (c *Client) WriteEndpointLatencies(runId, server string, results []client.T
 			points = append(points, influxdb3.NewPoint(
 				"request_latency",
 				map[string]string{
-					"run_id":   runId,
-					"server":   server,
-					"endpoint": r.Endpoint,
-					"method":   r.Method,
-					"source":   "endpoint",
+					tagRunId:    runId,
+					tagServer:   server,
+					tagEndpoint: r.Endpoint,
+					tagMethod:   r.Method,
+					tagSource:   "endpoint",
 				},
 				map[string]any{
-					"server_offset_ms":   l.ServerOffset.Milliseconds(),
+					fieldServerOffset:    l.ServerOffset.Milliseconds(),
 					"endpoint_offset_ms": l.EndpointOffset.Milliseconds(),
-					"latency_ns":         l.Duration.Nanoseconds(),
+					fieldLatencyNs:       l.Duration.Nanoseconds(),
 				},
 				baseTime.Add(time.Duration(pointIndex)*time.Microsecond),
 			))
@@ -81,13 +92,13 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 			points = append(points, influxdb3.NewPoint(
 				"sequence_latency",
 				map[string]string{
-					"run_id":      runId,
-					"server":      server,
+					tagRunId:      runId,
+					tagServer:     server,
 					"sequence_id": r.SequenceId,
-					"database":    r.Database,
+					tagDatabase:   r.Database,
 				},
 				map[string]any{
-					"server_offset_ms":   l.ServerOffset.Milliseconds(),
+					fieldServerOffset:    l.ServerOffset.Milliseconds(),
 					"sequence_offset_ms": l.EndpointOffset.Milliseconds(),
 					"total_duration_ns":  l.Duration.Nanoseconds(),
 				},
@@ -113,15 +124,15 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 				points = append(points, influxdb3.NewPoint(
 					"sequence_step_latency",
 					map[string]string{
-						"run_id":      runId,
-						"server":      server,
+						tagRunId:      runId,
+						tagServer:     server,
 						"sequence_id": r.SequenceId,
-						"database":    r.Database,
+						tagDatabase:   r.Database,
 						"step":        stepName,
 					},
 					map[string]any{
-						"server_offset_ms": l.ServerOffset.Milliseconds(),
-						"latency_ns":       l.Duration.Nanoseconds(),
+						fieldServerOffset: l.ServerOffset.Milliseconds(),
+						fieldLatencyNs:    l.Duration.Nanoseconds(),
 					},
 					ts,
 				))
@@ -129,17 +140,17 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 				points = append(points, influxdb3.NewPoint(
 					"request_latency",
 					map[string]string{
-						"run_id":   runId,
-						"server":   server,
-						"endpoint": stepName,
-						"method":   "",
-						"source":   "sequence_step",
-						"database": r.Database,
+						tagRunId:    runId,
+						tagServer:   server,
+						tagEndpoint: stepName,
+						tagMethod:   "",
+						tagSource:   "sequence_step",
+						tagDatabase: r.Database,
 					},
 					map[string]any{
-						"server_offset_ms":   l.ServerOffset.Milliseconds(),
+						fieldServerOffset:    l.ServerOffset.Milliseconds(),
 						"endpoint_offset_ms": l.EndpointOffset.Milliseconds(),
-						"latency_ns":         l.Duration.Nanoseconds(),
+						fieldLatencyNs:       l.Duration.Nanoseconds(),
 					},
 					ts,
 				))
@@ -174,14 +185,14 @@ func (c *Client) WriteEndpointStats(runId, server string, results []client.Endpo
 			source = "sequence_step"
 		}
 		tags := map[string]string{
-			"run_id":   runId,
-			"server":   server,
-			"endpoint": ep.Name,
-			"method":   ep.Method,
-			"source":   source,
+			tagRunId:    runId,
+			tagServer:   server,
+			tagEndpoint: ep.Name,
+			tagMethod:   ep.Method,
+			tagSource:   source,
 		}
 		if ep.Database != "" {
-			tags["database"] = ep.Database
+			tags[tagDatabase] = ep.Database
 		}
 		c.WritePoint("endpoint_stats", tags, map[string]any{
 			"count":        int64(ep.Stats.Count),
@@ -203,8 +214,8 @@ func (c *Client) WriteResourceStats(runId, server string, stats *container.Resou
 
 	c.WritePoint("resource_stats",
 		map[string]string{
-			"run_id": runId,
-			"server": server,
+			tagRunId:  runId,
+			tagServer: server,
 		},
 		map[string]any{
 			"memory_min_bytes": stats.Memory.MinBytes,
@@ -226,7 +237,7 @@ func (c *Client) WriteRunMeta(runId string, sampleRate float64) {
 
 	c.WritePoint("run_meta",
 		map[string]string{
-			"run_id": runId,
+			tagRunId: runId,
 		},
 		map[string]any{
 			"sample_rate": sampleRate,

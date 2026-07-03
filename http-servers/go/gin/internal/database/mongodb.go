@@ -10,6 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+const fieldObjectId = "_id"
+
 type userDocument struct {
 	Id             bson.ObjectID `bson:"_id"`
 	Name           string        `bson:"name"`
@@ -90,7 +92,7 @@ func (r *MongoRepository) FindById(ctx context.Context, id string) (*User, error
 	}
 
 	var doc userDocument
-	err := r.collection.FindOne(ctx, bson.M{"_id": oid}).Decode(&doc)
+	err := r.collection.FindOne(ctx, bson.M{fieldObjectId: oid}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
@@ -128,7 +130,7 @@ func (r *MongoRepository) Update(ctx context.Context, id string, data *UpdateUse
 
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
 	var doc userDocument
-	err := r.collection.FindOneAndUpdate(ctx, bson.M{"_id": oid}, bson.M{"$set": updateFields}, opts).Decode(&doc)
+	err := r.collection.FindOneAndUpdate(ctx, bson.M{fieldObjectId: oid}, bson.M{"$set": updateFields}, opts).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
@@ -149,7 +151,7 @@ func (r *MongoRepository) Delete(ctx context.Context, id string) (bool, error) {
 		return false, nil
 	}
 
-	result, err := r.collection.DeleteOne(ctx, bson.M{"_id": oid})
+	result, err := r.collection.DeleteOne(ctx, bson.M{fieldObjectId: oid})
 	if err != nil {
 		return false, err
 	}

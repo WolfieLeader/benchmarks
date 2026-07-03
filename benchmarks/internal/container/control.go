@@ -12,7 +12,7 @@ import (
 )
 
 func ImageExists(ctx context.Context, imageName string) bool {
-	cmd := exec.CommandContext(ctx, "docker", "image", "inspect", imageName)
+	cmd := exec.CommandContext(ctx, "docker", "image", "inspect", imageName) //nolint:gosec // imageName is from trusted config
 	if cmd.Run() == nil {
 		return true
 	}
