@@ -37,19 +37,42 @@
 
 ## Stack Map 📦
 
-| Folder                                 | Runtime         | Framework       | Port |
-| -------------------------------------- | --------------- | --------------- | ---- |
-| `benchmarks`                           | Go 1.25.7       | -               | -    |
-| `http-servers/typescript/node-express` | Node >=25.6.0   | Express 5.2.1   | 3001 |
-| `http-servers/typescript/node-nestjs`  | Node >=25.6.0   | NestJS 11.1.13  | 3002 |
-| `http-servers/typescript/node-fastify` | Node >=25.6.0   | Fastify 5.7.4   | 3003 |
-| `http-servers/typescript/deno-oak`     | Deno 2.6.8      | Oak 17.2.0      | 3004 |
-| `http-servers/typescript/bun-honojs`   | Bun 1.3.14       | Hono 4.11.7     | 3005 |
-| `http-servers/typescript/bun-elysia`   | Bun 1.3.14       | Elysia 1.4.22   | 3006 |
-| `http-servers/go/chi`                  | Go 1.25.7       | Chi 5.2.4       | 5001 |
-| `http-servers/go/gin`                  | Go 1.25.7       | Gin 1.11.0      | 5002 |
-| `http-servers/go/fiber`                | Go 1.25.7       | Fiber 2.52.11   | 5003 |
-| `http-servers/python/fastapi`          | Python >=3.14.3 | FastAPI >=0.128 | 4001 |
+| Folder                                 | Runtime       | Framework       | Port |
+| -------------------------------------- | ------------- | --------------- | ---- |
+| `benchmarks`                           | Go 1.25.7     | -               | -    |
+| `http-servers/typescript/node-express` | Node 26.4.0   | Express 5.2.1   | 3001 |
+| `http-servers/typescript/node-nestjs`  | Node 26.4.0   | NestJS 11.1.27  | 3002 |
+| `http-servers/typescript/node-fastify` | Node 26.4.0   | Fastify 5.9.0   | 3003 |
+| `http-servers/typescript/deno-oak`     | Deno 2.9.1    | Oak 17.2.0      | 3004 |
+| `http-servers/typescript/bun-honojs`   | Bun 1.3.14    | Hono 4.12.27    | 3005 |
+| `http-servers/typescript/bun-elysia`   | Bun 1.3.14    | Elysia 1.4.29   | 3006 |
+| `http-servers/go/chi`                  | Go 1.26.4     | Chi 5.3.0       | 5001 |
+| `http-servers/go/gin`                  | Go 1.26.4     | Gin 1.12.0      | 5002 |
+| `http-servers/go/fiber`                | Go 1.26.4     | Fiber 2.52.13   | 5003 |
+| `http-servers/python/fastapi`          | Python 3.14.6 | FastAPI >=0.128 | 4001 |
+
+### Pinned dependencies 📌
+
+Deliberate prerelease pins (PLAN §10), exempt from the blanket `just update`
+bump; each tracks the newest release of its dist-tag channel via
+`scripts/update.mts`, never the stable `latest` line:
+
+| Package       | Pinned at    | Channel | Why                                               |
+| ------------- | ------------ | ------- | ------------------------------------------------- |
+| `typescript`  | `7.0.1-rc`   | `rc`    | TypeScript 7 native `tsc` (`latest` is still 6.x) |
+| `drizzle-orm` | `1.0.0-rc.4` | `rc`    | drizzle 1.0 RC (`latest` is still 0.45.x)         |
+
+Held back: `bson` is overridden to `7.2.0` on the Bun servers (`bun-elysia`,
+`bun-honojs`; package.json `overrides`). bson 7.3.x calls
+`v8.startupSnapshot.isBuildingSnapshot()` at import time, which Bun 1.3.14
+ships as a throwing stub (`NotImplementedError`), crashing the server on boot.
+7.2.0 sits inside mongodb's own `^7.2.0` range; drop the override once Bun
+implements it.
+
+NestJS dev mode tradeoff: under TS7 `nest start --watch` is gone, so
+`node-nestjs`'s `dev` compiles with `tsc` then runs `node --watch dist/main.js`.
+That restarts the server on rebuild but does not watch-recompile sources — edit,
+re-run `tsc` (or `just dev node-nestjs`) to pick up changes.
 
 ## Quick Start 🚀
 

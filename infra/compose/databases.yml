@@ -1,7 +1,7 @@
 # infra/compose/databases.yml
 services:
   postgres:
-    image: postgres:18.1-alpine3.23
+    image: postgres:18.4-alpine3.23
     ports:
       - "5432:5432"
     environment:
@@ -20,7 +20,7 @@ services:
       retries: 10
 
   mongodb:
-    image: mongo:8.2.4
+    image: mongo:8.2.11
     ports:
       - "27017:27017"
     environment:
@@ -35,7 +35,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:8.4.0-alpine3.22
+    image: redis:8.4.4-alpine3.22
     ports:
       - "6379:6379"
     volumes:
@@ -48,7 +48,7 @@ services:
       retries: 10
 
   cassandra:
-    image: cassandra:5.0.6
+    image: cassandra:5.0.8
     restart: unless-stopped
     ports:
       - "9042:9042"
@@ -67,7 +67,7 @@ services:
       retries: 20
 
   cassandra-init:
-    image: cassandra:5.0.6
+    image: cassandra:5.0.8
     depends_on:
       cassandra:
         condition: service_healthy

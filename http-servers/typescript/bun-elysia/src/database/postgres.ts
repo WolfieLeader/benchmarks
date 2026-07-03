@@ -12,7 +12,7 @@ export class PostgresUserRepository implements UserRepository {
 
   constructor(connectionString: string) {
     this.pool = new Pool({ connectionString, max: 50, idleTimeoutMillis: 30000 });
-    this.db = drizzle(this.pool);
+    this.db = drizzle({ client: this.pool });
   }
 
   async create(data: CreateUser): Promise<User> {

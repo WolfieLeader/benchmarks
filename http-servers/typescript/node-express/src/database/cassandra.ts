@@ -1,7 +1,7 @@
 import { Client } from "cassandra-driver";
 import { v7 as uuidv7 } from "uuid";
-import type { UserRepository } from "./repository";
-import { buildUser, type CreateUser, type UpdateUser, type User } from "./types";
+import type { UserRepository } from "./repository.js";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types.js";
 
 export type CassandraConfig = {
   contactPoints: string[];

@@ -1,4 +1,4 @@
-FROM golang:1.25.7-alpine AS builder
+FROM golang:1.26.4-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ ENV CGO_ENABLED=0 \
 
 RUN go build -trimpath -ldflags="-s -w" -o bin/server ./cmd/main.go
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 WORKDIR /app
 

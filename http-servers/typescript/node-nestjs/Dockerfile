@@ -1,4 +1,4 @@
-FROM node:25.6.0-alpine AS builder
+FROM node:26.4.0-alpine AS builder
 WORKDIR /app
 
 RUN npm i -g pnpm@10.29.1
@@ -6,12 +6,12 @@ RUN npm i -g pnpm@10.29.1
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 
 RUN pnpm build
 
-FROM node:25.6.0-alpine
+FROM node:26.4.0-alpine
 
 WORKDIR /app
 

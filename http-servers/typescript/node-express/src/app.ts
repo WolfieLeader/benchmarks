@@ -2,8 +2,8 @@ import cookieParser from "cookie-parser";
 import express, { type NextFunction, type Request, type Response } from "express";
 import morgan from "morgan";
 import { MulterError } from "multer";
-import { env } from "./config/env";
-import { MAX_REQUEST_BYTES } from "./consts/defaults";
+import { env } from "./config/env.js";
+import { MAX_REQUEST_BYTES } from "./consts/defaults.js";
 import {
   FILE_SIZE_EXCEEDS,
   INTERNAL_ERROR,
@@ -11,9 +11,9 @@ import {
   INVALID_MULTIPART,
   makeError,
   NOT_FOUND
-} from "./consts/errors";
-import { dbHealthRouter, dbRouter } from "./routes/db";
-import { paramsRouter } from "./routes/params";
+} from "./consts/errors.js";
+import { dbHealthRouter, dbRouter } from "./routes/db.js";
+import { paramsRouter } from "./routes/params.js";
 
 export function createApp(): express.Express {
   const app = express();

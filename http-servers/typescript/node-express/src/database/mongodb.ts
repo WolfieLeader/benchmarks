@@ -1,6 +1,6 @@
 import { type Collection, MongoClient, ObjectId } from "mongodb";
-import type { UserRepository } from "./repository";
-import { buildUser, type CreateUser, type UpdateUser, type User } from "./types";
+import type { UserRepository } from "./repository.js";
+import { buildUser, type CreateUser, type UpdateUser, type User } from "./types.js";
 
 type UserDocument = {
   _id: ObjectId;

@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import multer from "multer";
-import { DEFAULT_LIMIT, MAX_FILE_BYTES, MAX_REQUEST_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults";
+import { DEFAULT_LIMIT, MAX_FILE_BYTES, MAX_REQUEST_BYTES, NULL_BYTE, SNIFF_LEN } from "../consts/defaults.js";
 import {
   EXPECTED_FORM_CONTENT_TYPE,
   EXPECTED_MULTIPART_CONTENT_TYPE,
@@ -12,7 +12,7 @@ import {
   INVALID_MULTIPART,
   makeError,
   ONLY_TEXT_PLAIN
-} from "../consts/errors";
+} from "../consts/errors.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),

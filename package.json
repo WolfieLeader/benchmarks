@@ -6,10 +6,10 @@
     "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.14",
+    "@biomejs/biome": "^2.5.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "prettier": "3.8.1"
+    "prettier": "3.9.4"
   },
   "packageManager": "pnpm@10.29.1"
 }

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
-import { resolveRepository, type UserRepository } from "../database/repository";
-import { zCreateUser, zUpdateUser } from "../database/types";
+import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors.js";
+import { resolveRepository, type UserRepository } from "../database/repository.js";
+import { zCreateUser, zUpdateUser } from "../database/types.js";
 
 declare module "fastify" {
   interface FastifyRequest {
