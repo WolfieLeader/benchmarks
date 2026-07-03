@@ -103,7 +103,7 @@ config/  infra/  grafana/  test-files/  results/
 
 ### 2.2 Workspace tooling — native per language, `just` as the umbrella
 
-No Nx/Turborepo/Bazel: there is no build graph to optimize, just "N apps → 1 shared package" per language.
+No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and rejected): there is no build graph to optimize, just "N apps → 1 shared package" per language. The hermetic-build tools are rejected because — (1) the languages are **islands** (no Go→Rust cross-target deps), so Bazel's one-cross-language-graph superpower has nothing to bite on; (2) they **contradict the "idiomatic everywhere" decision** — replacing `cargo`/`bun`/`deno`/`gradle`/`zig build` with `BUILD` files makes each server *non-idiomatic*, the exact anti-pattern the repo avoids, and less representative as a benchmark; (3) **poor/no rules for the exotic members** (Zig especially; Bun/Deno fight rules_js/pnpm), meaning custom-rule maintenance for the hardest part; (4) **incrementality is already per-language** (build caches for Go/cargo/Gradle/tsc/Zig) and outputs are Docker images from idiomatic Dockerfiles; (5) it's a **hobby project** (CI was already cut as overkill — these are a far bigger tax). They'd only pay off at large-team scale with genuinely cross-language shared builds and remote-execution needs — none present.
 
 | Language | Mechanism | Notes |
 | --- | --- | --- |
