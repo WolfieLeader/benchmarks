@@ -1,0 +1,184 @@
+{
+  "name": "params",
+  "cases": [
+    {
+      "name": "search_defaults_when_missing",
+      "method": "GET",
+      "path": "/params/search",
+      "expect": { "status": 200, "body": { "search": "none", "limit": 10 } }
+    },
+    {
+      "name": "search_with_query_and_limit",
+      "method": "GET",
+      "path": "/params/search",
+      "query": { "q": "hello", "limit": "5" },
+      "expect": { "status": 200, "body": { "search": "hello", "limit": 5 } }
+    },
+    {
+      "name": "search_trims_query",
+      "method": "GET",
+      "path": "/params/search",
+      "query": { "q": "  spaced  ", "limit": "20" },
+      "expect": { "status": 200, "body": { "search": "spaced", "limit": 20 } }
+    },
+    {
+      "name": "search_non_integer_limit_falls_back_to_default",
+      "method": "GET",
+      "path": "/params/search",
+      "query": { "q": "test", "limit": "abc" },
+      "expect": { "status": 200, "body": { "search": "test", "limit": 10 } }
+    },
+    {
+      "name": "search_decimal_limit_rejected_falls_back_to_default",
+      "method": "GET",
+      "path": "/params/search",
+      "query": { "q": "test", "limit": "3.5" },
+      "expect": { "status": 200, "body": { "search": "test", "limit": 10 } }
+    },
+    {
+      "name": "search_negative_limit_accepted",
+      "note": "safe-int accepts in-range negatives; documents current behavior.",
+      "method": "GET",
+      "path": "/params/search",
+      "query": { "q": "test", "limit": "-5" },
+      "expect": { "status": 200, "body": { "search": "test", "limit": -5 } }
+    },
+
+    {
+      "name": "url_echoes_segment",
+      "method": "GET",
+      "path": "/params/url/testvalue",
+      "expect": { "status": 200, "body": { "dynamic": "testvalue" } }
+    },
+    {
+      "name": "url_numeric_segment",
+      "method": "GET",
+      "path": "/params/url/12345",
+      "expect": { "status": 200, "body": { "dynamic": "12345" } }
+    },
+    {
+      "name": "url_special_chars_segment",
+      "method": "GET",
+      "path": "/params/url/hello-world_123",
+      "expect": { "status": 200, "body": { "dynamic": "hello-world_123" } }
+    },
+    {
+      "name": "url_path_traversal_input_is_safe",
+      "note": "SECURITY: encoded traversal input must resolve to a normal 200/404, never a filesystem read (PLAN.md section 8). Routers legitimately differ: chi/fiber keep %2f literal and echo it (200); gin decodes it and finds no route (404).",
+      "method": "GET",
+      "path": "/params/url/..%2f..%2fetc%2fpasswd",
+      "expect": { "statusAnyOf": [200, 404] }
+    },
+
+    {
+      "name": "header_defaults_when_missing",
+      "method": "GET",
+      "path": "/params/header",
+      "expect": { "status": 200, "body": { "header": "none" } }
+    },
+    {
+      "name": "header_reads_custom_header",
+      "method": "GET",
+      "path": "/params/header",
+      "headers": { "X-Custom-Header": "my-custom-value" },
+      "expect": { "status": 200, "body": { "header": "my-custom-value" } }
+    },
+    {
+      "name": "header_trims_value",
+      "method": "GET",
+      "path": "/params/header",
+      "headers": { "X-Custom-Header": "  trimmed  " },
+      "expect": { "status": 200, "body": { "header": "trimmed" } }
+    },
+
+    {
+      "name": "cookie_defaults_and_sets_bar",
+      "method": "GET",
+      "path": "/params/cookie",
+      "expect": {
+        "status": 200,
+        "headers": { "Set-Cookie": "bar=12345" },
+        "body": { "cookie": "none" }
+      }
+    },
+    {
+      "name": "cookie_reads_foo",
+      "method": "GET",
+      "path": "/params/cookie",
+      "headers": { "Cookie": "foo=bar" },
+      "expect": { "status": 200, "body": { "cookie": "bar" } }
+    },
+    {
+      "name": "cookie_trims_value",
+      "method": "GET",
+      "path": "/params/cookie",
+      "headers": { "Cookie": "foo=  spaced  " },
+      "expect": { "status": 200, "body": { "cookie": "spaced" } }
+    },
+
+    {
+      "name": "body_echoes_object",
+      "method": "POST",
+      "path": "/params/body",
+      "body": { "key": "value" },
+      "expect": { "status": 200, "body": { "body": { "key": "value" } } }
+    },
+    {
+      "name": "body_echoes_nested_object",
+      "method": "POST",
+      "path": "/params/body",
+      "body": { "user": { "name": "John", "age": 30 } },
+      "expect": { "status": 200, "body": { "body": { "user": { "name": "John", "age": 30 } } } }
+    },
+    {
+      "name": "body_echoes_array_inside_object",
+      "method": "POST",
+      "path": "/params/body",
+      "body": { "items": ["a", "b", "c"] },
+      "expect": { "status": 200, "body": { "body": { "items": ["a", "b", "c"] } } }
+    },
+    {
+      "name": "body_rejects_malformed_json",
+      "method": "POST",
+      "path": "/params/body",
+      "rawBody": "{\"key\": }",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_rejects_top_level_array",
+      "method": "POST",
+      "path": "/params/body",
+      "body": [1, 2, 3],
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_rejects_top_level_string",
+      "method": "POST",
+      "path": "/params/body",
+      "body": "smuggled",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_rejects_top_level_number",
+      "method": "POST",
+      "path": "/params/body",
+      "body": 5,
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_rejects_top_level_bool",
+      "method": "POST",
+      "path": "/params/body",
+      "body": true,
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_rejects_top_level_null",
+      "note": "SECURITY: JSON null smuggling must be rejected like any other non-object body (PLAN.md section 8).",
+      "method": "POST",
+      "path": "/params/body",
+      "rawBody": "null",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    }
+  ]
+}

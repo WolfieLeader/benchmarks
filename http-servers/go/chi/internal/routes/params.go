@@ -60,6 +60,12 @@ func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}
+	if body == nil {
+		// JSON null decodes into a nil map without error; reject it like any
+		// other non-object body.
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, "expected a JSON object")
+		return
+	}
 
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"body": body})
 }
@@ -85,7 +91,14 @@ func handleFormParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// ParseForm does not read multipart bodies; parse them explicitly so
+		// FormValue sees the fields.
+		if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
+			utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
+			return
+		}
+	} else if err := r.ParseForm(); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
 		return
 	}

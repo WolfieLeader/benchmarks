@@ -1,0 +1,46 @@
+{
+  "name": "form",
+  "cases": [
+    {
+      "name": "form_urlencoded_happy_path",
+      "method": "POST",
+      "path": "/params/form",
+      "form": { "name": "John", "age": "25" },
+      "expect": { "status": 200, "body": { "name": "John", "age": 25 } }
+    },
+    {
+      "name": "form_trims_name",
+      "method": "POST",
+      "path": "/params/form",
+      "form": { "name": "  Jane  ", "age": "30" },
+      "expect": { "status": 200, "body": { "name": "Jane", "age": 30 } }
+    },
+    {
+      "name": "form_multipart_happy_path",
+      "method": "POST",
+      "path": "/params/form",
+      "multipart": { "fields": { "name": "Multi", "age": "42" } },
+      "expect": { "status": 200, "body": { "name": "Multi", "age": 42 } }
+    },
+    {
+      "name": "form_defaults_when_fields_missing",
+      "method": "POST",
+      "path": "/params/form",
+      "form": { "unrelated": "x" },
+      "expect": { "status": 200, "body": { "name": "none", "age": 0 } }
+    },
+    {
+      "name": "form_rejects_non_form_content_type",
+      "method": "POST",
+      "path": "/params/form",
+      "body": { "name": "John" },
+      "expect": {
+        "status": 400,
+        "body": {
+          "error": "invalid form data",
+          "details": "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
+        }
+      }
+    }
+  ]
+}

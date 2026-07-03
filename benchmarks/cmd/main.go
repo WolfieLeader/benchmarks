@@ -12,23 +12,42 @@ import (
 
 	"benchmark-client/internal/cli"
 	"benchmark-client/internal/config"
+	"benchmark-client/internal/conformance"
 	"benchmark-client/internal/orchestrator"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	cliOpts, err := cli.ParseFlags(os.Args[1:])
+	if err != nil {
+		if errors.Is(err, cli.ErrHelp) {
+			return 0
+		}
+		cli.Failf("Failed to parse flags: %v", err)
+		return 1
+	}
+
+	// Conformance mode runs plain HTTP against a base URL — no config, docker, or metrics.
+	if cliOpts != nil && cliOpts.Conformance {
+		return conformance.Run(ctx, cliOpts.BaseURL, cliOpts.ContractDir, cliOpts.TestFilesDir)
+	}
 
 	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
 	if err != nil {
 		cli.Failf("Failed to load configuration: %v", err)
-		return
+		return 1
 	}
 
-	opts, err := getRuntimeOptions(config.GetServerNames(resolvedServers))
+	opts, err := getRuntimeOptions(cliOpts, config.GetServerNames(resolvedServers))
 	if err != nil {
 		cli.Failf("Failed to get options: %v", err)
-		return
+		return 1
 	}
 
 	var invalidServers []string
@@ -38,7 +57,7 @@ func main() {
 	}
 	if len(resolvedServers) == 0 {
 		cli.Failf("No valid servers selected")
-		return
+		return 1
 	}
 
 	cfg.Print()
@@ -49,18 +68,12 @@ func main() {
 
 	if err := orch.Run(ctx); err != nil {
 		cli.Failf("Benchmark failed: %v", err)
+		return 1
 	}
+	return 0
 }
 
-func getRuntimeOptions(availableServers []string) (*config.RuntimeOptions, error) {
-	cliOpts, err := cli.ParseFlags(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrHelp) {
-			os.Exit(0)
-		}
-		return nil, err
-	}
-
+func getRuntimeOptions(cliOpts *cli.Options, availableServers []string) (*config.RuntimeOptions, error) {
 	if cliOpts != nil {
 		return &config.RuntimeOptions{
 			Servers: cliOpts.Servers,

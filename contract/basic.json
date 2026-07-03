@@ -1,0 +1,25 @@
+{
+  "name": "basic",
+  "cases": [
+    {
+      "name": "root_returns_hello_world",
+      "method": "GET",
+      "path": "/",
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "hello": "world" }
+      }
+    },
+    {
+      "name": "health_returns_ok_text",
+      "method": "GET",
+      "path": "/health",
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "text/plain" },
+        "text": "OK"
+      }
+    }
+  ]
+}

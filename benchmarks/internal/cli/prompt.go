@@ -10,7 +10,11 @@ import (
 )
 
 type Options struct {
-	Servers []string // empty means all servers
+	Servers      []string // empty means all servers
+	Conformance  bool     // run the contract suite instead of the benchmark
+	BaseURL      string   // base URL for conformance runs
+	ContractDir  string   // contract cases directory for conformance runs
+	TestFilesDir string   // upload fixtures directory for conformance runs
 }
 
 var bannerLines = []string{
@@ -153,6 +157,18 @@ func ParseFlags(args []string) (*Options, error) {
 				}
 			}
 			hasExplicitFlags = true
+		case arg == "--conformance":
+			opts.Conformance = true
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--base-url="):
+			opts.BaseURL = strings.TrimSpace(strings.TrimPrefix(arg, "--base-url="))
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--contract-dir="):
+			opts.ContractDir = strings.TrimSpace(strings.TrimPrefix(arg, "--contract-dir="))
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--test-files-dir="):
+			opts.TestFilesDir = strings.TrimSpace(strings.TrimPrefix(arg, "--test-files-dir="))
+			hasExplicitFlags = true
 		case arg == "--help" || arg == "-h":
 			printHelp()
 			return nil, ErrHelp
@@ -177,12 +193,17 @@ func printHelp() {
 
 Options:
   --servers=a,b,c    Only benchmark specific servers (comma-separated)
+  --conformance      Run the contract conformance suite instead of the benchmark
+  --base-url=URL     Base URL for --conformance (default http://localhost:8080)
+  --contract-dir=DIR Contract cases directory for --conformance (default ../contract)
+  --test-files-dir=DIR Upload fixtures directory for --conformance (default ../test-files)
   --help, -h         Show this help message
 
 Interactive mode:
   Run without flags to use interactive selection.
 
 Examples:
-  benchmark                           # Interactive mode
-  benchmark --servers=chi,gin         # Benchmark specific servers`)
+  benchmark                                            # Interactive mode
+  benchmark --servers=chi,gin                          # Benchmark specific servers
+  benchmark --conformance --base-url=http://localhost:5001  # Run the contract gate`)
 }

@@ -1,0 +1,240 @@
+{
+  "name": "db",
+  "cases": [
+    {
+      "name": "health_postgres",
+      "method": "GET",
+      "path": "/db/postgres/health",
+      "expect": { "status": 200, "headers": { "Content-Type": "text/plain" }, "text": "OK" }
+    },
+    {
+      "name": "health_mongodb",
+      "method": "GET",
+      "path": "/db/mongodb/health",
+      "expect": { "status": 200, "headers": { "Content-Type": "text/plain" }, "text": "OK" }
+    },
+    {
+      "name": "health_redis",
+      "method": "GET",
+      "path": "/db/redis/health",
+      "expect": { "status": 200, "headers": { "Content-Type": "text/plain" }, "text": "OK" }
+    },
+    {
+      "name": "health_cassandra",
+      "method": "GET",
+      "path": "/db/cassandra/health",
+      "expect": { "status": 200, "headers": { "Content-Type": "text/plain" }, "text": "OK" }
+    },
+
+    {
+      "name": "crud_postgres",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read",
+          "method": "GET",
+          "path": "/db/postgres/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "update",
+          "method": "PATCH",
+          "path": "/db/postgres/users/{id}",
+          "body": { "name": "Alice Updated" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice Updated", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "create_without_favorite_number",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Bob", "email": "bob@conformance.test" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance.test", "favoriteNumber": "$absent" } }
+        },
+        { "name": "delete", "method": "DELETE", "path": "/db/postgres/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/postgres/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "crud_mongodb",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/mongodb/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/mongodb/users",
+          "body": { "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read",
+          "method": "GET",
+          "path": "/db/mongodb/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "update",
+          "method": "PATCH",
+          "path": "/db/mongodb/users/{id}",
+          "body": { "name": "Alice Updated" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice Updated", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "create_without_favorite_number",
+          "method": "POST",
+          "path": "/db/mongodb/users",
+          "body": { "name": "Bob", "email": "bob@conformance.test" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance.test", "favoriteNumber": "$absent" } }
+        },
+        { "name": "delete", "method": "DELETE", "path": "/db/mongodb/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/mongodb/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/mongodb/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "crud_redis",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/redis/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/redis/users",
+          "body": { "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read",
+          "method": "GET",
+          "path": "/db/redis/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "update",
+          "method": "PATCH",
+          "path": "/db/redis/users/{id}",
+          "body": { "name": "Alice Updated" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice Updated", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "create_without_favorite_number",
+          "method": "POST",
+          "path": "/db/redis/users",
+          "body": { "name": "Bob", "email": "bob@conformance.test" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance.test", "favoriteNumber": "$absent" } }
+        },
+        { "name": "delete", "method": "DELETE", "path": "/db/redis/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/redis/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/redis/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "crud_cassandra",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/cassandra/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/cassandra/users",
+          "body": { "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read",
+          "method": "GET",
+          "path": "/db/cassandra/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "update",
+          "method": "PATCH",
+          "path": "/db/cassandra/users/{id}",
+          "body": { "name": "Alice Updated" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Alice Updated", "email": "alice@conformance.test", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "create_without_favorite_number",
+          "method": "POST",
+          "path": "/db/cassandra/users",
+          "body": { "name": "Bob", "email": "bob@conformance.test" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance.test", "favoriteNumber": "$absent" } }
+        },
+        { "name": "delete", "method": "DELETE", "path": "/db/cassandra/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/cassandra/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/cassandra/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+
+    {
+      "name": "unknown_database_health_unavailable",
+      "method": "GET",
+      "path": "/db/mysql/health",
+      "expect": { "status": 503, "text": "Service Unavailable" }
+    },
+    {
+      "name": "unknown_database_create_404",
+      "method": "POST",
+      "path": "/db/mysql/users",
+      "body": { "name": "X", "email": "x@y.com" },
+      "expect": { "status": 404, "body": { "error": "not found", "details": "unknown database type: mysql" } }
+    },
+    {
+      "name": "unknown_database_read_404",
+      "method": "GET",
+      "path": "/db/mysql/users/123",
+      "expect": { "status": 404, "body": { "error": "not found", "details": "unknown database type: mysql" } }
+    },
+    {
+      "name": "create_rejects_invalid_email",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "body": { "name": "X", "email": "not-an-email" },
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_out_of_range_favorite_number",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "body": { "name": "X", "email": "x@y.com", "favoriteNumber": 101 },
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_malformed_favorite_number_type",
+      "note": "Wrong JSON type for favoriteNumber fails at decode, still surfaced as invalid JSON body.",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "rawBody": "{\"name\":\"X\",\"email\":\"x@y.com\",\"favoriteNumber\":\"abc\"}",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_empty_name",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "body": { "name": "", "email": "x@y.com" },
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_malformed_json",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "rawBody": "{bad",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "read_nonexistent_user_404",
+      "method": "GET",
+      "path": "/db/mongodb/users/000000000000000000000000",
+      "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } }
+    }
+  ]
+}
