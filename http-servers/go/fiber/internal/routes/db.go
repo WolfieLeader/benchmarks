@@ -7,7 +7,7 @@ import (
 	"fiber-server/internal/utils"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 var validate = validator.New()
@@ -15,7 +15,7 @@ var validate = validator.New()
 const repositoryKey = "repository"
 
 func withRepository(env *config.Env) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		dbType := c.Params("database")
 		repo := database.ResolveRepository(dbType, env)
 		if repo == nil {
@@ -26,7 +26,7 @@ func withRepository(env *config.Env) fiber.Handler {
 	}
 }
 
-func getRepository(c *fiber.Ctx) database.UserRepository {
+func getRepository(c fiber.Ctx) database.UserRepository {
 	repo, ok := c.Locals(repositoryKey).(database.UserRepository)
 	if !ok {
 		panic("repository not found in context - middleware not applied")
@@ -48,14 +48,14 @@ func RegisterDb(r fiber.Router, env *config.Env) {
 }
 
 func healthCheck(env *config.Env) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		dbType := c.Params("database")
 		repo := database.ResolveRepository(dbType, env)
 		if repo == nil {
 			return c.Status(fiber.StatusServiceUnavailable).SendString("Service Unavailable")
 		}
 
-		healthy, err := repo.HealthCheck(c.UserContext())
+		healthy, err := repo.HealthCheck(c)
 		if err != nil || !healthy {
 			return c.Status(fiber.StatusServiceUnavailable).SendString("Service Unavailable")
 		}
@@ -64,11 +64,11 @@ func healthCheck(env *config.Env) fiber.Handler {
 	}
 }
 
-func createUser(c *fiber.Ctx) error {
+func createUser(c fiber.Ctx) error {
 	repo := getRepository(c)
 
 	var data database.CreateUser
-	if err := c.BodyParser(&data); err != nil {
+	if err := c.Bind().Body(&data); err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
@@ -76,7 +76,7 @@ func createUser(c *fiber.Ctx) error {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
-	user, err := repo.Create(c.UserContext(), &data)
+	user, err := repo.Create(c, &data)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -84,11 +84,11 @@ func createUser(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(user)
 }
 
-func getUser(c *fiber.Ctx) error {
+func getUser(c fiber.Ctx) error {
 	repo := getRepository(c)
 
 	id := c.Params("id")
-	user, err := repo.FindById(c.UserContext(), id)
+	user, err := repo.FindById(c, id)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -99,11 +99,11 @@ func getUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func updateUser(c *fiber.Ctx) error {
+func updateUser(c fiber.Ctx) error {
 	repo := getRepository(c)
 
 	var data database.UpdateUser
-	if err := c.BodyParser(&data); err != nil {
+	if err := c.Bind().Body(&data); err != nil {
 		return utils.WriteError(c, fiber.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 	}
 
@@ -112,7 +112,7 @@ func updateUser(c *fiber.Ctx) error {
 	}
 
 	id := c.Params("id")
-	user, err := repo.Update(c.UserContext(), id, &data)
+	user, err := repo.Update(c, id, &data)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -123,11 +123,11 @@ func updateUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func deleteUser(c *fiber.Ctx) error {
+func deleteUser(c fiber.Ctx) error {
 	repo := getRepository(c)
 
 	id := c.Params("id")
-	deleted, err := repo.Delete(c.UserContext(), id)
+	deleted, err := repo.Delete(c, id)
 	if err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
@@ -138,20 +138,20 @@ func deleteUser(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
-func deleteAllUsers(c *fiber.Ctx) error {
+func deleteAllUsers(c fiber.Ctx) error {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(c.UserContext()); err != nil {
+	if err := repo.DeleteAll(c); err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 
 	return c.JSON(fiber.Map{"success": true})
 }
 
-func resetDatabase(c *fiber.Ctx) error {
+func resetDatabase(c fiber.Ctx) error {
 	repo := getRepository(c)
 
-	if err := repo.DeleteAll(c.UserContext()); err != nil {
+	if err := repo.DeleteAll(c); err != nil {
 		return utils.WriteError(c, fiber.StatusInternalServerError, consts.ErrInternal, err.Error())
 	}
 

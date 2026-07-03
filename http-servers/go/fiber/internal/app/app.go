@@ -9,9 +9,9 @@ import (
 	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 )
 
 type App struct {
@@ -41,17 +41,17 @@ func New() *App {
 	}
 	r.Use(recover.New())
 
-	r.Get("/", func(c *fiber.Ctx) error {
+	r.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{"hello": "world"})
 	})
-	r.Get("/health", func(c *fiber.Ctx) error {
+	r.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
 
 	routes.RegisterParams(r.Group("/params"))
 	routes.RegisterDb(r.Group("/db"), env)
 
-	r.Use(func(c *fiber.Ctx) error {
+	r.Use(func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": consts.ErrNotFound})
 	})
 

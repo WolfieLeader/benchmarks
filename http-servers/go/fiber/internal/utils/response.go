@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type ErrorResponse struct {
@@ -9,7 +9,7 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
-func WriteError(c *fiber.Ctx, status int, message string, detail ...any) error {
+func WriteError(c fiber.Ctx, status int, message string, detail ...any) error {
 	resp := ErrorResponse{Error: message}
 	if len(detail) > 0 {
 		switch v := detail[0].(type) {
