@@ -114,7 +114,17 @@ No Nx/Turborepo/Bazel: there is no build graph to optimize, just "N apps → 1 s
 | Kotlin | **Gradle multi-project** | `:shared`, `:ktor`, `:spring-boot` |
 | Zig | none needed | single self-contained app |
 
-### 2.3 Docker build contexts
+### 2.3 Task scripts — thin justfile over typed `.mts` orchestrators
+
+The current justfile hides big per-framework bash `case` blocks inside `install`/`update`/`verify`/`dev`/`images` — hard to read, hard to extend as the roster grows to 20+ servers. Move that dispatch into a **`scripts/` folder of typed `.mts` orchestrators** (pattern proven in the user's `lets-go` repo), keeping `just` as a thin entrypoint:
+
+- Run via **Node 26 native TypeScript type-stripping** — `node scripts/verify.mts`, **no tsx, no build step**.
+- Each script is a **declarative table** (e.g. `CHECKS` / `TARGETS`) that shells out to per-language/per-server commands, runs them **concurrently**, and prints **one grouped report** instead of bailing on first failure (`a && b && c` hides later errors).
+- Adding a server/target = **one row**, not a new bash branch — mirrors the manifest-driven discovery in §7.4 (scripts can even read the same `bench.json` manifests, so the roster has one source of truth).
+- Recipes become one-liners: `verify target='all': node scripts/verify.mts {{target}}`. Complex flags/logic live in typed TS, not brittle just/bash.
+- Scope: `verify`, `install`, `update` (pin-aware, §10), `images`, `dev` dispatch. Genuinely-simple recipes (`db-up`, `grafana-up`) stay inline in the justfile.
+
+### 2.4 Docker build contexts
 
 Shared folders force build context above the app dir. Convention: **build from repo root**, `docker build -f apps/servers/go/chi/Dockerfile .` — each Dockerfile copies `shared/<lang>` + its app. `just images` updated accordingly. `.dockerignore` at root keeps contexts small.
 
@@ -152,6 +162,9 @@ Shared folders force build context above the app dir. Convention: **build from r
 - **DB clients + repositories**: single implementation; `pg` → `postgres` (postgres.js) through `drizzle-orm/postgres-js` (postgres.js officially supports Node/Deno/Bun). Mongo (`mongodb`), Redis (`ioredis`), Cassandra (`cassandra-driver`).
 - **Runtime adapters**: portable impl is the default; Bun-native bits (`Bun.RedisClient`, `randomUUIDv7`) become injectable adapters chosen by the entrypoint, so Bun entries keep their native edge while sharing everything else.
 - **Zod schemas, env parsing, consts/errors**: moved verbatim (already byte-identical).
+- **Build split — servers use `tsc`, shared uses tsdown.** The **shared package** builds with **tsdown** (rolldown/oxc-based, tsup successor) → **ESM + `.d.ts`**, not consumed as raw source: Bun/Deno/tsx *could* import source directly, but NestJS builds via tsc and wants real declaration files, and the TS 7 native `tsc` typecheck resolves cleaner against emitted `.d.ts` than deep source across workspace refs. One built artifact → every runtime consumes the shared layer identically (reinforces "same code everywhere"). The **server apps compile/typecheck with `tsc`** (TS 7) against that built `.d.ts` — NestJS emits to `dist/`, the others typecheck `--noEmit` and run via their runtime (tsx/Bun/Deno). Cost: a build step in shared (tsdown `--watch` in dev). tsdown pinned like the rest.
+
+- **TypeScript 7.0 RC (native compiler) — adopt** (researched, July 2026). Install `typescript@rc` (= **`typescript@7.0.1-rc`**; `latest` is still 6.0.3, so **pin it** — a blanket update would clobber it). The native binary is now named **`tsc`** (the old `tsgo` name was dropped at RC). Adoption rules: (1) **use native `tsc --noEmit` as the typecheck gate across all TS projects** — safe, at parity, ~10× faster; (2) **NestJS emit**: native `tsc` now does full JS + `.d.ts` emit, so it *can* build `dist/` — validate the declaration output once, else keep 6.x `tsc` for NestJS's emit step and native for `--noEmit`; (3) **do not point `ts-node` at TS 7** (no stable programmatic API until 7.1) — moot for us, we run via `tsx`; (4) **Bun/Deno runtimes are unaffected** — they transpile with their own toolchains and never read the `typescript` package (Deno's `deno check` uses its bundled TS), so TS 7 is purely an optional external typecheck there. Validate each project's typecheck/build once when flipping the switch (no official per-tool compat matrix exists).
 - **Routing/handlers stay per-framework and idiomatic** (Express routers, Fastify plugins + its schema hooks, NestJS modules/controllers/services with DI, Hono/Elysia app chains, Oak router) — they call the shared repositories and Zod schemas.
 
 ### Go — `shared` module
@@ -391,9 +404,9 @@ What we actually do is **not classic time-series**: we write event data once per
 | Rust | latest stable · Axum + Actix Web latest |
 | Zig | **0.16.0** |
 | Kotlin | latest · Ktor 3.x · Spring Boot latest |
-| TS libs | express 5.2 · fastify 5.9 · nestjs 11.1 · hono 4.12 (+`@hono/node-server` 2.x, needs Node ≥20) · elysia 1.4 (+`@elysiajs/node` in lockstep) · oak 17 (**from JSR**) · `postgres` 3.4 · drizzle 0.45 (pin — 1.0 still rc) · mongodb 7.4 · ioredis 5.11 · cassandra-driver 4.9 |
+| TS libs | **TypeScript `7.0.1-rc`** (`typescript@rc`, native `tsc`) · express 5.2 · fastify 5.9 · nestjs 11.1 · hono 4.12 (+`@hono/node-server` 2.x, needs Node ≥20) · elysia 1.4 (+`@elysiajs/node` in lockstep) · oak 17 (**from JSR**) · `postgres` 3.4 · **drizzle 1.0-rc** · drizzle-kit 1.0-rc · **tsdown** (latest) · mongodb 7.4 · ioredis 5.11 · cassandra-driver 4.9 |
 | Tooling | **Latest versions, pinned**: just, biome, prettier, golangci-lint, ruff, pyright, rustfmt/clippy (ride the Rust toolchain), ktlint, detekt, sqlc, drizzle-kit, uv, pnpm — checked/bumped in Phase 0 alongside runtime deps |
-| `just update` | run across all stacks as part of Phase 0; extend it to also cover the lint/format tooling above |
+| `just update` | run across all stacks as part of Phase 0; extend it to also cover the lint/format tooling above. **Must be pin-aware**: blanket "update to latest" resolves the `latest` dist-tag and would **clobber deliberate prerelease pins** (`typescript@7.0.1-rc` — `latest` is still 6.0.3; Go 1.27rc1; drizzle + drizzle-kit 1.0-rc) and **lockstep sets** (elysia + `@elysiajs/node`). Pinned/prerelease deps are exempt from auto-bump and tracked in a short "pinned deps" list in the README. |
 
 ---
 
@@ -401,7 +414,7 @@ What we actually do is **not classic time-series**: we write event data once per
 
 **Phase 0 — Foundation (~40% of effort)**
 0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just conformance`, optional `pre-push` hook — no CI) per §0.2.
-1. Folder restructure (`apps/`, `shared/`) + workspaces (pnpm/go.work/uv/cargo/gradle) + Docker root-context builds + justfile rework (Go recipes call `go1.27rc1`; Rust PATH per §0.1) + lint/format consolidation (one strict config per language, latest tool versions)
+1. Folder restructure (`apps/`, `shared/`) + workspaces (pnpm/go.work/uv/cargo/gradle) + Docker root-context builds + justfile rework → thin recipes over `scripts/*.mts` orchestrators (§2.3; Go recipes call `go1.27rc1`; Rust PATH per §0.1) + lint/format consolidation (one strict config per language, latest tool versions incl. TS 7 RC typecheck gate + tsdown-built shared)
 2. Shared extraction: TS (`@bench/shared`, pg→postgres, runtime adapters), Go (shared module), Python (async+sync)
 3. Hono multi-runtime entrypoints (node/bun/deno) + port convention + single-process FastAPI + pool normalization + Bun shutdown fix
 4. **Conformance suite** + negative cases → run against all entries (validates the extraction was a pure move; smoke-tests risky runtime×driver combos)
