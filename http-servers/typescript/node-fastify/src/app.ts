@@ -37,16 +37,12 @@ export async function createApp(): Promise<FastifyInstance> {
     });
   }
 
-  app.get("/", async () => {
-    return { hello: "world" };
-  });
-  app.get("/health", async (_req, reply) => {
-    reply.type("text/plain").send("OK");
-  });
-
-  await app.register(paramsRoutes, { prefix: "/params" });
-  await app.register(dbRoutes, { prefix: "/db" });
-
+  // Error/not-found handlers must be registered BEFORE the route plugins:
+  // handlers only propagate into encapsulated child contexts that are created
+  // *after* they are set, and Fastify's body/content-type parser errors are
+  // raised inside each route plugin's context. Registering these last would
+  // leave those errors falling through to Fastify's default serializer
+  // (e.g. malformed JSON -> "Bad Request" instead of "invalid JSON body").
   app.setNotFoundHandler(async (_req, reply) => {
     reply.code(404);
     return { error: NOT_FOUND };
@@ -61,12 +57,14 @@ export async function createApp(): Promise<FastifyInstance> {
       message = INVALID_JSON_BODY;
     } else if (
       error.code === "FST_ERR_CTP_BODY_TOO_LARGE" ||
-      error.code === "FST_ERR_MULTIPART_LIMIT_FILE_SIZE" ||
-      error.code === "FST_ERR_MULTIPART_FILE_TOO_LARGE"
+      error.code === "FST_REQ_FILE_TOO_LARGE" ||
+      error.code === "FST_PARTS_LIMIT" ||
+      error.code === "FST_FILES_LIMIT" ||
+      error.code === "FST_FIELDS_LIMIT"
     ) {
       statusCode = 413;
       message = FILE_SIZE_EXCEEDS;
-    } else if (error.code?.startsWith("FST_ERR_MULTIPART")) {
+    } else if (error.code?.startsWith("FST_INVALID_MULTIPART") || error.code === "FST_NO_FORM_DATA") {
       statusCode = 400;
       message = INVALID_MULTIPART;
     } else if (statusCode === 413) {
@@ -76,6 +74,16 @@ export async function createApp(): Promise<FastifyInstance> {
     reply.code(statusCode);
     return makeError(message, error.message || undefined);
   });
+
+  app.get("/", async () => {
+    return { hello: "world" };
+  });
+  app.get("/health", async (_req, reply) => {
+    reply.type("text/plain").send("OK");
+  });
+
+  await app.register(paramsRoutes, { prefix: "/params" });
+  await app.register(dbRoutes, { prefix: "/db" });
 
   return app;
 }

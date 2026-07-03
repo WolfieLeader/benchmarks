@@ -13,6 +13,37 @@ import {
   ONLY_TEXT_PLAIN
 } from "../consts/errors";
 
+// The declared Content-Type of the file part (the part with a filename), read
+// back from the raw multipart body, or null when the part carried no
+// Content-Type header (busboy would otherwise default it to "text/plain").
+function declaredFileContentType(rawBody: Buffer | undefined, requestContentType: string): string | null {
+  if (!rawBody) return null;
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(requestContentType);
+  const boundary = (boundaryMatch?.[1] ?? boundaryMatch?.[2])?.trim();
+  if (!boundary) return null;
+
+  const raw = rawBody.toString("latin1");
+  for (const segment of raw.split(`--${boundary}`)) {
+    const headerEnd = segment.indexOf("\r\n\r\n");
+    if (headerEnd === -1) continue;
+    const headers = segment.slice(0, headerEnd);
+    if (!/content-disposition:[^\r\n]*\bfilename=/i.test(headers)) continue;
+    const typeMatch = /\r\ncontent-type:\s*([^\r\n]+)/i.exec(`\r\n${headers}`);
+    return typeMatch?.[1]?.trim() ?? null;
+  }
+  return null;
+}
+
+function looksLikeText(bytes: Buffer): boolean {
+  if (bytes.includes(NULL_BYTE)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class ParamsService {
   parseSearchParams(q?: string, limit?: string): { search: string; limit: number } {
@@ -61,7 +92,11 @@ export class ParamsService {
     }
   }
 
-  processUploadedFile(file?: Express.Multer.File): { filename: string; size: number; content: string } {
+  processUploadedFile(
+    file?: Express.Multer.File,
+    rawBody?: Buffer,
+    requestContentType = ""
+  ): { filename: string; size: number; content: string } {
     if (!file) {
       throw new HttpException(
         makeError(FILE_NOT_FOUND, "no file field named 'file' in form data"),
@@ -69,9 +104,21 @@ export class ParamsService {
       );
     }
 
-    if (!file.mimetype?.startsWith("text/plain")) {
+    const head = file.buffer.subarray(0, SNIFF_LEN);
+    const declared = declaredFileContentType(rawBody, requestContentType);
+    if (declared !== null) {
+      // Trust the declared type for the allow-decision; a lie is caught by the
+      // content inspection below (-> FILE_NOT_TEXT).
+      if (!declared.toLowerCase().startsWith("text/plain")) {
+        throw new HttpException(
+          makeError(ONLY_TEXT_PLAIN, `received mimetype: ${declared}`),
+          HttpStatus.UNSUPPORTED_MEDIA_TYPE
+        );
+      }
+    } else if (!looksLikeText(head)) {
+      // No declared type: sniff the bytes; non-text is rejected as a type error.
       throw new HttpException(
-        makeError(ONLY_TEXT_PLAIN, `received mimetype: ${file.mimetype || "unknown"}`),
+        makeError(ONLY_TEXT_PLAIN, "received mimetype: unknown"),
         HttpStatus.UNSUPPORTED_MEDIA_TYPE
       );
     }
@@ -83,7 +130,6 @@ export class ParamsService {
       );
     }
 
-    const head = file.buffer.subarray(0, SNIFF_LEN);
     if (head.includes(NULL_BYTE)) {
       throw new HttpException(
         makeError(FILE_NOT_TEXT, "file contains null bytes in header"),

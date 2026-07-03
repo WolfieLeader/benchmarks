@@ -12,7 +12,7 @@ import {
   makeError,
   NOT_FOUND
 } from "./consts/errors";
-import { dbRouter } from "./routes/db";
+import { dbHealthRouter, dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
 
 export function createApp(): express.Express {
@@ -32,10 +32,11 @@ export function createApp(): express.Express {
     res.json({ hello: "world" });
   });
   app.get("/health", (_req, res) => {
-    res.send("OK");
+    res.type("text/plain").send("OK");
   });
 
   app.use("/params", paramsRouter);
+  app.use("/db", dbHealthRouter);
   app.use("/db", dbRouter);
 
   app.use((_req: Request, res: Response) => {

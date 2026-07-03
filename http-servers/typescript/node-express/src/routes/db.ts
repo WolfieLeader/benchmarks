@@ -11,21 +11,27 @@ declare global {
   }
 }
 
-export const dbRouter: Router = express.Router();
+// Health has its own semantics: an unknown database is 503 (unavailable), not
+// the 404 the CRUD routes return. Keeping it on a separate router avoids the
+// `dbRouter.param` guard below, which would otherwise 404 an unknown database
+// before the health handler runs.
+export const dbHealthRouter: Router = express.Router();
 
-dbRouter.get("/:database/health", async (req, res) => {
+dbHealthRouter.get("/:database/health", async (req, res) => {
   const repository = resolveRepository(req.params.database);
   if (!repository) {
-    res.status(503).send("Service Unavailable");
+    res.status(503).type("text/plain").send("Service Unavailable");
     return;
   }
   const healthy = await repository.healthCheck().catch(() => false);
   if (healthy) {
-    res.send("OK");
+    res.type("text/plain").send("OK");
     return;
   }
-  res.status(503).send("Service Unavailable");
+  res.status(503).type("text/plain").send("Service Unavailable");
 });
+
+export const dbRouter: Router = express.Router();
 
 dbRouter.param("database", (req, res, next, database) => {
   const repository = resolveRepository(database);
