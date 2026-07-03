@@ -14,17 +14,11 @@
     "lint:fix": "biome check --fix ./src"
   },
   "dependencies": {
-    "cassandra-driver": "^4.9.0",
+    "@bench/shared": "workspace:*",
     "cookie-parser": "^1.4.7",
-    "drizzle-orm": "1.0.0-rc.4",
     "express": "^5.2.1",
-    "ioredis": "^5.11.1",
-    "mongodb": "^7.4.0",
     "morgan": "^1.11.0",
-    "multer": "^2.2.0",
-    "pg": "^8.22.0",
-    "uuid": "^14.0.1",
-    "zod": "^4.4.3"
+    "multer": "^2.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
@@ -33,16 +27,10 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.0",
-    "@types/pg": "^8.20.0",
     "tsx": "^4.23.0",
     "typescript": "7.0.1-rc"
   },
   "engines": {
     "node": ">=25.6.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }

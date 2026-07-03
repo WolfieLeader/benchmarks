@@ -12,10 +12,17 @@ import {
   Post,
   Res
 } from "@nestjs/common";
+import {
+  INTERNAL_ERROR,
+  INVALID_JSON_BODY,
+  makeError,
+  NOT_FOUND,
+  resolveRepository,
+  type UserRepository,
+  zCreateUser,
+  zUpdateUser
+} from "@bench/shared";
 import type { Response } from "express";
-import { INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "../consts/errors";
-import { resolveRepository, type UserRepository } from "./database/repository";
-import { zCreateUser, zUpdateUser } from "./database/types";
 
 @Controller("db")
 export class DbController {

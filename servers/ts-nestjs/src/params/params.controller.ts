@@ -13,8 +13,8 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor, NoFilesInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
+import { MAX_FILE_BYTES } from "@bench/shared";
 import multer from "multer";
-import { MAX_FILE_BYTES } from "../consts/defaults";
 // biome-ignore lint/style/useImportType: NestJS DI requires runtime class
 import { ParamsService } from "./params.service";
 
