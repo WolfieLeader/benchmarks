@@ -16,7 +16,9 @@ function lintCmd(s: Server): string {
     case "deno":
       return "deno task lint:fix"; // deno lint --fix
     case "go":
-      return "golangci-lint run ./...";
+      // --allow-parallel-runners: skip the machine-wide lock that kills
+      // concurrent `run`s from our worker pool (see verify.mts for details).
+      return "golangci-lint run --allow-parallel-runners ./...";
     case "uv":
       return "uv run ruff check .";
     case "zig":
