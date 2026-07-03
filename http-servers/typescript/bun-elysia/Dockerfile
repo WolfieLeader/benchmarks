@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.8-alpine AS builder
+FROM oven/bun:1.3.14-alpine AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN bun install --frozen-lockfile --production
 COPY src ./src
 COPY tsconfig.json ./
 
-FROM oven/bun:1.3.8-alpine
+FROM oven/bun:1.3.14-alpine
 
 WORKDIR /app
 
