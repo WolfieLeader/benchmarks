@@ -5,9 +5,25 @@ from concurrent.futures import ThreadPoolExecutor
 import uuid
 from uuid import UUID
 from cassandra.cluster import Cluster  # type: ignore[import-untyped]
-from cassandra.policies import DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
+from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
 
 from src.database.types import CreateUser, UpdateUser, User
+
+
+class _ContactPointAddressTranslator(AddressTranslator):
+    """Pin every discovered node address to the configured contact point.
+
+    Our single-node Cassandra advertises ``broadcast_rpc_address`` as 127.0.0.1;
+    the driver would reconnect to that address, which is unreachable from inside
+    the app container. Routing discovered addresses back to the contact point keeps
+    NAT/container topologies working (in-container -> ``cassandra``, host -> ``localhost``).
+    """
+
+    def __init__(self, host: str) -> None:
+        self._host = host
+
+    def translate(self, addr: str) -> str:
+        return self._host
 
 
 class CassandraUserRepository:
@@ -25,6 +41,7 @@ class CassandraUserRepository:
         self._cluster = Cluster(
             contact_points=self._contact_points,
             load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=self._local_dc),
+            address_translator=_ContactPointAddressTranslator(self._contact_points[0]),
         )
         self._session = self._cluster.connect(self._keyspace)  # type: ignore[union-attr]
 
