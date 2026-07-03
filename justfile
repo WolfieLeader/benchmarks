@@ -252,6 +252,13 @@ lint target='all':
         lint_one "{{target}}"
     fi
 
+# Contract conformance gate: build/run a server in a container, run the contract, tear down (or 'all')
+[group('verify')]
+contract entry='all':
+    node scripts/contract.mts {{entry}}
+
+alias conformance := contract
+
 # Run full verification for a target (or 'all'): typecheck -> fmt -> lint
 [group('verify')]
 verify target='all':
