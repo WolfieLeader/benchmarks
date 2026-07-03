@@ -4,10 +4,10 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock ./
+COPY servers/py-fastapi/pyproject.toml servers/py-fastapi/uv.lock ./
 RUN uv sync --frozen --no-dev
 
-COPY . .
+COPY servers/py-fastapi ./
 
 FROM python:3.14.6-slim
 

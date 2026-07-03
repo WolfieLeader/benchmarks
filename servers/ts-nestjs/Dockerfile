@@ -3,11 +3,11 @@ WORKDIR /app
 
 RUN npm i -g pnpm@10.29.1
 
-COPY package.json pnpm-lock.yaml ./
+COPY servers/ts-nestjs/package.json servers/ts-nestjs/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json tsconfig.build.json ./
-COPY src ./src
+COPY servers/ts-nestjs/tsconfig.json servers/ts-nestjs/tsconfig.build.json ./
+COPY servers/ts-nestjs/src ./src
 
 RUN pnpm build
 

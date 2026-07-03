@@ -14,7 +14,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const httpServersDir = join(repoRoot, "http-servers");
+const serversDir = join(repoRoot, "servers");
 
 // NOTE: the two process.env mutations below run at module load — they are an
 // IMPORT SIDE EFFECT, not a function. Every runtime importer of lib.mts gets
@@ -82,24 +82,21 @@ function fatal(msg: string): never {
   process.exit(1);
 }
 
-// Manifests live exactly at http-servers/<lang>/<entry>/bench.json. A fixed
-// two-level walk (never a recursive scan) cannot descend into installed
+// Manifests live exactly at servers/<entry>/bench.json (flat layout, PLAN §2.1).
+// A fixed one-level walk (never a recursive scan) cannot descend into installed
 // dependency trees (node_modules/.venv/dist), where a stray file named
 // bench.json would otherwise kill every script repo-wide.
 function manifestPaths(): string[] {
   const found: string[] = [];
-  for (const lang of readdirSync(httpServersDir, { withFileTypes: true })) {
-    if (!lang.isDirectory()) continue;
-    for (const entry of readdirSync(join(httpServersDir, lang.name), { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const manifest = join(httpServersDir, lang.name, entry.name, "bench.json");
-      if (existsSync(manifest)) found.push(manifest);
-    }
+  for (const entry of readdirSync(serversDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const manifest = join(serversDir, entry.name, "bench.json");
+    if (existsSync(manifest)) found.push(manifest);
   }
   return found.sort();
 }
 
-// Discover the server roster by scanning http-servers/**/bench.json — adding a
+// Discover the server roster by scanning servers/*/bench.json — adding a
 // server = adding a folder with a manifest, zero central edits (PLAN §7.4). This
 // is the single source of truth for the roster; there is NO static fallback list.
 // Structural guardrails here are minimal (JSON parses, required fields present,
@@ -107,7 +104,7 @@ function manifestPaths(): string[] {
 // full schema + config cross-checks live in scripts/check-config.mts.
 function discoverServers(): Server[] {
   const found = manifestPaths();
-  if (found.length === 0) fatal(`no bench.json manifests found under ${relative(repoRoot, httpServersDir)}/`);
+  if (found.length === 0) fatal(`no bench.json manifests found under ${relative(repoRoot, serversDir)}/`);
 
   const servers: Server[] = [];
   const seen = new Map<string, string>(); // name -> first manifest that declared it
@@ -141,7 +138,7 @@ function discoverServers(): Server[] {
 // root (prettier/config checks). These carry no bench.json manifest, so they are
 // static rows appended after discovery — not a roster fallback.
 const EXTRA_TARGETS: Server[] = [
-  { name: "benchmark", dir: join(repoRoot, "benchmarks"), eco: "go", goBin: "benchmark" },
+  { name: "benchmark", dir: join(repoRoot, "benchmark"), eco: "go", goBin: "benchmark" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 

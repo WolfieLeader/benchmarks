@@ -1,9 +1,9 @@
 {
-  "$schema": "../../../config/bench.schema.json",
-  "name": "fastapi",
+  "$schema": "../../config/bench.schema.json",
+  "name": "py-fastapi",
   "language": "python",
   "runtime": "python",
-  "image": "python-fastapi",
+  "image": "bench/py-fastapi",
   "port": 4001,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
   "experimental": false,

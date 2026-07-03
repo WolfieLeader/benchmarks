@@ -2,10 +2,10 @@ FROM golang:1.27rc1-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY servers/go-fiber/go.mod servers/go-fiber/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY servers/go-fiber ./
 
 ENV CGO_ENABLED=0 \
     GOOS=linux

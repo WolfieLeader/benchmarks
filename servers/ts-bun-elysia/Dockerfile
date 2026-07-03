@@ -2,11 +2,11 @@ FROM oven/bun:1.3.14-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json bun.lock* ./
+COPY servers/ts-bun-elysia/package.json servers/ts-bun-elysia/bun.lock* ./
 RUN bun install --frozen-lockfile --production
 
-COPY src ./src
-COPY tsconfig.json ./
+COPY servers/ts-bun-elysia/src ./src
+COPY servers/ts-bun-elysia/tsconfig.json ./
 
 FROM oven/bun:1.3.14-alpine
 

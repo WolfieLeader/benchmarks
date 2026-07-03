@@ -2,10 +2,10 @@ FROM oven/bun:1.3.14-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json bun.lock* ./
+COPY servers/ts-bun-honojs/package.json servers/ts-bun-honojs/bun.lock* ./
 RUN bun install --frozen-lockfile --production
 
-COPY . .
+COPY servers/ts-bun-honojs ./
 
 FROM oven/bun:1.3.14-alpine
 

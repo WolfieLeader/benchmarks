@@ -39,6 +39,19 @@ venv/
 __pycache__/
 *.py[cod]
 .ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Rust
+target/
+
+# Zig
+.zig-cache/
+zig-out/
+
+# Kotlin / Gradle (keep the wrapper jar)
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
 
 # Environment variables
 .env

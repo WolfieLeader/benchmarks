@@ -4,8 +4,8 @@ WORKDIR /app
 
 ENV DENO_DIR=/deno-dir
 
-COPY deno.json ./
-COPY src ./src
+COPY servers/ts-deno-oak/deno.json ./
+COPY servers/ts-deno-oak/src ./src
 
 RUN deno install
 

@@ -13,7 +13,7 @@
   "cSpell.words": ["contextcheck", "cooldown", "elysia", "Failf", "Infof", "Linef", "nolint", "Successf", "Warnf"],
   "material-icon-theme.folders.associations": {
     "infra": "container",
-    "http-servers": "server",
+    "servers": "server",
     "results": "export"
   }
 }

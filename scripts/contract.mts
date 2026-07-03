@@ -24,7 +24,7 @@ type Entry = { name: string; image: string; port: number; dir: string };
 type Config = { databases: string[] };
 type EntryResult = { name: string; passed: number; failed: number; ok: boolean; note: string };
 
-const benchmarksDir = join(repoRoot, "benchmarks");
+const benchmarkDir = join(repoRoot, "benchmark");
 const contractDir = join(repoRoot, "contract");
 const testFilesDir = join(repoRoot, "test-files");
 
@@ -165,7 +165,11 @@ function imageExists(image: string): boolean {
 
 function buildImage(entry: Entry): void {
   console.log(`\x1b[36m›\x1b[0m building image ${entry.image} from ${entry.dir} ...`);
-  const res = spawnSync("docker", ["build", "-t", entry.image, entry.dir], { stdio: "inherit" });
+  // Root-context build (PLAN §2.4): context = repo root, Dockerfile selected with
+  // -f, so the image can COPY its own folder and (from 0D) the shared/<lang> layer.
+  const res = spawnSync("docker", ["build", "-t", entry.image, "-f", join(entry.dir, "Dockerfile"), repoRoot], {
+    stdio: "inherit"
+  });
   if (res.status !== 0) throw new HarnessError("build", `docker build failed for ${entry.image}`);
 }
 
@@ -220,10 +224,10 @@ async function waitHealthy(port: number, databases: string[]): Promise<void> {
 // Build the conformance binary once and reuse it across every entry (avoids a
 // `go run` recompile per server). Returns the binary path.
 function buildConformanceBinary(): string {
-  const binPath = join(benchmarksDir, "bin", "conformance");
+  const binPath = join(benchmarkDir, "bin", "conformance");
   console.log("\x1b[36m›\x1b[0m building Go conformance binary ...");
   const res = spawnSync("go", ["build", "-o", binPath, "./cmd"], {
-    cwd: benchmarksDir,
+    cwd: benchmarkDir,
     stdio: "inherit"
   });
   if (res.status !== 0) fail("failed to build the Go conformance binary");
@@ -242,7 +246,7 @@ function runConformance(binPath: string, port: number): Promise<{ code: number; 
         `--contract-dir=${contractDir}`,
         `--test-files-dir=${testFilesDir}`
       ],
-      { cwd: benchmarksDir }
+      { cwd: benchmarkDir }
     );
     let buf = "";
     let settled = false;

@@ -3,10 +3,10 @@ WORKDIR /app
 
 RUN npm i -g pnpm@10.29.1
 
-COPY package.json pnpm-lock.yaml ./
+COPY servers/ts-fastify/package.json servers/ts-fastify/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY . .
+COPY servers/ts-fastify ./
 
 FROM node:26.4.0-alpine
 

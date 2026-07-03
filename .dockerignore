@@ -1,0 +1,66 @@
+# Root .dockerignore — Docker build context is the repo root (PLAN §2.4).
+# Ignore rules are context-wide (not per target), so exclude every language's
+# build/dependency artifacts globally. Load-bearing: without excluding host
+# node_modules/.venv, a root-context `COPY servers/<entry>` would clobber the
+# deps a builder stage just installed.
+
+# VCS / tooling
+.git
+**/.git
+.gitignore
+.dockerignore
+**/.dockerignore
+**/Dockerfile
+.vscode
+.idea
+**/.DS_Store
+
+# Docs (never needed at build time)
+*.md
+**/*.md
+
+# Repo areas no image builds from
+.claude/
+grafana/
+infra/
+results/
+assets/
+test-files/
+
+# Env / secrets
+**/.env
+**/.env.*
+**/*.log
+
+# TypeScript / Node / Bun / Deno
+**/node_modules/
+**/dist/
+**/build/
+**/out/
+**/*.tsbuildinfo
+**/.deno/
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Go
+**/bin/
+**/tmp/
+**/.air.toml
+
+# Rust
+**/target/
+
+# Zig
+**/.zig-cache/
+**/zig-out/
+
+# Kotlin / Gradle (keep the wrapper jar)
+**/.gradle/
+!**/gradle/wrapper/gradle-wrapper.jar
