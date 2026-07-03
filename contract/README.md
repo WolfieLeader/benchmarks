@@ -131,11 +131,13 @@ All 16 routes with meaningful variations, plus the negative and security cases:
 
 - **400** — malformed JSON; non-object JSON bodies (array/string/number/bool/null smuggling);
   wrong content-type on form/file; invalid email; out-of-range / malformed
-  `favoriteNumber`; empty name.
+  `favoriteNumber`; empty name; case-mismatched (PascalCase) field names.
 - **404** — unknown user id; unknown database name.
 - **413** — oversized file upload (synthesized).
 - **415** — wrong declared content-type; sniffed binary; and the anti-sniffing case
   (binary content lying as `text/plain`).
 - **path safety** — encoded traversal input returns a normal response, never a file read.
+- **JSON parse semantics** — duplicate keys resolve last-wins (echoed on `/params/body`);
+  field names are case-sensitive so PascalCase keys fail required-field validation (400).
 
 No JWT cases yet — those endpoints arrive in a later phase.
