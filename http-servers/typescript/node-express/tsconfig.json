@@ -6,9 +6,9 @@
     "target": "ES2022",
     "lib": ["ES2022"],
     "moduleDetection": "force",
-    "module": "ESNext",
+    "module": "NodeNext",
     "rootDir": "./src",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "NodeNext",
     "paths": {
       "~/*": ["./src/*"]
     },

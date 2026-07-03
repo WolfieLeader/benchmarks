@@ -2,9 +2,9 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { v7 as uuidv7 } from "uuid";
-import { users } from "./drizzle-schema";
-import type { UserRepository } from "./repository";
-import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./types";
+import { users } from "./drizzle-schema.js";
+import type { UserRepository } from "./repository.js";
+import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./types.js";
 
 export class PostgresUserRepository implements UserRepository {
   private pool: Pool;

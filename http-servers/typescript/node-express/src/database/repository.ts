@@ -1,9 +1,9 @@
-import { env } from "../config/env";
-import { CassandraUserRepository } from "./cassandra";
-import { MongoUserRepository } from "./mongodb";
-import { PostgresUserRepository } from "./postgres";
-import { RedisUserRepository } from "./redis";
-import type { CreateUser, UpdateUser, User } from "./types";
+import { env } from "../config/env.js";
+import { CassandraUserRepository } from "./cassandra.js";
+import { MongoUserRepository } from "./mongodb.js";
+import { PostgresUserRepository } from "./postgres.js";
+import { RedisUserRepository } from "./redis.js";
+import type { CreateUser, UpdateUser, User } from "./types.js";
 
 export interface UserRepository {
   create(data: CreateUser): Promise<User>;
