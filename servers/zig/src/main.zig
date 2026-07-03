@@ -43,9 +43,10 @@ pub fn main(init: std.process.Init) !void {
     var server = try Server.init(io, allocator, .{
         .address = address,
         .request = .{
-            // Accept slightly-over-limit uploads so the handler can return 413
-            // itself; parse form/multipart bodies.
-            .max_body_size = 2 * 1024 * 1024,
+            // Global 10 MiB request-body cap, matching every other server. The
+            // file route enforces its own smaller 1 MiB limit in the handler, so
+            // uploads under this cap still reach that check and return 413.
+            .max_body_size = 10 * 1024 * 1024,
             .max_form_count = 20,
             .max_multiform_count = 20,
         },

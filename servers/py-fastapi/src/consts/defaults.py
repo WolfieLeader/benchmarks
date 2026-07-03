@@ -1,3 +1,4 @@
+MAX_REQUEST_BYTES = 10 << 20  # 10MB global request-body cap
 MAX_FILE_BYTES = 1 << 20
 NULL_BYTE = b"\x00"
 SNIFF_LEN = 512

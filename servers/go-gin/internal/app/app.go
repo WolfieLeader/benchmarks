@@ -17,6 +17,16 @@ type App struct {
 	router *gin.Engine
 }
 
+// maxBodyBytes caps every request body at consts.MaxRequestBytes so no route can
+// read an unbounded body. The file route enforces its own smaller 1MB limit; a
+// body under the global cap still reaches that check and returns its own 413.
+func maxBodyBytes() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, consts.MaxRequestBytes)
+		c.Next()
+	}
+}
+
 func New() *App {
 	r := gin.New()
 
@@ -28,6 +38,7 @@ func New() *App {
 		r.Use(gin.Logger())
 	}
 	r.Use(gin.Recovery())
+	r.Use(maxBodyBytes())
 
 	r.GET("/", func(c *gin.Context) {
 		utils.WriteResponse(c, http.StatusOK, gin.H{"hello": "world"})

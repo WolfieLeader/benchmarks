@@ -31,6 +31,10 @@ func New() *App {
 	// server. Setting one would make Bind() auto-validate and change the
 	// status/shape of error responses on the body routes.
 	r := fiber.New(fiber.Config{
+		// Global request-body cap so no route can read an unbounded body. The file
+		// route enforces its own smaller 1MB limit; a body under this global cap
+		// still reaches that check and returns its own 413.
+		BodyLimit:   consts.MaxRequestBytes,
 		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
 		JSONDecoder: func(data []byte, v any) error {
 			return json.Unmarshal(data, v, jsontext.AllowDuplicateNames(true))

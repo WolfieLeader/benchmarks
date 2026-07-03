@@ -5,11 +5,13 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
 from src.config.env import env
+from src.consts.defaults import MAX_REQUEST_BYTES
+from src.consts.errors import REQUEST_TOO_LARGE, make_error
 from src.database.repository import (
     disconnect_databases,
     initialize_databases,
@@ -32,6 +34,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FastAPI", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def body_size_limit_middleware(request: Request, call_next):
+    # Global request-body cap so no route can read an unbounded body. The file
+    # route enforces its own smaller 1MB limit; a body under this global cap
+    # still reaches that check and returns its own 413.
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            too_large = int(content_length) > MAX_REQUEST_BYTES
+        except ValueError:
+            too_large = False
+        if too_large:
+            return JSONResponse(status_code=413, content=make_error(REQUEST_TOO_LARGE))
+    return await call_next(request)
 
 
 @app.middleware("http")
