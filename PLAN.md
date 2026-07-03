@@ -180,12 +180,13 @@ Shared folders force build context above the app dir. Convention: **build from r
 
 Move `internal/database` (+ sqlc output), `config`, `consts`, and validation into one module. Framework dirs keep idiomatic router wiring, middleware, and handlers (stdlib/chi/gin/fiber/echo each in their canonical style). Add **Echo** and **stdlib** (`net/http` with the ≥1.22 pattern-matching `ServeMux` — the zero-dependency baseline every Go framework is measured against; router idiom is `mux.HandleFunc("METHOD /path/{param}", …)` + `r.PathValue`). `go.work` ties it together.
 
-### Python — `bench-shared`
+### Python — `bench-shared` (slimmed 2026-07-03: multi-consumer rule)
 
-Two repository implementations because runtimes differ:
+Shared holds only what has ≥2 real consumers (Sensei's challenge; same trigger as Zig — extract on second consumer, not before). Consumer count per artifact: validation/consts/env = all 3 · pydantic schemas = fastapi+flask · sync mongo/cassandra repos = flask+django · sync pg/redis = flask only · async repos = fastapi only.
 
-- **async** (asyncpg/SQLAlchemy, motor, redis.asyncio, scylla-driver) → FastAPI, and Django's non-ORM DBs
-- **sync** (psycopg3, pymongo, redis-py, cassandra-driver) → Flask (gunicorn, sync workers)
+- **Always shared**: validation rules, error strings, consts, env handling; pydantic schemas.
+- **sync repos** (psycopg3, pymongo, redis-py, cassandra-driver) → flask + django's mongo/cassandra; they don't exist yet (fastapi is async) — written into shared by the first Phase-4 Python lane that needs them. Sync pg/redis have one consumer (flask) but live with the family for cohesion.
+- **async repos** (asyncpg/SQLAlchemy-async, motor, redis.asyncio, cassandra futures) **stay inside py-fastapi** — single consumer until a second async framework (Sanic/Tornado on the shortlist) triggers extraction. This shrinks D_py to a small schemas/consts extraction.
 - **Django is batteries-included** (locked decision, clarified 2026-07-03): Django ORM + its migrations for Postgres, **and its first-party Redis cache backend (`django.core.cache.backends.redis`, since 4.0) for the Redis routes** — contract-checked in the lane: cache.set/get/delete + read-modify-write cover our CRUD; if some case can't be expressed through the cache abstraction, escalate (fallback = shared sync client). The cache framework's idiomatic overhead (serialization, key prefixing) is Django paying for its batteries, same as its ORM — representative, not unfair. Mongo/Cassandra via the shared layer (genuinely no first-party support). Run under ASGI (uvicorn) with async views where idiomatic.
 - Normalize FastAPI: 1 worker, pg pool 50.
 
