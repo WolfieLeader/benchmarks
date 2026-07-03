@@ -111,6 +111,11 @@ contract entry='all':
 
 alias conformance := contract
 
+# Validate config.json + bench.json manifests against their schemas and cross-check for drift
+[group('verify')]
+check-config:
+    node scripts/check-config.mts
+
 # Non-mutating verification gate for a target (or 'all'): type/build check + format-check + lint
 [group('verify')]
 verify target='all':

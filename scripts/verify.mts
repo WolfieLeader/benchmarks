@@ -11,7 +11,17 @@
 //   uv/python → pyright      · ruff format --check       · ruff check
 //   root      → (none)       · prettier --check          · (none)
 
-import { type Job, pickTargets, report, runJobs, SERVERS, type Server, type Step, targetArg } from "./lib.mts";
+import {
+  type Job,
+  pickTargets,
+  repoRoot,
+  report,
+  runJobs,
+  SERVERS,
+  type Server,
+  type Step,
+  targetArg
+} from "./lib.mts";
 
 type CheckKind = "typecheck" | "format" | "lint";
 const ORDER: CheckKind[] = ["typecheck", "format", "lint"];
@@ -76,5 +86,16 @@ if (only && !ORDER.includes(only)) {
 
 const targets = pickTargets(targetArg(), SERVERS, "verify");
 const jobs: Job[] = targets.map((s) => ({ name: s.name, steps: stepsFor(s, only) })).filter((j) => j.steps.length > 0);
+
+// Config/manifest drift is a repo-wide gate, not a per-target check: run it as its
+// own row whenever the root target is in scope (so `just verify` / `just verify root`
+// fail on drift), and skip it when --only narrows to a single per-target check kind.
+if (!only && targets.some((s) => s.eco === "root")) {
+  jobs.push({
+    name: "check-config",
+    steps: [{ label: "check-config", cmd: "node scripts/check-config.mts", cwd: repoRoot }]
+  });
+}
+
 const results = await runJobs(jobs);
 report(only ? `verify --only=${only}` : "verify", results);

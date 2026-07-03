@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../config/bench.schema.json",
+  "name": "elysia",
+  "language": "typescript",
+  "runtime": "bun",
+  "image": "bun-elysia",
+  "port": 3006,
+  "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "experimental": false,
+  "dev_port": 3006
+}
