@@ -231,6 +231,14 @@
       "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
+      "name": "create_rejects_case_mismatched_field_names",
+      "note": "CANON: JSON field names are case-sensitive. PascalCase keys do not satisfy the required lower-case schema fields, so the required `name`/`email` fields are missing and validation fails 400 (Go json/v1's case-insensitive struct matching was the pre-v2 outlier, fixed by the json/v2 migration). Expressed via rawBody to send exact-cased keys.",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "rawBody": "{\"Name\":\"x\",\"Email\":\"y@conformance-suite.com\",\"FavoriteNumber\":7}",
+      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
       "name": "read_nonexistent_user_404",
       "method": "GET",
       "path": "/db/mongodb/users/000000000000000000000000",

@@ -179,6 +179,14 @@
       "path": "/params/body",
       "rawBody": "null",
       "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "body_duplicate_keys_last_value_wins",
+      "note": "CANON: duplicate JSON keys resolve last-wins (JS JSON.parse / Python json semantics; Go json/v2 tuned with jsontext.AllowDuplicateNames(true) to match). The echo route decodes then re-serializes, so the single surviving `name` proves the server applied last-wins rather than the harness parser. Expressed via rawBody because duplicate keys cannot be written as a JSON object literal.",
+      "method": "POST",
+      "path": "/params/body",
+      "rawBody": "{\"name\":\"first\",\"email\":\"dup@conformance-suite.com\",\"favoriteNumber\":7,\"name\":\"second\"}",
+      "expect": { "status": 200, "body": { "body": { "name": "second", "email": "dup@conformance-suite.com", "favoriteNumber": 7 } } }
     }
   ]
 }
