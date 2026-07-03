@@ -58,6 +58,13 @@ services:
     environment:
       CASSANDRA_CLUSTER_NAME: bench
       CASSANDRA_BROADCAST_RPC_ADDRESS: 127.0.0.1
+      # Pin the gossip seed to the service name (resolves to this node's own IP)
+      # so bootstrap never depends on the entrypoint's `hostname --ip-address`
+      # scrape. That scrape races the network attach on a cold `up`; when it
+      # returns empty the node dies with "The seed provider lists no seeds" and
+      # crash-loops. An explicit seed makes both `just db-up` and the benchmark
+      # client's own stack cold-boot deterministically.
+      CASSANDRA_SEEDS: cassandra
       MAX_HEAP_SIZE: 512M
       HEAP_NEWSIZE: 128M
     volumes:
