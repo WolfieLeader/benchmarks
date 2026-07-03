@@ -15,7 +15,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { repoRoot, SERVERS, type Server } from "./lib.mts";
 
 // A fully-resolved server entry: the roster rows that carry both an image and a
