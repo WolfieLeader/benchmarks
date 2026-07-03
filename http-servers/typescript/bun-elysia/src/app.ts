@@ -33,7 +33,10 @@ export function createApp() {
       set.status = 400;
       return makeError(INVALID_JSON_BODY, (error as Error).message);
     }
-    if (code === "REPOSITORY_NOT_FOUND") return;
+    // REPOSITORY_NOT_FOUND is registered on the db router's scoped instance, so
+    // this root handler's `code` union does not include it at the type level —
+    // compare via String() without narrowing to defer to the scoped handler.
+    if (String(code) === "REPOSITORY_NOT_FOUND") return;
     set.status = 500;
     return makeError(INTERNAL_ERROR, (error as Error).message);
   });

@@ -13,7 +13,7 @@
     "jsr:@std/media-types@1": "1.1.0",
     "jsr:@std/path@1": "1.1.4",
     "npm:cassandra-driver@^4.8.0": "4.8.0",
-    "npm:drizzle-orm@~0.45.1": "0.45.1_pg@8.18.0",
+    "npm:drizzle-orm@1.0.0-rc.4": "1.0.0-rc.4_pg@8.18.0_zod@4.3.6",
     "npm:ioredis@^5.9.2": "5.9.2",
     "npm:mongodb@^7.1.0": "7.1.0",
     "npm:path-to-regexp@^6.3.0": "6.3.0",
@@ -127,13 +127,15 @@
     "denque@2.1.0": {
       "integrity": "sha512-HVQE3AAb/pxF8fQAoiqpvg9i3evqug3hoiwakOyZAwJm+6vZehbkYXZ0l4JxS+I3QxM97v5aaRNhj8v5oBhekw=="
     },
-    "drizzle-orm@0.45.1_pg@8.18.0": {
-      "integrity": "sha512-Te0FOdKIistGNPMq2jscdqngBRfBpC8uMFVwqjf6gtTVJHIQ/dosgV/CLBU2N4ZJBsXL5savCba9b0YJskKdcA==",
+    "drizzle-orm@1.0.0-rc.4_pg@8.18.0_zod@4.3.6": {
+      "integrity": "sha512-BT+pf+qoiYHqltoA88Jmf6ilGMXPlpfE0hEJKc2adRtMCAl25Swk/t5gXcWxZNAwdtf3F5gCd2FpeOyP/pT0Hw==",
       "dependencies": [
-        "pg"
+        "pg",
+        "zod"
       ],
       "optionalPeers": [
-        "pg"
+        "pg",
+        "zod"
       ]
     },
     "ioredis@5.9.2": {
@@ -303,7 +305,7 @@
     "dependencies": [
       "jsr:@oak/oak@^17.2.0",
       "npm:cassandra-driver@^4.8.0",
-      "npm:drizzle-orm@~0.45.1",
+      "npm:drizzle-orm@1.0.0-rc.4",
       "npm:ioredis@^5.9.2",
       "npm:mongodb@^7.1.0",
       "npm:pg@^8.18.0",

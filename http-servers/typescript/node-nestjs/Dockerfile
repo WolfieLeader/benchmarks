@@ -6,7 +6,7 @@ RUN npm i -g pnpm@10.29.1
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 
 RUN pnpm build
