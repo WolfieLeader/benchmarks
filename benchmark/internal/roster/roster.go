@@ -67,6 +67,9 @@ func Discover(serversDir string) ([]Entry, error) {
 			return nil, fmt.Errorf("parse manifest %q: %w", path, err)
 		}
 
+		// Keep this acceptance predicate in sync with scripts/lib.mts — the two
+		// discoverers must agree on what a valid manifest is (runtime/eco fields
+		// are validated only by the scripts, which are their sole consumer).
 		if strings.TrimSpace(m.Name) == "" {
 			return nil, fmt.Errorf("manifest %q: missing required field \"name\"", path)
 		}
