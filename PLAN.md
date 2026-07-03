@@ -25,6 +25,29 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 | Client queue | **No broker** (no Kafka/Rabbit/NATS/BullMQ) — in-process bounded channels; see §7.5. |
 | Client & orchestration | **Keep the custom Go client as both generator and orchestrator** (validation + sequences + lifecycle are the project's value); **no local K8s** (noise + complexity for zero benefit single-node); generator correctness guarded by a **cross-validation gate vs oha/k6**; see §7.6. |
 | Client flags | **Minimal — flags select, config configures.** `config/config.json` is the single source of behavior, schema-validated at startup; see §7.4. |
+| Git workflow | **Feature branches + PRs, no direct pushes to `main`.** One PR per phase-slice, reviewed (incl. a fresh-context reviewer for risky diffs); see §0.2. |
+| Toolchains | Installed & pinned per §0.1 — notably **Go 1.27rc1 as a separate `go1.27rc1` binary** (stable Go untouched), Node via **fnm**, Rust via keg-only **brew rustup** (PATH quirk), Kotlin via **Gradle wrapper** (no system compiler). |
+
+---
+
+## 0.1 Prerequisites & toolchain notes (installed 2026-07-03, macOS arm64)
+
+All toolchains installed and verified. Operational specifics that affect how the repo is built — capture these in the justfile/CI/README during Phase 0:
+
+- **Go 1.27rc1 — separate binary, not a replacement.** Installed via `go install golang.org/dl/go1.27rc1@latest && go1.27rc1 download` → `~/go/bin/go1.27rc1`; stable `go` (1.26.4, Homebrew) is untouched. **Justfile Go recipes call `go1.27rc1` explicitly** (deterministic, no surprise GOTOOLCHAIN fetch). Belt-and-suspenders: go.mod also gets `toolchain go1.27rc1`, so plain `go` with default `GOTOOLCHAIN=auto` auto-downloads the same toolchain — both paths resolve to the same rc.
+- **Node 26.4.0 via fnm** (`fnm install 26 && fnm default 26`). Each TS app pins with a `.node-version` file (fnm auto-switches on `cd` if `--use-on-cd` is enabled). Node 26 is Current (LTS ~Oct 2026) — fine for a benchmark rig.
+- **Rust 1.96.1 via Homebrew `rustup`** (the `rustup` formula, **not** `brew install rust`). Formula is **keg-only and no longer ships `rustup-init`**; bootstrap was `rustup default stable`. Proxies (`cargo`/`rustc`/`rustfmt`/`cargo-clippy`) live in **`/opt/homebrew/opt/rustup/bin`**, which must be on `PATH` (there is **no `~/.cargo/bin`**). README setup + CI must export this path.
+- **Zig 0.16.0 via `brew install zig`** — brew is exactly at 0.16.0 (no lag). Pulls llvm@21/lld@21 as deps.
+- **Deno 2.9.1 via `brew install deno`** — but **upgrade with `deno upgrade`, not brew**.
+- **Kotlin: no system compiler.** `brew install gradle` → **Gradle 9.6.1 bundles Kotlin 2.3.21**; projects build via the Gradle wrapper (`./gradlew`). ⚠️ Gradle's launcher JVM is now **openjdk 26** (brew dep), but Spring Boot's supported ceiling is lower — **Kotlin projects pin a supported JDK via Gradle's `toolchain` block** rather than inheriting 26. JDK 21 is also present.
+- **Already correct**: Bun 1.3.14, uv 0.11.25, pnpm 10.29.1, just 1.54.0, Docker 29.3.0.
+
+## 0.2 Git workflow
+
+- **`main` is protected in practice**: no direct feature pushes. Only the planning docs already on `main` were pushed directly (pre-decision); from here, all changes land via PR.
+- **One PR per reviewable slice**, roughly per phase-step (e.g. `phase0/restructure`, `phase0/shared-ts`, `phase0/conformance`, `phase1/client-metrics-pg`). Branch naming: `phase<N>/<slug>`.
+- **Gate is local, not CI** (hobby project — GitHub Actions is overkill): run `just verify` (typecheck + fmt + lint) and — once it exists — `just conformance <touched server>` before opening/merging a PR. Optional convenience: a local `pre-push` git hook that runs `just verify`.
+- **Risky/security-sensitive PRs get a fresh-context review** (correctness + requirement gaps), per the repo's working agreement.
 
 ---
 
@@ -94,6 +117,20 @@ No Nx/Turborepo/Bazel: there is no build graph to optimize, just "N apps → 1 s
 ### 2.3 Docker build contexts
 
 Shared folders force build context above the app dir. Convention: **build from repo root**, `docker build -f apps/servers/go/chi/Dockerfile .` — each Dockerfile copies `shared/<lang>` + its app. `just images` updated accordingly. `.dockerignore` at root keeps contexts small.
+
+**Ignore files must grow with the new languages** (Phase 0 task). Root context = a root `.dockerignore` is load-bearing (a fat context slows every image build). Both `.gitignore` and root `.dockerignore` need the per-language artifacts:
+
+| Source | Artifacts to ignore |
+| --- | --- |
+| Rust | `target/` (commit `Cargo.lock` for app crates) |
+| Zig | `.zig-cache/`, `zig-out/` |
+| Kotlin/Gradle | `.gradle/`, `build/`, `**/bin/` — but **keep `gradle/wrapper/gradle-wrapper.jar`** (`!` rule) |
+| Python | `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/` |
+| Go | `bin/`, `tmp/` (air live-reload) |
+| TS/Deno | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual` |
+| Benchmark output | **do not blanket-ignore `results/`** — `results/*.json` is versioned source of truth (§9.1); ignore only scratch/tmp run dirs if any |
+
+`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, `results/`, and *other apps' source* (a given image needs only `shared/<lang>` + its own app dir) to keep each build context minimal.
 
 ---
 
@@ -363,7 +400,8 @@ What we actually do is **not classic time-series**: we write event data once per
 ## 11. Execution phases
 
 **Phase 0 — Foundation (~40% of effort)**
-1. Folder restructure (`apps/`, `shared/`) + workspaces (pnpm/go.work/uv/cargo/gradle) + Docker root-context builds + justfile rework + lint/format consolidation (one strict config per language, latest tool versions)
+0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just conformance`, optional `pre-push` hook — no CI) per §0.2.
+1. Folder restructure (`apps/`, `shared/`) + workspaces (pnpm/go.work/uv/cargo/gradle) + Docker root-context builds + justfile rework (Go recipes call `go1.27rc1`; Rust PATH per §0.1) + lint/format consolidation (one strict config per language, latest tool versions)
 2. Shared extraction: TS (`@bench/shared`, pg→postgres, runtime adapters), Go (shared module), Python (async+sync)
 3. Hono multi-runtime entrypoints (node/bun/deno) + port convention + single-process FastAPI + pool normalization + Bun shutdown fix
 4. **Conformance suite** + negative cases → run against all entries (validates the extraction was a pure move; smoke-tests risky runtime×driver combos)
