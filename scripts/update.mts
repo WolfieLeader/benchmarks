@@ -26,8 +26,8 @@ const PINNED: Pin[] = [
   // half of the set actually lands (0E); today @elysiajs/node is not a dep.
 ];
 
-// Resolve each pinned channel to its current version once, up front. Fails loud:
-// a silently unresolved pin would let the blanket bump clobber it.
+// Resolve a pinned channel to its current version. Fails loud: a silently
+// unresolved pin would let the blanket bump clobber it.
 function resolveChannel(pkg: string, channel: string): string {
   const res = spawnSync("npm", ["view", pkg, `dist-tags.${channel}`], { encoding: "utf8" });
   const version = res.status === 0 ? res.stdout.trim() : "";
@@ -37,7 +37,16 @@ function resolveChannel(pkg: string, channel: string): string {
   }
   return version;
 }
-const resolved = new Map(PINNED.map((p) => [p.pkg, resolveChannel(p.pkg, p.channel)]));
+
+// Resolve every pinned channel lazily and only once. Only the npm-family
+// updaters (pnpm/bun/deno) consult the registry, so a Go- or uv-only selection
+// never shells `npm view` (and never hard-exits offline). Fails loud via
+// resolveChannel the moment resolution IS needed.
+let pinVersions: Map<string, string> | null = null;
+function resolvePins(): Map<string, string> {
+  if (pinVersions === null) pinVersions = new Map(PINNED.map((p) => [p.pkg, resolveChannel(p.pkg, p.channel)]));
+  return pinVersions;
+}
 
 // Pins that apply to a given npm-family manifest (package.json).
 function pinsInPackageJson(dir: string): Pin[] {
@@ -60,6 +69,7 @@ function refreshDenoPins(dir: string): Pin[] {
   const imports = manifest.imports ?? {};
   const applied: Pin[] = [];
   let changed = false;
+  const resolved = resolvePins();
   for (const pin of PINNED) {
     const version = resolved.get(pin.pkg);
     const re = new RegExp(`^(npm:${pin.pkg})@[^/]+(/.*)?$`);
@@ -88,15 +98,16 @@ function updateCmd(s: Server): string {
       // pnpm supports `!pkg` negation directly in `update --latest`.
       const excludes = pins.map((p) => `"!${p.pkg}"`).join(" ");
       const bump = `pnpm update --latest${excludes ? ` ${excludes}` : ""}`;
-      const repin = pins.map((p) => `pnpm add --save-exact ${p.dev ? "-D " : ""}${p.pkg}@${resolved.get(p.pkg)}`);
+      const resolved = pins.length > 0 ? resolvePins() : null;
+      const repin = pins.map((p) => `pnpm add --save-exact ${p.dev ? "-D " : ""}${p.pkg}@${resolved?.get(p.pkg)}`);
       return [bump, ...repin, "pnpm install"].join(" && ");
     }
     case "bun": {
       // bun update has no negation filter: blanket-bump first, then re-pin each
       // pinned package at its freshly resolved channel version.
-      const repin = pinsInPackageJson(s.dir).map(
-        (p) => `bun add --exact ${p.dev ? "--dev " : ""}${p.pkg}@${resolved.get(p.pkg)}`
-      );
+      const pins = pinsInPackageJson(s.dir);
+      const resolved = pins.length > 0 ? resolvePins() : null;
+      const repin = pins.map((p) => `bun add --exact ${p.dev ? "--dev " : ""}${p.pkg}@${resolved?.get(p.pkg)}`);
       return ["bun update --latest", ...repin, "bun install"].join(" && ");
     }
     case "deno": {
@@ -122,12 +133,17 @@ function printPins(): void {
   }
   console.log(c.bold("pinned deps (exempt from blanket bump; tracking their channel):"));
   for (const p of PINNED) {
-    console.log(`  ${c.yellow(p.pkg)}@${p.channel} -> ${resolved.get(p.pkg)} — ${p.reason}`);
+    // Show the resolved version only if the selected targets already forced
+    // resolution; a Go/uv-only run prints the channel without hitting npm.
+    const v = pinVersions?.get(p.pkg);
+    console.log(`  ${c.yellow(p.pkg)}@${p.channel}${v ? ` -> ${v}` : ""} — ${p.reason}`);
   }
 }
 
-printPins();
 const targets = pickTargets(targetArg(), SERVERS, "update");
+// Building the jobs runs updateCmd per target, which lazily resolves pins for
+// any npm-family target; printPins then reports whatever was resolved.
 const jobs: Job[] = targets.map((s) => ({ name: s.name, steps: [{ label: "update", cmd: updateCmd(s), cwd: s.dir }] }));
+printPins();
 const results = await runJobs(jobs);
 report("update", results);
