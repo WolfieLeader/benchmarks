@@ -559,6 +559,39 @@ Everything else — TS/Go/Py shared, echo, rust, kotlin, django/flask, endpoints
 
 ---
 
+## 11.2 Working method — multi-agent execution & merge protocol
+
+How the plan is actually executed (decided 2026-07-03, in effect from Phase 0A):
+
+### Roles
+
+- **Lead** (main session): owns the DAG — sequences slices, spawns agents, makes contract-level decisions when implementations disagree, reviews every slice, and is the only one who pushes/merges.
+- **Implementers**: Opus subagents at **medium** effort — one per slice/lane, worktree-isolated when lanes run in parallel. They implement, self-verify, and commit locally; they never push.
+- **Reviewers**: **fresh-context** Opus subagents at **high** effort — they see the diff cold (no implementer context), and critique correctness and requirement gaps, not style. Findings are ranked (blocker/major/minor) with concrete failure scenarios.
+
+### Merge protocol — every PR, in order
+
+1. Implementer **self-verifies**: build + vet + lint clean; the relevant gates green (conformance runs, guard checks).
+2. **Fresh-context high-effort review** of the branch diff; all gating findings fixed by the implementer and re-verified.
+3. Lead **critiques the final diff directly** — reads the actual code, not the agents' summaries.
+4. Lead **independently re-runs every gate**, including the failure modes (non-zero exit on failure, vacuous-green guards firing) — agent claims are never trusted on their face; "looks correct" is not evidence.
+5. Only then: push branch, open PR, merge. `main` stays green and correct at every commit.
+
+### Verification rules
+
+- Go to primary sources: re-run the suite, check the exit code, read the handler — never conclude from a report alone.
+- Bugs are **reproduced before they are fixed**, and the fix is proven with the same reproduction (e.g. the null-body and multipart-form chi bugs: observed on the wire first, fixed, re-proven green across chi/gin/fiber).
+- Findings carry their real conditions — a conclusion that holds only under a precondition is reported with it.
+- If a fix cycles without converging, stop and present evidence + hypotheses instead of churning.
+
+### Standing decisions
+
+- **Popular production libraries over hand-rolled** primitives everywhere — this benchmark represents real production stacks. JWT: `golang-jwt/jwt` (Go), `jose` (TS), PyJWT/joserfc (Python), `jsonwebtoken` (Rust), the idiomatic pick per remaining language. UUID: `google/uuid` (Go), `uuid` (TS) — Bun-native `randomUUIDv7` stays an injectable adapter per §3.
+- Commits are authored as the repo owner with plain messages — no AI attribution of any kind.
+- Small diffs; no features/abstractions/defensive code beyond what the slice needs; validate at system boundaries.
+
+---
+
 ## 12. Risks & open items
 
 - **Deno × pnpm workspace friction**: Deno needs a mirrored `deno.json` workspace list + `--node-modules-dir=manual`; verified in docs, not in this repo — prototype first in Phase 0B before the full restructure.
