@@ -8,7 +8,7 @@
 // Run with Node 26 native type-stripping — erasable-syntax TS only, no build step.
 
 import { spawn, spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -55,6 +55,23 @@ function fatal(msg: string): never {
   process.exit(1);
 }
 
+// Manifests live exactly at http-servers/<lang>/<entry>/bench.json. A fixed
+// two-level walk (never a recursive scan) cannot descend into installed
+// dependency trees (node_modules/.venv/dist), where a stray file named
+// bench.json would otherwise kill every script repo-wide.
+function manifestPaths(): string[] {
+  const found: string[] = [];
+  for (const lang of readdirSync(httpServersDir, { withFileTypes: true })) {
+    if (!lang.isDirectory()) continue;
+    for (const entry of readdirSync(join(httpServersDir, lang.name), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const manifest = join(httpServersDir, lang.name, entry.name, "bench.json");
+      if (existsSync(manifest)) found.push(manifest);
+    }
+  }
+  return found.sort();
+}
+
 // Discover the server roster by scanning http-servers/**/bench.json — adding a
 // server = adding a folder with a manifest, zero central edits (PLAN §7.4). This
 // is the single source of truth for the roster; there is NO static fallback list.
@@ -62,10 +79,7 @@ function fatal(msg: string): never {
 // known runtime, unique names) so any script fails loud on a broken manifest;
 // full schema + config cross-checks live in scripts/check-config.mts.
 function discoverServers(): Server[] {
-  const found = readdirSync(httpServersDir, { recursive: true, withFileTypes: true })
-    .filter((e) => e.isFile() && e.name === "bench.json")
-    .map((e) => join(e.parentPath, e.name))
-    .sort();
+  const found = manifestPaths();
   if (found.length === 0) fatal(`no bench.json manifests found under ${relative(repoRoot, httpServersDir)}/`);
 
   const servers: Server[] = [];
@@ -88,6 +102,9 @@ function discoverServers(): Server[] {
     const prior = seen.get(m.name);
     if (prior) fatal(`duplicate server name "${m.name}" in ${rel} and ${prior}`);
     seen.set(m.name, rel);
+    const priorImage = seen.get(`image:${m.image}`);
+    if (priorImage) fatal(`duplicate image "${m.image}" in ${rel} and ${priorImage}`);
+    seen.set(`image:${m.image}`, rel);
     servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, dev: ECO_DEV[eco] });
   }
   return servers;

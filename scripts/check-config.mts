@@ -13,7 +13,7 @@
 //
 //   node scripts/check-config.mts
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Ajv, type ErrorObject } from "ajv";
@@ -79,10 +79,21 @@ const configDatabases = (config as { databases?: string[] } | null)?.databases ?
 
 // ── (b) http-servers/**/bench.json ──────────────────────────────────────────
 const benchSchemaPath = join(repoRoot, "config", "bench.schema.json");
-const manifestFiles = readdirSync(httpServersDir, { recursive: true, withFileTypes: true })
-  .filter((e) => e.isFile() && e.name === "bench.json")
-  .map((e) => join(e.parentPath, e.name))
-  .sort();
+// Fixed two-level walk (http-servers/<lang>/<entry>/bench.json) — never a
+// recursive scan, so installed dependency trees (node_modules/.venv/dist)
+// can't inject stray bench.json files. Deliberately NOT shared with lib.mts:
+// importing lib would run its fail-fast discovery at module load, killing this
+// script before it can report a malformed manifest gracefully.
+const manifestFiles: string[] = [];
+for (const lang of readdirSync(httpServersDir, { withFileTypes: true })) {
+  if (!lang.isDirectory()) continue;
+  for (const entry of readdirSync(join(httpServersDir, lang.name), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const manifest = join(httpServersDir, lang.name, entry.name, "bench.json");
+    if (existsSync(manifest)) manifestFiles.push(manifest);
+  }
+}
+manifestFiles.sort();
 
 if (manifestFiles.length === 0) add(`no bench.json manifests found under ${rel(httpServersDir)}/`);
 
