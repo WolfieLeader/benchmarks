@@ -6,27 +6,27 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 
 ## 0. Locked decisions
 
-| Topic | Decision |
-| --- | --- |
-| Run scope | **Selectable suites** — config defines endpoint suites + server groups; CLI picks. Full matrix possible, not default. |
-| TS sharing | **Max sharing of infrastructure** — one shared DB layer / schemas / consts for all TS apps; handlers stay idiomatic per framework (see "Framework idioms" below). |
-| New servers | **Full target roster, implemented incrementally** — Django, Flask, Zig, Kotlin (Ktor + Spring Boot), Rust (Axum + Actix), Go Echo. Each lands only after the contract gate exists. |
-| Contract tests | **First implementation slice** — build the conformance/contract gate against the current 10 servers before folder moves, shared extraction, driver swaps, or new servers. Every later server/refactor must pass it. |
-| "Playground" | Folded into the `POST /validate` endpoint (heavy validation à la Zod in every language). Not a separate feature. |
-| Framework idioms | **Idiomatic code and ecosystem conventions everywhere** — each framework/language is written the way its community writes production code (Django ORM, NestJS DI + modules, Spring annotations, Cargo/Gradle layouts, etc.). **Sharing stops where idiom starts**: shared packages hold infrastructure (DB clients, schemas, validation rules, constants, config); routing/handlers/app structure are per-framework and idiomatic. |
-| Zig | **One server** (http.zig), **all 4 databases**, no shared layer (single implementation). |
-| FastAPI workers | Normalize to **single-process** like all other servers (fairness; current `--workers 4` is the biggest asymmetry). |
-| TS runtimes | **Hono is the single multi-runtime TS app** (Node 26 + Bun + Deno — the only framework officially first-class on all three, see §4). All other TS frameworks stay on their home runtime: express/fastify/nestjs → Node, elysia → Bun, oak → Deno. |
-| TS postgres driver | Switch `pg` → **`postgres` (postgres.js)** via `drizzle-orm/postgres-js`. |
-| Go version | **1.27rc1** (confirmed available) via `toolchain` directive, everywhere. |
-| Task runner | **just stays** (no Makefile). We need a command runner, not a build system — incremental builds belong to each language's toolchain. Note `just` install in README for contributors. |
-| Lint/format | **Strict on correctness, default on style** — formatters at ecosystem defaults (they ARE the convention), linters strict and merge-gating via `just verify` / `just contract`. **One config per language** at the language root (no per-server copies). All lint/format tools pinned to **latest versions**. |
-| Metrics stack | **Switch InfluxDB → dedicated PostgreSQL** (metrics instance, separate from the benchmarked one); **keep Grafana**, upgrade to 13.x. Researched decision — see §9.1. |
-| Client queue | **No broker** (no Kafka/Rabbit/NATS/BullMQ) — in-process bounded channels; see §7.5. |
-| Client & orchestration | **Keep the custom Go client as both generator and orchestrator** (validation + sequences + lifecycle are the project's value); **no local K8s** (noise + complexity for zero benefit single-node); generator correctness guarded by a **cross-validation gate vs oha/k6**; see §7.6. |
-| Client flags | **Minimal — flags select, config configures.** `config/config.json` is the single source of behavior, schema-validated at startup; see §7.4. |
-| Git workflow | **Feature branches + PRs, no direct pushes to `main`.** One PR per small phase-slice, reviewed (incl. a fresh-context reviewer for risky diffs); see §0.2. |
-| Toolchains | Installed & pinned per §0.1 — notably **Go 1.27rc1 as a separate `go1.27rc1` binary** (stable Go untouched), Node via **fnm**, Rust via keg-only **brew rustup** (PATH quirk), Kotlin via **Gradle wrapper** (no system compiler). |
+| Topic                  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run scope              | **Selectable suites** — config defines endpoint suites + server groups; CLI picks. Full matrix possible, not default.                                                                                                                                                                                                                                                                                                              |
+| TS sharing             | **Max sharing of infrastructure** — one shared DB layer / schemas / consts for all TS apps; handlers stay idiomatic per framework (see "Framework idioms" below).                                                                                                                                                                                                                                                                  |
+| New servers            | **Full target roster, implemented incrementally** — Django, Flask, Zig, Kotlin (Ktor + Spring Boot), Rust (Axum + Actix), Go Echo. Each lands only after the contract gate exists.                                                                                                                                                                                                                                                 |
+| Contract tests         | **First implementation slice** — build the conformance/contract gate against the current 10 servers before folder moves, shared extraction, driver swaps, or new servers. Every later server/refactor must pass it.                                                                                                                                                                                                                |
+| "Playground"           | Folded into the `POST /validate` endpoint (heavy validation à la Zod in every language). Not a separate feature.                                                                                                                                                                                                                                                                                                                   |
+| Framework idioms       | **Idiomatic code and ecosystem conventions everywhere** — each framework/language is written the way its community writes production code (Django ORM, NestJS DI + modules, Spring annotations, Cargo/Gradle layouts, etc.). **Sharing stops where idiom starts**: shared packages hold infrastructure (DB clients, schemas, validation rules, constants, config); routing/handlers/app structure are per-framework and idiomatic. |
+| Zig                    | **One server** (http.zig), **all 4 databases**, no shared layer (single implementation).                                                                                                                                                                                                                                                                                                                                           |
+| FastAPI workers        | Normalize to **single-process** like all other servers (fairness; current `--workers 4` is the biggest asymmetry).                                                                                                                                                                                                                                                                                                                 |
+| TS runtimes            | **Hono is the single multi-runtime TS app** (Node 26 + Bun + Deno — the only framework officially first-class on all three, see §4). All other TS frameworks stay on their home runtime: express/fastify/nestjs → Node, elysia → Bun, oak → Deno.                                                                                                                                                                                  |
+| TS postgres driver     | Switch `pg` → **`postgres` (postgres.js)** via `drizzle-orm/postgres-js`.                                                                                                                                                                                                                                                                                                                                                          |
+| Go version             | **1.27rc1** (confirmed available) via `toolchain` directive, everywhere.                                                                                                                                                                                                                                                                                                                                                           |
+| Task runner            | **just stays** (no Makefile). We need a command runner, not a build system — incremental builds belong to each language's toolchain. Note `just` install in README for contributors.                                                                                                                                                                                                                                               |
+| Lint/format            | **Strict on correctness, default on style** — formatters at ecosystem defaults (they ARE the convention), linters strict and merge-gating via `just verify` / `just contract`. **One config per language** at the language root (no per-server copies). All lint/format tools pinned to **latest versions**.                                                                                                                       |
+| Metrics stack          | **Switch InfluxDB → dedicated PostgreSQL** (metrics instance, separate from the benchmarked one); **keep Grafana**, upgrade to 13.x. Researched decision — see §9.1.                                                                                                                                                                                                                                                               |
+| Client queue           | **No broker** (no Kafka/Rabbit/NATS/BullMQ) — in-process bounded channels; see §7.5.                                                                                                                                                                                                                                                                                                                                               |
+| Client & orchestration | **Keep the custom Go client as both generator and orchestrator** (validation + sequences + lifecycle are the project's value); **no local K8s** (noise + complexity for zero benefit single-node); generator correctness guarded by a **cross-validation gate vs oha/k6**; see §7.6.                                                                                                                                               |
+| Client flags           | **Minimal — flags select, config configures.** `config/config.json` is the single source of behavior, schema-validated at startup; see §7.4.                                                                                                                                                                                                                                                                                       |
+| Git workflow           | **Feature branches + PRs, no direct pushes to `main`.** One PR per small phase-slice, reviewed (incl. a fresh-context reviewer for risky diffs); see §0.2.                                                                                                                                                                                                                                                                         |
+| Toolchains             | Installed & pinned per §0.1 — notably **Go 1.27rc1 as a separate `go1.27rc1` binary** (stable Go untouched), Node via **fnm**, Rust via keg-only **brew rustup** (PATH quirk), Kotlin via **Gradle wrapper** (no system compiler).                                                                                                                                                                                                 |
 
 ---
 
@@ -65,7 +65,7 @@ All 10 servers expose the **exact same 16 routes** — verified consistent (stat
 
 ### 1.2 Key findings
 
-1. **Duplication is extreme and literal**: DB/repository layer is byte-identical copy-paste — 3× in Go, ~6× in TS. This makes extraction a pure *move* (verifiable by conformance suite), not a rewrite.
+1. **Duplication is extreme and literal**: DB/repository layer is byte-identical copy-paste — 3× in Go, ~6× in TS. This makes extraction a pure _move_ (verifiable by conformance suite), not a rewrite.
 2. **Fairness asymmetries**: FastAPI runs 4 uvicorn workers (everyone else single-process); Python pg pool is 20+40 vs 50 elsewhere; Bun servers use native `RedisClient`/`randomUUIDv7`; Bun servers never stop `Bun.serve` on shutdown.
 3. **Client gaps**: closed-loop fixed-VU only (coordinated omission → understated tail latency); **no RPS/throughput metric at all**; docker CLI shell-outs; host port hardcoded 8080 (no parallel servers); Influx URL/token hardcoded; **metrics silently dropped** if Influx is down; DB reset only once per server; no DB-container resource sampling.
 4. **Grafana won't scale**: per-server colors/labels hardcoded in ~140 lines of JSON overrides; axis capped at `max: 11`; endpoint variable single-select. Queries themselves (`GROUP BY server`) scale fine.
@@ -104,16 +104,16 @@ config/  infra/  grafana/  test-files/  results/
 
 ### 2.2 Workspace tooling — native per language, `just` as the umbrella
 
-No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and rejected): there is no build graph to optimize, just "N apps → 1 shared package" per language. The hermetic-build tools are rejected because — (1) the languages are **islands** (no Go→Rust cross-target deps), so Bazel's one-cross-language-graph superpower has nothing to bite on; (2) they **contradict the "idiomatic everywhere" decision** — replacing `cargo`/`bun`/`deno`/`gradle`/`zig build` with `BUILD` files makes each server *non-idiomatic*, the exact anti-pattern the repo avoids, and less representative as a benchmark; (3) **poor/no rules for the exotic members** (Zig especially; Bun/Deno fight rules_js/pnpm), meaning custom-rule maintenance for the hardest part; (4) **incrementality is already per-language** (build caches for Go/cargo/Gradle/tsc/Zig) and outputs are Docker images from idiomatic Dockerfiles; (5) it's a **hobby project** (CI was already cut as overkill — these are a far bigger tax). They'd only pay off at large-team scale with genuinely cross-language shared builds and remote-execution needs — none present.
+No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and rejected): there is no build graph to optimize, just "N apps → 1 shared package" per language. The hermetic-build tools are rejected because — (1) the languages are **islands** (no Go→Rust cross-target deps), so Bazel's one-cross-language-graph superpower has nothing to bite on; (2) they **contradict the "idiomatic everywhere" decision** — replacing `cargo`/`bun`/`deno`/`gradle`/`zig build` with `BUILD` files makes each server _non-idiomatic_, the exact anti-pattern the repo avoids, and less representative as a benchmark; (3) **poor/no rules for the exotic members** (Zig especially; Bun/Deno fight rules_js/pnpm), meaning custom-rule maintenance for the hardest part; (4) **incrementality is already per-language** (build caches for Go/cargo/Gradle/tsc/Zig) and outputs are Docker images from idiomatic Dockerfiles; (5) it's a **hobby project** (CI was already cut as overkill — these are a far bigger tax). They'd only pay off at large-team scale with genuinely cross-language shared builds and remote-execution needs — none present.
 
-| Language | Mechanism | Notes |
-| --- | --- | --- |
-| TypeScript | **pnpm workspace** | Bun consumes pnpm-installed `node_modules` fine. **Deno does not read `pnpm-workspace.yaml`** — add a root `deno.json` with a mirrored `workspace` list and run with `--node-modules-dir=manual` (verified against Deno docs; expect first-run friction — see §12). |
-| Go | **`go.work`** | spans `shared/go` + each server + `apps/benchmark` |
-| Python | **uv workspace** | `[tool.uv.workspace]`; fastapi/django/flask depend on `bench-shared` |
-| Rust | **Cargo workspace** | shared crate + axum + actix |
-| Kotlin | **Gradle multi-project** | `:shared`, `:ktor`, `:spring-boot` |
-| Zig | none needed | single self-contained app |
+| Language   | Mechanism                | Notes                                                                                                                                                                                                                                                               |
+| ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript | **pnpm workspace**       | Bun consumes pnpm-installed `node_modules` fine. **Deno does not read `pnpm-workspace.yaml`** — add a root `deno.json` with a mirrored `workspace` list and run with `--node-modules-dir=manual` (verified against Deno docs; expect first-run friction — see §12). |
+| Go         | **`go.work`**            | spans `shared/go` + each server + `apps/benchmark`                                                                                                                                                                                                                  |
+| Python     | **uv workspace**         | `[tool.uv.workspace]`; fastapi/django/flask depend on `bench-shared`                                                                                                                                                                                                |
+| Rust       | **Cargo workspace**      | shared crate + axum + actix                                                                                                                                                                                                                                         |
+| Kotlin     | **Gradle multi-project** | `:shared`, `:ktor`, `:spring-boot`                                                                                                                                                                                                                                  |
+| Zig        | none needed              | single self-contained app                                                                                                                                                                                                                                           |
 
 ### 2.3 Task scripts — thin justfile over typed `.mts` orchestrators
 
@@ -133,14 +133,14 @@ Shared folders force build context above the app dir. Convention: **build from r
 
 **Ignore files must grow with the new languages** (Phase 0C task). Root context = a root `.dockerignore` is load-bearing (a fat context slows every image build). Both `.gitignore` and root `.dockerignore` need the per-language artifacts:
 
-| Source | Artifacts to ignore |
-| --- | --- |
-| Rust | `target/` (commit `Cargo.lock` for app crates) |
-| Zig | `.zig-cache/`, `zig-out/` |
-| Kotlin/Gradle | `.gradle/`, `build/`, `**/bin/` — but **keep `gradle/wrapper/gradle-wrapper.jar`** (`!` rule) |
-| Python | `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/` |
-| Go | `bin/`, `tmp/` (air live-reload) |
-| TS/Deno | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual` |
+| Source           | Artifacts to ignore                                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rust             | `target/` (commit `Cargo.lock` for app crates)                                                                                                                                             |
+| Zig              | `.zig-cache/`, `zig-out/`                                                                                                                                                                  |
+| Kotlin/Gradle    | `.gradle/`, `build/`, `**/bin/` — but **keep `gradle/wrapper/gradle-wrapper.jar`** (`!` rule)                                                                                              |
+| Python           | `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`                                                                                                        |
+| Go               | `bin/`, `tmp/` (air live-reload)                                                                                                                                                           |
+| TS/Deno          | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual`                                                                                                 |
 | Benchmark output | **split published vs scratch** — version curated `results/published/**/*.json`; ignore scratch/local run output (`results/runs/`, tmp dirs) so machine-specific runs do not churn the repo |
 
 `.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`apps/servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
@@ -151,23 +151,23 @@ Shared folders force build context above the app dir. Convention: **build from r
 
 **Guiding principle — share infrastructure, keep app code idiomatic.** The shared packages contain what is framework-independent by nature: DB clients + repositories, data types, validation schemas/rules, constants, env parsing. Everything the framework has an opinion about — routing, handlers, middleware wiring, DI, project layout — is written per-framework in that framework's canonical production style. If sharing a piece would force a framework out of its idiom (NestJS services/DI, Django ORM views, Spring controllers), it is not shared. Each language follows its ecosystem's conventions and tooling, under one policy — **formatters at defaults, linters strict, one config per language root, latest tool versions, all merge-gating through `just verify` + `just contract`**:
 
-| Language | Formatter (ecosystem defaults) | Linter (strict) |
-| --- | --- | --- |
-| TypeScript | biome format | biome recommended + current extra rules (single root config — today's per-server configs consolidate) |
-| Go | golangci-lint fmt (gofmt/gofumpt) | golangci-lint, curated linter set in one shared `.golangci` config |
-| Python | ruff format | ruff (wide rule selection) + pyright **strict mode** |
-| Rust | rustfmt (untouched) | clippy with `-D warnings` |
-| Kotlin | ktlint | detekt |
-| Zig | `zig fmt --check` | (compiler is the linter) |
+| Language   | Formatter (ecosystem defaults)    | Linter (strict)                                                                                       |
+| ---------- | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| TypeScript | biome format                      | biome recommended + current extra rules (single root config — today's per-server configs consolidate) |
+| Go         | golangci-lint fmt (gofmt/gofumpt) | golangci-lint, curated linter set in one shared `.golangci` config                                    |
+| Python     | ruff format                       | ruff (wide rule selection) + pyright **strict mode**                                                  |
+| Rust       | rustfmt (untouched)               | clippy with `-D warnings`                                                                             |
+| Kotlin     | ktlint                            | detekt                                                                                                |
+| Zig        | `zig fmt --check`                 | (compiler is the linter)                                                                              |
 
 ### TypeScript — `@bench/shared`
 
 - **DB clients + repositories**: single implementation. Extract first with the existing behavior/driver under the contract gate; switch `pg` → `postgres` (postgres.js) through `drizzle-orm/postgres-js` in a separate PR so a driver swap is not hidden inside a move-only refactor. Mongo (`mongodb`), Redis (`ioredis`), Cassandra (`cassandra-driver`).
 - **Runtime adapters**: portable impl is the default; Bun-native bits (`Bun.RedisClient`, `randomUUIDv7`) become injectable adapters chosen by the entrypoint, so Bun entries keep their native edge while sharing everything else.
 - **Zod schemas, env parsing, consts/errors**: moved verbatim (already byte-identical).
-- **Build split — servers use `tsc`, shared uses tsdown.** The **shared package** builds with **tsdown** (rolldown/oxc-based, tsup successor) → **ESM + `.d.ts`**, not consumed as raw source: Bun/Deno/tsx *could* import source directly, but NestJS builds via tsc and wants real declaration files, and the TS 7 native `tsc` typecheck resolves cleaner against emitted `.d.ts` than deep source across workspace refs. One built artifact → every runtime consumes the shared layer identically (reinforces "same code everywhere"). The **server apps compile/typecheck with `tsc`** (TS 7) against that built `.d.ts` — NestJS emits to `dist/`, the others typecheck `--noEmit` and run via their runtime (tsx/Bun/Deno). Cost: a build step in shared (tsdown `--watch` in dev). tsdown pinned like the rest.
+- **Build split — servers use `tsc`, shared uses tsdown.** The **shared package** builds with **tsdown** (rolldown/oxc-based, tsup successor) → **ESM + `.d.ts`**, not consumed as raw source: Bun/Deno/tsx _could_ import source directly, but NestJS builds via tsc and wants real declaration files, and the TS 7 native `tsc` typecheck resolves cleaner against emitted `.d.ts` than deep source across workspace refs. One built artifact → every runtime consumes the shared layer identically (reinforces "same code everywhere"). The **server apps compile/typecheck with `tsc`** (TS 7) against that built `.d.ts` — NestJS emits to `dist/`, the others typecheck `--noEmit` and run via their runtime (tsx/Bun/Deno). Cost: a build step in shared (tsdown `--watch` in dev). tsdown pinned like the rest.
 
-- **TypeScript 7.0 RC (native compiler) — adopt** (researched, July 2026). Install `typescript@rc` (= **`typescript@7.0.1-rc`**; `latest` is still 6.0.3, so **pin it** — a blanket update would clobber it). The native binary is now named **`tsc`** (the old `tsgo` name was dropped at RC). Adoption rules: (1) **use native `tsc --noEmit` as the typecheck gate across all TS projects** — safe, at parity, ~10× faster; (2) **NestJS emit**: native `tsc` now does full JS + `.d.ts` emit, so it *can* build `dist/` — validate the declaration output once, else keep 6.x `tsc` for NestJS's emit step and native for `--noEmit`; (3) **do not point `ts-node` at TS 7** (no stable programmatic API until 7.1) — moot for us, we run via `tsx`; (4) **Bun/Deno runtimes are unaffected** — they transpile with their own toolchains and never read the `typescript` package (Deno's `deno check` uses its bundled TS), so TS 7 is purely an optional external typecheck there. Validate each project's typecheck/build once when flipping the switch (no official per-tool compat matrix exists).
+- **TypeScript 7.0 RC (native compiler) — adopt** (researched, July 2026). Install `typescript@rc` (= **`typescript@7.0.1-rc`**; `latest` is still 6.0.3, so **pin it** — a blanket update would clobber it). The native binary is now named **`tsc`** (the old `tsgo` name was dropped at RC). Adoption rules: (1) **use native `tsc --noEmit` as the typecheck gate across all TS projects** — safe, at parity, ~10× faster; (2) **NestJS emit**: native `tsc` now does full JS + `.d.ts` emit, so it _can_ build `dist/` — validate the declaration output once, else keep 6.x `tsc` for NestJS's emit step and native for `--noEmit`; (3) **do not point `ts-node` at TS 7** (no stable programmatic API until 7.1) — moot for us, we run via `tsx`; (4) **Bun/Deno runtimes are unaffected** — they transpile with their own toolchains and never read the `typescript` package (Deno's `deno check` uses its bundled TS), so TS 7 is purely an optional external typecheck there. Validate each project's typecheck/build once when flipping the switch (no official per-tool compat matrix exists).
 - **Routing/handlers stay per-framework and idiomatic** (Express routers, Fastify plugins + its schema hooks, NestJS modules/controllers/services with DI, Hono/Elysia app chains, Oak router) — they call the shared repositories and Zod schemas.
 
 ### Go — `shared` module
@@ -177,6 +177,7 @@ Move `internal/database` (+ sqlc output), `config`, `consts`, and validation int
 ### Python — `bench-shared`
 
 Two repository implementations because runtimes differ:
+
 - **async** (asyncpg/SQLAlchemy, motor, redis.asyncio, scylla-driver) → FastAPI, and Django's non-ORM DBs
 - **sync** (psycopg3, pymongo, redis-py, cassandra-driver) → Flask (gunicorn, sync workers)
 - **Django is batteries-included** (locked decision): Django ORM + its migrations for Postgres; Mongo/Redis/Cassandra via the shared layer (Django has no first-party support for them). Run under ASGI (uvicorn) with async views where idiomatic.
@@ -194,14 +195,14 @@ Two repository implementations because runtimes differ:
 
 Latest: **Node 26.4.0** (Current; LTS is 24.x until Oct 2026) · **Bun 1.3.14** · **Deno 2.9.1**.
 
-| Framework | Node 26 | Bun 1.3 | Deno 2.9 | Ship? |
-| --- | --- | --- | --- | --- |
-| Hono 4 (`@hono/node-server` v2) | ✅ official | ✅ official (`export default app`) | ✅ official (`Deno.serve(app.fetch)`) | **node-hono, bun-hono, deno-hono** |
-| Elysia 1.4 (`@elysiajs/node` 1.4.5) | ⚠️ official adapter, youngest — history of lockstep breakage | ✅ home runtime | ❌ no adapter (web-standard mode untested) | **bun-elysia only** |
-| Express 5 | ✅ native | ✅ Bun claims full support | ✅ via `npm:express` | **node-express only** |
-| Fastify 5 | ✅ native | ✅ node:http fully implemented (not in Fastify CI) | ⚠️ compat-only; Fastify won't support Deno | **node-fastify only** |
-| NestJS 11 | ✅ native | ⚠️ real regressions (e.g. bun#27526), no official support | ⚠️ community-only, "not production-ready" | **node-nestjs only** |
-| Oak 17 (**JSR** `@oak/oak`; npm copy is stale at 14.1) | ⚠️ official but no TLS/`.send()`/WS | ⚠️ same as Node | ✅ home runtime | **deno-oak only** |
+| Framework                                              | Node 26                                                      | Bun 1.3                                                   | Deno 2.9                                   | Ship?                              |
+| ------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------ | ---------------------------------- |
+| Hono 4 (`@hono/node-server` v2)                        | ✅ official                                                  | ✅ official (`export default app`)                        | ✅ official (`Deno.serve(app.fetch)`)      | **node-hono, bun-hono, deno-hono** |
+| Elysia 1.4 (`@elysiajs/node` 1.4.5)                    | ⚠️ official adapter, youngest — history of lockstep breakage | ✅ home runtime                                           | ❌ no adapter (web-standard mode untested) | **bun-elysia only**                |
+| Express 5                                              | ✅ native                                                    | ✅ Bun claims full support                                | ✅ via `npm:express`                       | **node-express only**              |
+| Fastify 5                                              | ✅ native                                                    | ✅ node:http fully implemented (not in Fastify CI)        | ⚠️ compat-only; Fastify won't support Deno | **node-fastify only**              |
+| NestJS 11                                              | ✅ native                                                    | ⚠️ real regressions (e.g. bun#27526), no official support | ⚠️ community-only, "not production-ready"  | **node-nestjs only**               |
+| Oak 17 (**JSR** `@oak/oak`; npm copy is stale at 14.1) | ⚠️ official but no TLS/`.send()`/WS                          | ⚠️ same as Node                                           | ✅ home runtime                            | **deno-oak only**                  |
 
 **Decision: Hono is the single multi-runtime TS app** — it is the only framework with first-party support on all three runtimes, which makes it the clean runtime-vs-runtime comparison (same app, same code, three runtimes). Every other framework ships on its home runtime only, avoiding the ⚠️ compat-layer tier entirely. → **8 TS entries** (was 6): the 5 home-runtime apps + hono×3.
 
@@ -211,13 +212,13 @@ Latest: **Node 26.4.0** (Current; LTS is 24.x until Oct 2026) · **Bun 1.3.14** 
 
 ## 5. New endpoints
 
-| Endpoint | Suite | What it exercises | Contract sketch |
-| --- | --- | --- | --- |
-| `GET /html` | `web` | server-rendered HTML template | `200 text/html`, small dynamic template (name + list + number interpolation) |
-| `GET /jwt/sign` | `web` | HS256 sign | `200 {"token": "..."}` — fixed claims + exp, shared secret via env |
-| `GET /jwt/verify` | `web` | HS256 verify + header parsing | `Authorization: Bearer <t>` → `200 {payload}` / `401 {"error":"invalid token"}` |
-| `POST /validate` | `web` | heavy validation (Zod / Pydantic / validator / serde / etc.) | deep nested object (~4 levels, arrays, enums, email/uuid/range rules) → `200 {"valid":true}` / `400` with error count; pass **and** fail variations |
-| `GET /compute?n=` | `web` | pure CPU (isolates runtime from I/O) | e.g. iterative SHA-256 chain of n rounds → `200 {"result": "<hex>"}` , n capped |
+| Endpoint          | Suite | What it exercises                                            | Contract sketch                                                                                                                                     |
+| ----------------- | ----- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /html`       | `web` | server-rendered HTML template                                | `200 text/html`, small dynamic template (name + list + number interpolation)                                                                        |
+| `GET /jwt/sign`   | `web` | HS256 sign                                                   | `200 {"token": "..."}` — fixed claims + exp, shared secret via env                                                                                  |
+| `GET /jwt/verify` | `web` | HS256 verify + header parsing                                | `Authorization: Bearer <t>` → `200 {payload}` / `401 {"error":"invalid token"}`                                                                     |
+| `POST /validate`  | `web` | heavy validation (Zod / Pydantic / validator / serde / etc.) | deep nested object (~4 levels, arrays, enums, email/uuid/range rules) → `200 {"valid":true}` / `400` with error count; pass **and** fail variations |
+| `GET /compute?n=` | `web` | pure CPU (isolates runtime from I/O)                         | e.g. iterative SHA-256 chain of n rounds → `200 {"result": "<hex>"}` , n capped                                                                     |
 
 Existing 16 routes are unchanged. Suites: `basic` (root/health), `params`, `web` (new), `db` (per-database CRUD).
 
@@ -227,26 +228,26 @@ Existing 16 routes are unchanged. Suites: `basic` (root/health), `params`, `web`
 
 ### Roster (final: 20 entries)
 
-| Language | Entries |
-| --- | --- |
+| Language       | Entries                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------- |
 | TypeScript (8) | node-express, node-fastify, node-nestjs, deno-oak, bun-elysia, **node-hono, bun-hono, deno-hono** |
-| Go (4) | chi, gin, fiber, **echo** |
-| Python (3) | fastapi, **django**, **flask** |
-| Rust (2) | **axum**, **actix** |
-| Kotlin (2) | **ktor**, **spring-boot** |
-| Zig (1) | **zig** (http.zig) |
+| Go (4)         | chi, gin, fiber, **echo**                                                                         |
+| Python (3)     | fastapi, **django**, **flask**                                                                    |
+| Rust (2)       | **axum**, **actix**                                                                               |
+| Kotlin (2)     | **ktor**, **spring-boot**                                                                         |
+| Zig (1)        | **zig** (http.zig)                                                                                |
 
 ### Zig server (researched, July 2026)
 
 Zig **0.16.0 stable** (Apr 2026). Stack — all four databases, mixed pure-Zig/C:
 
-| Piece | Choice | Status |
-| --- | --- | --- |
-| HTTP | **http.zig** (karlseguin) | 0.16-native, actively maintained, the de-facto production server |
-| Postgres | **pg.zig** (same author) | 0.16-native, has `pg.Pool` — solid |
-| Redis | **okredis** (verify 0.16 build) or hand-rolled RESP client (~150 lines) | easy either way |
-| Cassandra | **zig-cassandra** (pure Zig, updated at 0.16 release — build-verify) | fallback: apache cassandra-cpp-driver (C API) via `@cImport` |
-| MongoDB | **libmongoc via C interop** — no living Zig driver exists | the one hard item; drags a C toolchain into the Docker build |
+| Piece     | Choice                                                                  | Status                                                           |
+| --------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| HTTP      | **http.zig** (karlseguin)                                               | 0.16-native, actively maintained, the de-facto production server |
+| Postgres  | **pg.zig** (same author)                                                | 0.16-native, has `pg.Pool` — solid                               |
+| Redis     | **okredis** (verify 0.16 build) or hand-rolled RESP client (~150 lines) | easy either way                                                  |
+| Cassandra | **zig-cassandra** (pure Zig, updated at 0.16 release — build-verify)    | fallback: apache cassandra-cpp-driver (C API) via `@cImport`     |
+| MongoDB   | **libmongoc via C interop** — no living Zig driver exists               | the one hard item; drags a C toolchain into the Docker build     |
 
 Blocking C clients are fine under http.zig's thread-per-worker model — no architectural blocker. Estimated 4–7 days.
 
@@ -280,7 +281,7 @@ Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-ec
 ### 7.1 Correctness of measurement
 
 - **Throughput (RPS) reported everywhere** — the current latency-only ranking cannot distinguish fast-per-request from high-throughput. New `throughput` fields in summaries, the metrics DB, and dashboards.
-- **Open-model mode** alongside the current closed loop: constant-arrival-rate scheduling with latency measured from *intended* send time — fixes coordinated omission. Config: `mode: "closed" | "open"`, `rate`.
+- **Open-model mode** alongside the current closed loop: constant-arrival-rate scheduling with latency measured from _intended_ send time — fixes coordinated omission. Config: `mode: "closed" | "open"`, `rate`.
 - **Load profiles / ramping**: k6-style stages — `[{target, duration}]` for ramp-up → hold → ramp-down, step-load, and spike shapes; per suite.
 - **Backpressure is measured, not hidden**: in open mode, when the server can't absorb the target rate the client records schedule lag / late-starts / backlog depth explicitly — saturation becomes a first-class result instead of silently degrading into a closed loop.
 - **Max-throughput search** (phase 2 of client work): stepped ramp finding the highest rate where error-rate and p99 stay within budget → a single "capacity" number per server.
@@ -307,7 +308,7 @@ Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-ec
 
 **Discovery — make the client folder-structure aware.** Today the roster lives hardcoded in `config/config.json` (`servers` list) and drifts from reality. Instead: each server app carries a small manifest (`bench.json`) next to its Dockerfile declaring `{name, language, runtime, image, databases, experimental, dev_port}`. The client **discovers the roster by scanning `apps/servers/**/bench.json`** — adding a server = adding a folder, zero central edits. `config/config.json` keeps only benchmark parameters (suites, endpoints, load profiles, container limits); the schema validates both.
 
-**Flags — deliberately minimal: flags select, config configures.** `config/config.json` is the single source of truth for all behavior (load mode, rates, profiles, durations, limits, output). Flags only scope *this run* and never introduce a second place to configure something:
+**Flags — deliberately minimal: flags select, config configures.** `config/config.json` is the single source of truth for all behavior (load mode, rates, profiles, durations, limits, output). Flags only scope _this run_ and never introduce a second place to configure something:
 
 ```
 --servers=a,b,c     select servers (default: interactive multi-select from discovery)
@@ -328,7 +329,7 @@ That's the whole surface. Anything tempting as a flag (rate, concurrency, profil
 
 - The work is already in-process: workers → bounded Go channels → aggregator → batched async metrics writer. That is the same architecture k6, vegeta, and wrk2 use; none of them use an external broker.
 - A broker container (Kafka/Rabbit/NATS) would compete for CPU/RAM with the server being measured — the benchmark would contaminate its own numbers with infrastructure it doesn't need.
-- Brokers solve durability and fan-out *across processes/machines*. We have one producer and one consumer in one process; Go channels give the same decoupling with nanosecond overhead and zero serialization.
+- Brokers solve durability and fan-out _across processes/machines_. We have one producer and one consumer in one process; Go channels give the same decoupling with nanosecond overhead and zero serialization.
 - The "no silent drops" requirement (§7.2) is solved by bounded channels + accounting, not by a durable queue.
 - BullMQ is a Node/Redis job queue — wrong ecosystem for a Go client entirely.
 
@@ -336,12 +337,13 @@ The only scenario where a broker (NATS would be the pick) earns its place is **d
 
 ### 7.6 Build vs buy: custom client & orchestrator — and why not Kubernetes
 
-**Custom client: keep it — it is the project.** The generic load-generation part could be bought (k6, wrk2, vegeta, oha), but everything that makes this repo valuable is custom logic no off-the-shelf tool provides together: full response-body validation on every request (correctness, not just status codes), CRUD sequences with capture/templated vars fanned out per database, per-server container lifecycle with resource sampling, the conformance mode, and one coherent results/metrics pipeline. Gluing k6 (JS scripting, its own per-VU overhead) or wrk2 (Lua, no sequences/validation) to a separate orchestrator, a separate validator, and a separate stats collector would be *more* moving parts, not fewer. TechEmpower reached the same conclusion — custom harness. The known risk of DIY — subtle generator bugs — is handled by the **cross-validation gate** in §7.1 (calibrate against oha/k6, agree within ~5%).
+**Custom client: keep it — it is the project.** The generic load-generation part could be bought (k6, wrk2, vegeta, oha), but everything that makes this repo valuable is custom logic no off-the-shelf tool provides together: full response-body validation on every request (correctness, not just status codes), CRUD sequences with capture/templated vars fanned out per database, per-server container lifecycle with resource sampling, the conformance mode, and one coherent results/metrics pipeline. Gluing k6 (JS scripting, its own per-VU overhead) or wrk2 (Lua, no sequences/validation) to a separate orchestrator, a separate validator, and a separate stats collector would be _more_ moving parts, not fewer. TechEmpower reached the same conclusion — custom harness. The known risk of DIY — subtle generator bugs — is handled by the **cross-validation gate** in §7.1 (calibrate against oha/k6, agree within ~5%).
 
 **Orchestrator: the Go client stays the orchestrator; no Kubernetes.** What orchestration actually requires here: start one server container at a time, wait for readiness, apply resource limits, sample stats, tear down, next. That's testcontainers-go territory (§7.3). Local K8s (kind/k3d/minikube) would add:
+
 - **measurement noise** — control plane + kubelet burning CPU on the same host that runs the SUT;
 - **network distortion** — kube-proxy/CNI layers between client and server, versus Docker's direct port mapping;
-- **complexity tax** — manifests, image loading into the cluster, slower iteration — for a *sequential, single-node* workload that uses none of K8s's actual value (scheduling across nodes, self-healing, service discovery).
+- **complexity tax** — manifests, image loading into the cluster, slower iteration — for a _sequential, single-node_ workload that uses none of K8s's actual value (scheduling across nodes, self-healing, service discovery).
 
 K8s becomes the right tool only if benchmarking ever goes distributed/multi-node (client on one machine, SUT on another, DBs on a third) — same trigger as the broker question, same answer: out of scope, revisit then. Plain docker compose alone was also considered and rejected for the per-server loop: it can't express "sequential lifecycle with readiness gates, stats attach, and cooldowns" — that logic needs a program, and we have one.
 
@@ -373,21 +375,21 @@ Behavior:
 
 What we actually do is **not classic time-series**: we write event data once per run (per-request latencies, aggregates) tagged by `run_id`, then run OLAP-style queries (rank, percentile, group-by, cross-run compare). The current setup even fakes timestamps (`baseTime + index·µs`) to satisfy Influx's data model — a sign of mismatch. Research verdict:
 
-- **InfluxDB 3 Core is disqualified** for the "compare runs across weeks" requirement: the ~72h limit is real and current (implemented as a 432-Parquet-file query limit — queries touching more files *error out*; raising `query-file-limit` degrades speed/RAM because **Core has no compactor**). Historical data is second-class by design; the fix is Enterprise's non-commercial license — a mismatch traded for a license dependency. ([config-options docs](https://docs.influxdata.com/influxdb3/core/reference/config-options/), [community thread](https://community.influxdata.com/t/influxdb-3-core-seems-to-ignore-the-72-hour-query-time-range-limit/57443))
+- **InfluxDB 3 Core is disqualified** for the "compare runs across weeks" requirement: the ~72h limit is real and current (implemented as a 432-Parquet-file query limit — queries touching more files _error out_; raising `query-file-limit` degrades speed/RAM because **Core has no compactor**). Historical data is second-class by design; the fix is Enterprise's non-commercial license — a mismatch traded for a license dependency. ([config-options docs](https://docs.influxdata.com/influxdb3/core/reference/config-options/), [community thread](https://community.influxdata.com/t/influxdb-3-core-seems-to-ignore-the-72-hour-query-time-range-limit/57443))
 - **Plain PostgreSQL wins** for this workload (≤ millions of rows per run): exact `percentile_cont` for p50/p95/p99/p99.9, rankings are plain `GROUP BY`/`ORDER BY`, durable history with ordinary backups, no query window, built-in core Grafana datasource with `$__timeFilter` macros — and it's already in the project. Batched inserts (COPY / multi-row) during runs.
-- **ClickHouse** (runner-up): best-in-class quantiles, but the heaviest container in the compose (~0.5–1 GB idle untuned; docs assume big machines) and a small-insert anti-pattern to manage — overkill at this scale. **TimescaleDB**: optimizations we don't need at this scale. **VictoriaMetrics/Prometheus**: confirmed anti-pattern (per-run_id labels = high-cardinality churn, approximate quantiles only, no raw events). **DuckDB/Parquet**: great for *static post-run reports*, weak as a live Grafana backend (unsigned plugin, single-writer).
+- **ClickHouse** (runner-up): best-in-class quantiles, but the heaviest container in the compose (~0.5–1 GB idle untuned; docs assume big machines) and a small-insert anti-pattern to manage — overkill at this scale. **TimescaleDB**: optimizations we don't need at this scale. **VictoriaMetrics/Prometheus**: confirmed anti-pattern (per-run*id labels = high-cardinality churn, approximate quantiles only, no raw events). **DuckDB/Parquet**: great for \_static post-run reports*, weak as a live Grafana backend (unsigned plugin, single-writer).
 - Also considered: **MongoDB** (already in the project, but percentile/ranking analytics in aggregation pipelines are clumsy vs SQL and Grafana's Mongo support is weaker); **SQLite/DuckDB as live store** (single-writer, no server for Grafana to query mid-run — fine for post-run reports only).
 - Peer validation: TechEmpower keeps `results.json` + a custom viewer; sharkbench writes CSVs; k6 recommends Prometheus→Grafana live + HTML export post-run. Nobody at this scale runs a heavy analytics DB.
 
-**Why Postgres specifically, in one paragraph**: the workload is *small-scale relational OLAP* — millions of rows at most, queried by exact `run_id`/`server`/`endpoint` equality, needing exact percentiles and rankings. That is the textbook profile of a boring SQL database. Postgres does it *exactly* (`percentile_cont`, window functions), is already operated in this repo, costs one small container, has the most battle-tested Grafana datasource in existence, and imposes zero data-model contortions (no tags-vs-fields, no cardinality budgets, no retention windows). Every alternative is either a specialized engine whose specialization we don't use (ClickHouse: columnar scale; Influx/VM: high-frequency ingest with recent-data bias) or fails a hard requirement (live queries, history, exact quantiles). When no requirement demands a specialized tool, the general boring one wins.
+**Why Postgres specifically, in one paragraph**: the workload is _small-scale relational OLAP_ — millions of rows at most, queried by exact `run_id`/`server`/`endpoint` equality, needing exact percentiles and rankings. That is the textbook profile of a boring SQL database. Postgres does it _exactly_ (`percentile_cont`, window functions), is already operated in this repo, costs one small container, has the most battle-tested Grafana datasource in existence, and imposes zero data-model contortions (no tags-vs-fields, no cardinality budgets, no retention windows). Every alternative is either a specialized engine whose specialization we don't use (ClickHouse: columnar scale; Influx/VM: high-frequency ingest with recent-data bias) or fails a hard requirement (live queries, history, exact quantiles). When no requirement demands a specialized tool, the general boring one wins.
 
-**Decisions**: (1) metrics go to a **dedicated `metrics-postgres` container** in the grafana compose stack — *never* the benchmarked postgres instance, which must stay uncontaminated; (2) the writer swap is contained — `internal/influx` becomes `internal/metrics` with the same call sites; (3) schema: `runs`, `request_events` (sampled drilldown only), `endpoint_stats`, `sequence_stats`, `resource_samples` — tags become plain indexed columns, killing the fake-timestamp hack for free; (4) exact percentiles/rankings are computed from the full in-memory/full-run result set before any event sampling, then written to aggregate tables; sampled raw events are never the source of truth for p95/p99; (5) curated `results/published/**/*.json` stays the durable, versioned source for published results, while scratch run output stays ignored.
+**Decisions**: (1) metrics go to a **dedicated `metrics-postgres` container** in the grafana compose stack — _never_ the benchmarked postgres instance, which must stay uncontaminated; (2) the writer swap is contained — `internal/influx` becomes `internal/metrics` with the same call sites; (3) schema: `runs`, `request_events` (sampled drilldown only), `endpoint_stats`, `sequence_stats`, `resource_samples` — tags become plain indexed columns, killing the fake-timestamp hack for free; (4) exact percentiles/rankings are computed from the full in-memory/full-run result set before any event sampling, then written to aggregate tables; sampled raw events are never the source of truth for p95/p99; (5) curated `results/published/**/*.json` stays the durable, versioned source for published results, while scratch run output stays ignored.
 
 ### 9.2 How we query & present results
 
 - **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput) for official numbers; raw `request_events` is sampled drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
 - **Real timestamps** on rows; `run_id` remains the primary selector everywhere (indexed column, not a tag).
-- **Presentation layers** (in order of truth): 1) curated `results/published/**/*.json` — durable, versioned, source of truth for published numbers; 2) scratch `results/runs/<timestamp>/**` — local run artifacts, ignored by git unless intentionally promoted; 3) terminal summary tables (exists, gets RPS + capacity added); 4) Grafana dashboards (live exploration, §9.3); 5) *(Phase 5 nice-to-have)* a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
+- **Presentation layers** (in order of truth): 1) curated `results/published/**/*.json` — durable, versioned, source of truth for published numbers; 2) scratch `results/runs/<timestamp>/**` — local run artifacts, ignored by git unless intentionally promoted; 3) terminal summary tables (exists, gets RPS + capacity added); 4) Grafana dashboards (live exploration, §9.3); 5) _(Phase 5 nice-to-have)_ a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
 
 ### 9.3 Grafana dashboards
 
@@ -396,7 +398,7 @@ What we actually do is **not classic time-series**: we write event data once per
 - Dashboard split:
   1. **Overview** — RPS + p50/p95/p99 ranking, filter by suite/language/runtime
   2. **Endpoint drilldown** — one endpoint across servers, latency distribution over run time
-  3. **Resources** — CPU/mem of servers *and* DB containers
+  3. **Resources** — CPU/mem of servers _and_ DB containers
   4. **Databases** — CRUD sequence timings per DB engine
   5. **Run compare** — two `run_id`s side by side (e.g. Go 1.26 vs 1.27rc, Node vs Bun vs Deno for the same framework)
 
@@ -404,18 +406,18 @@ What we actually do is **not classic time-series**: we write event data once per
 
 ## 10. Version targets (verified July 2026)
 
-| Stack | Target |
-| --- | --- |
-| Node.js | **26.4.x** (Current) |
-| Bun | **1.3.14** |
-| Deno | **2.9.1** |
-| Go | **1.27rc1** (toolchain directive; stable is 1.26.4) |
-| Python | 3.14.x · FastAPI latest · Django 6.x · Flask 3.x |
-| Rust | latest stable · Axum + Actix Web latest |
-| Zig | **0.16.0** |
-| Kotlin | latest · Ktor 3.x · Spring Boot latest |
-| TS libs | **TypeScript `7.0.1-rc`** (`typescript@rc`, native `tsc`) · express 5.2 · fastify 5.9 · nestjs 11.1 · hono 4.12 (+`@hono/node-server` 2.x, needs Node ≥20) · elysia 1.4 (+`@elysiajs/node` in lockstep) · oak 17 (**from JSR**) · `postgres` 3.4 · **drizzle 1.0-rc** · drizzle-kit 1.0-rc · **tsdown** (latest) · mongodb 7.4 · ioredis 5.11 · cassandra-driver 4.9 |
-| Tooling | **Latest versions, pinned**: just, biome, prettier, golangci-lint, ruff, pyright, rustfmt/clippy (ride the Rust toolchain), ktlint, detekt, sqlc, drizzle-kit, uv, pnpm — checked/bumped in Phase 0 alongside runtime deps |
+| Stack         | Target                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js       | **26.4.x** (Current)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Bun           | **1.3.14**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Deno          | **2.9.1**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Go            | **1.27rc1** (toolchain directive; stable is 1.26.4)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Python        | 3.14.x · FastAPI latest · Django 6.x · Flask 3.x                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Rust          | latest stable · Axum + Actix Web latest                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Zig           | **0.16.0**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Kotlin        | latest · Ktor 3.x · Spring Boot latest                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| TS libs       | **TypeScript `7.0.1-rc`** (`typescript@rc`, native `tsc`) · express 5.2 · fastify 5.9 · nestjs 11.1 · hono 4.12 (+`@hono/node-server` 2.x, needs Node ≥20) · elysia 1.4 (+`@elysiajs/node` in lockstep) · oak 17 (**from JSR**) · `postgres` 3.4 · **drizzle 1.0-rc** · drizzle-kit 1.0-rc · **tsdown** (latest) · mongodb 7.4 · ioredis 5.11 · cassandra-driver 4.9                                                                                                                        |
+| Tooling       | **Latest versions, pinned**: just, biome, prettier, golangci-lint, ruff, pyright, rustfmt/clippy (ride the Rust toolchain), ktlint, detekt, sqlc, drizzle-kit, uv, pnpm — checked/bumped in Phase 0 alongside runtime deps                                                                                                                                                                                                                                                                  |
 | `just update` | run across all stacks as part of Phase 0; extend it to also cover the lint/format tooling above. **Must be pin-aware**: blanket "update to latest" resolves the `latest` dist-tag and would **clobber deliberate prerelease pins** (`typescript@7.0.1-rc` — `latest` is still 6.0.3; Go 1.27rc1; drizzle + drizzle-kit 1.0-rc) and **lockstep sets** (elysia + `@elysiajs/node`). Pinned/prerelease deps are exempt from auto-bump and tracked in a short "pinned deps" list in the README. |
 
 Benchmark credibility note: pre-release/current toolchains are allowed for exploration, but published results must label them clearly. If a pre-release runtime materially affects a headline comparison (Go 1.27rc1, TypeScript RC tooling, Node Current), either include the stable baseline in the published run or mark the run as "current/prerelease toolchain" so readers do not mistake it for the mainstream stable stack.
@@ -424,31 +426,35 @@ Benchmark credibility note: pre-release/current toolchains are allowed for explo
 
 ## 11. Execution phases
 
-**Phase 0A — Safety gate first**
-0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just contract`, optional `pre-push` hook) per §0.2.
+**Phase 0A — Safety gate first** 0. **Bootstrap workflow**: adopt `phase<N>/<slug>` branches + PRs, stop pushing to `main` directly; gates run locally (`just verify` / `just contract`, optional `pre-push` hook) per §0.2.
+
 1. Add top-level `contract/` cases for the current API and implement the Go client conformance command against a base URL.
 2. Add `scripts/contract.mts` and `just contract <entry>` to build/run one existing server in a container, wait for health, execute the conformance command, and tear down.
 3. Run the contract gate against all current 10 entries before any restructure. This is the baseline that protects every later refactor.
 
 **Phase 0B — Scripts and manifest foundation**
+
 1. Create `scripts/` and move justfile logic into small typed `.mts` scripts: `verify`, `format`, `lint`, `install`, `update`, `images`, `dev`, `check-config`, `contract`.
 2. Make `just verify` non-mutating: type/build checks + format-check + lint. Keep write-formatting in `just fmt`.
 3. Add manifest discovery (`bench.json`) and config validation without changing server behavior yet. This makes later server additions one manifest + one script table row.
 4. Prototype the risky TS workspace/runtime assumptions before the full restructure: Deno workspace + `--node-modules-dir=manual`, and Bun/Deno Cassandra client smoke tests.
 
 **Phase 0C — Restructure only**
+
 1. Move folders to `apps/`, `shared/`, `contract/`, and workspace roots.
 2. Add pnpm/go.work/uv/cargo/gradle workspace wiring and Docker root-context builds.
 3. Update ignore files, Dockerfile paths, README setup, and scripts to the new layout.
 4. Run `just verify` and `just contract` for all existing entries. This PR should be mostly moves and path updates, not driver swaps.
 
 **Phase 0D — Shared extraction, one language at a time**
+
 1. TypeScript shared extraction with the current driver first; contract all affected entries.
 2. Go shared extraction; contract all affected entries.
 3. Python shared extraction; contract FastAPI.
 4. Only after move-only extraction is stable, do behavior-affecting swaps as separate slices: TS `pg` → `postgres`, TS 7 RC typecheck gate, tsdown-built shared package, FastAPI worker/pool normalization, Bun shutdown fix.
 
 **Phase 0E — Hono multi-runtime and fairness cleanup**
+
 1. Convert Hono into one app with node/bun/deno entrypoints.
 2. Apply the dev/container port convention.
 3. Run contract gates for Hono on all runtimes and smoke-test risky runtime×driver combos.
@@ -505,7 +511,7 @@ C  RESTRUCTURE (0C) ── serial barrier: renames every path, nothing straddles
 
 ### Two hard serialization points
 
-1. **Contract gate (A) is the root.** One gate, built once, green on the current 10 before anything else — inherently single-threaded. Internal order: `contract/` JSON cases + Go conformance command first, then `contract.mts` (the harness *invokes* the command). `scripts/` is created here for `contract.mts`; 0B fills out the rest. `contract.mts` may start with explicit entries and switch to manifest discovery once B lands.
+1. **Contract gate (A) is the root.** One gate, built once, green on the current 10 before anything else — inherently single-threaded. Internal order: `contract/` JSON cases + Go conformance command first, then `contract.mts` (the harness _invokes_ the command). `scripts/` is created here for `contract.mts`; 0B fills out the rest. `contract.mts` may start with explicit entries and switch to manifest discovery once B lands.
 2. **Restructure (C) is a stop-the-world barrier.** It renames every path, so no branch may straddle it — a pre-move branch that also edits a file whose directory is renamed produces conflicts git can't auto-resolve. Land C as its own small, fast-merged PR; rebase everything else on top. **All parallel lanes sit entirely after C.**
 
 ### The reordering that matters
@@ -519,19 +525,19 @@ Running them concurrently roughly halves the 0→2 wall clock. They rejoin only 
 
 ### Parallel lanes
 
-| Lane | Isolation | Can start when | Fan-out |
-| --- | --- | --- | --- |
-| Contract gate (A) | — | now | 1 (serial) |
-| Scripts/manifest (B) | own PR | overlaps A | 1 |
-| Restructure (C) | own PR | A green | 1 (barrier) |
-| Shared extract D_ts / D_go / D_py | worktree ×3 | after C | **3** |
-| Behaviour swaps (D_swap) | per-lang | after that lang's move-only | folds into each D lane |
-| Hono multi-runtime (E) | worktree | after D_ts | 1 |
-| Client v2 (P1) | worktree | **after C — parallel to all of D** | 1 |
-| Metrics PG (P2) | worktree | after P1 (schema design earlier) | 1 |
-| Web endpoints (P3) | per-server | after shared web utils per lang | per-server |
-| New servers (P4) | worktree ×5 | see below | **up to 5** |
-| Grafana (P5) | worktree | after P2 **and** P4 | 1 |
+| Lane                              | Isolation   | Can start when                     | Fan-out                |
+| --------------------------------- | ----------- | ---------------------------------- | ---------------------- |
+| Contract gate (A)                 | —           | now                                | 1 (serial)             |
+| Scripts/manifest (B)              | own PR      | overlaps A                         | 1                      |
+| Restructure (C)                   | own PR      | A green                            | 1 (barrier)            |
+| Shared extract D_ts / D_go / D_py | worktree ×3 | after C                            | **3**                  |
+| Behaviour swaps (D_swap)          | per-lang    | after that lang's move-only        | folds into each D lane |
+| Hono multi-runtime (E)            | worktree    | after D_ts                         | 1                      |
+| Client v2 (P1)                    | worktree    | **after C — parallel to all of D** | 1                      |
+| Metrics PG (P2)                   | worktree    | after P1 (schema design earlier)   | 1                      |
+| Web endpoints (P3)                | per-server  | after shared web utils per lang    | per-server             |
+| New servers (P4)                  | worktree ×5 | see below                          | **up to 5**            |
+| Grafana (P5)                      | worktree    | after P2 **and** P4                | 1                      |
 
 ### New-server fan-out (Phase 4) — the widest lane
 
@@ -541,11 +547,11 @@ Each new server is a language island in its own worktree. Start conditions diffe
 - **Echo** — needs `shared/go` (D_go) done.
 - **django / flask** — need `bench-shared` (D_py) done.
 - **Rust (axum, actix)** and **Kotlin (ktor, spring-boot)** — their shared crate/module does **not** exist yet (0D only extracts TS/Go/Py); it's built **inside the lane**. So within each: `shared + first server` is serial, then the second server parallelizes. Across all five languages: fully parallel.
-- New servers implement the **full** surface incl. the `web` suite, so they depend on the **endpoint contract cases** (P3's JSON, writable early) — *not* on P3 being implemented in the old servers.
+- New servers implement the **full** surface incl. the `web` suite, so they depend on the **endpoint contract cases** (P3's JSON, writable early) — _not_ on P3 being implemented in the old servers.
 
 ### Two laws for safe fan-out
 
-1. **Freeze shared before fanning out its consumers.** A server lane is safe only because it *reads* `shared/<lang>` and never mutates it. Two lanes both editing the same shared package recreate the copy-paste problem in reverse. So: *extract shared → freeze → fan out consumers.* This is exactly why servers can't parallelize before their language's `D` lane lands.
+1. **Freeze shared before fanning out its consumers.** A server lane is safe only because it _reads_ `shared/<lang>` and never mutates it. Two lanes both editing the same shared package recreate the copy-paste problem in reverse. So: _extract shared → freeze → fan out consumers._ This is exactly why servers can't parallelize before their language's `D` lane lands.
 2. **Root workspace files are the hidden contention.** Adding a member edits a shared root file (`go.work`, `Cargo.toml` members, `settings.gradle`, uv/pnpm members, `deno.json`). Two lanes each appending a line there conflict trivially. Serialize those one-line edits (or accept the trivial conflict) — they are not a reason to serialize the lanes themselves.
 
 ### Critical path / long poles
