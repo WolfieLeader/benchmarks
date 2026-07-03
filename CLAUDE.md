@@ -2,13 +2,13 @@
 
 # HTTP Benchmarks
 
-Same 16-route API implemented across many frameworks/languages (10 servers today → 21 per plan), benchmarked by a custom Go client (`benchmark/`) that is also the orchestrator and the conformance runner. Currently mid-expansion — **PLAN.md is the authoritative roadmap** (locked decisions §0, working method §11.2, execution DAG §11.1).
+Same 16-route API implemented across many frameworks/languages (11 servers today → 21 per plan), benchmarked by a custom Go client (`benchmark/`) that is also the orchestrator and the conformance runner. Currently mid-expansion — **PLAN.md is the authoritative roadmap** (locked decisions §0, working method §11.2, execution DAG §11.1).
 
 ## Sources of truth
 
 - `PLAN.md` — the plan; §11.2 is the merge protocol every PR follows.
 - `contract/` — the API contract as executable JSON cases (`contract/README.md` = case format). The contract outranks any single server's behavior: when servers disagree, the lead decides canon; **never weaken a case to make a server pass** — report the drift instead.
-- `config/config.json` (+ schema) — benchmark parameters and (until Phase 1) the client's server roster.
+- `config/config.json` (+ schema) — benchmark parameters. The server roster now lives in per-server `servers/*/bench.json` manifests (PR #24), discovered by both the scripts (`scripts/lib.mts`) and the Go client (`benchmark/internal/roster`).
 
 ## Commands
 
