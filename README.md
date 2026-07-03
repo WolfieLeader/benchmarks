@@ -169,7 +169,7 @@ just install             # Install all dependencies
 just typecheck           # Type/compile check all projects
 just fmt                 # Format all code
 just lint                # Lint all code
-just verify              # Runs typecheck -> fmt -> lint
+just verify              # Non-mutating gate: typecheck -> format-check -> lint
 just images              # Build all Docker images
 just clean               # Remove build artifacts and node_modules
 just remove-images       # Remove Docker images
