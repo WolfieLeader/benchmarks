@@ -85,7 +85,7 @@ servers/
   ts-express/  ts-fastify/  ts-nestjs/      # Node is the default TS runtime — unprefixed
   ts-bun-elysia/  ts-deno-oak/              # non-node runtimes named explicitly
   ts-honojs/  ts-bun-honojs/  ts-deno-honojs/   # 3 thin runtime entries; the Hono app itself lives in shared/ (§4)
-  go-chi/  go-gin/  go-fiber/  go-echo/
+  go-stdlib/  go-chi/  go-gin/  go-fiber/  go-echo/
   py-fastapi/  py-django/  py-flask/
   rs-axum/  rs-actix/
   kt-ktor/  kt-spring-boot/
@@ -174,7 +174,7 @@ Shared folders force build context above the app dir. Convention: **build from r
 
 ### Go — `shared` module
 
-Move `internal/database` (+ sqlc output), `config`, `consts`, and validation into one module. Framework dirs keep idiomatic router wiring, middleware, and handlers (chi/gin/fiber/echo each in their canonical style). Add **Echo**. `go.work` ties it together.
+Move `internal/database` (+ sqlc output), `config`, `consts`, and validation into one module. Framework dirs keep idiomatic router wiring, middleware, and handlers (stdlib/chi/gin/fiber/echo each in their canonical style). Add **Echo** and **stdlib** (`net/http` with the ≥1.22 pattern-matching `ServeMux` — the zero-dependency baseline every Go framework is measured against; router idiom is `mux.HandleFunc("METHOD /path/{param}", …)` + `r.PathValue`). `go.work` ties it together.
 
 ### Python — `bench-shared`
 
@@ -228,14 +228,14 @@ Existing 16 routes are unchanged. Suites: `basic` (root/health), `params`, `web`
 
 ## 6. Server roster & port convention
 
-### Roster (final: 20 entries)
+### Roster (final: 21 entries)
 
 Entry names = folder names (flat `servers/` scheme, §2.1): Node is the default TS runtime and goes unprefixed; bun/deno are explicit.
 
 | Language       | Entries                                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------------------------- |
 | TypeScript (8) | ts-express, ts-fastify, ts-nestjs, ts-deno-oak, ts-bun-elysia, **ts-honojs, ts-bun-honojs, ts-deno-honojs** |
-| Go (4)         | go-chi, go-gin, go-fiber, **go-echo**                                                                       |
+| Go (5)         | **go-stdlib** (net/http), go-chi, go-gin, go-fiber, **go-echo**                                             |
 | Python (3)     | py-fastapi, **py-django**, **py-flask**                                                                     |
 | Rust (2)       | **rs-axum**, **rs-actix**                                                                                   |
 | Kotlin (2)     | **kt-ktor**, **kt-spring-boot**                                                                             |
@@ -268,7 +268,7 @@ TS    = 3000 + framework×10 + runtime      runtime: 1=node 2=bun 3=deno
         → ts-express 3011 · ts-nestjs 3021 · ts-fastify 3031 · ts-deno-oak 3043
           ts-honojs 3051 · ts-bun-honojs 3052 · ts-deno-honojs 3053 · ts-bun-elysia 3062
 Python= 4010 py-fastapi · 4020 py-django · 4030 py-flask
-Go    = 5010 go-chi · 5020 go-gin · 5030 go-fiber · 5040 go-echo
+Go    = 5000 go-stdlib · 5010 go-chi · 5020 go-gin · 5030 go-fiber · 5040 go-echo
 Rust  = 6010 rs-axum · 6020 rs-actix
 Zig   = 7010
 Kotlin= 8010 kt-ktor · 8020 kt-spring-boot
@@ -505,7 +505,7 @@ C  RESTRUCTURE (0C) ── serial barrier: renames every path, nothing straddles
 │                                                 │              │
 │  P4 NEW SERVERS ── widest fan-out ──────────────┤              │
 │     zig    (no shared → starts right after C)   │              │
-│     echo   (needs D_go)                         │              │
+│     echo, stdlib (need D_go)                    │              │
 │     rust   (builds own shared crate in-lane)    │              │
 │     kotlin (builds own shared module in-lane)   │              │
 │     django/flask (need bench-shared = D_py)     │              │
@@ -609,5 +609,5 @@ How the plan is actually executed (decided 2026-07-03, in effect from Phase 0A):
 - **Zig MongoDB via libmongoc** is the single biggest new-server effort item (C toolchain in Docker build).
 - **Bun/NestJS regressions** — NestJS stays Node-only for now; revisit when official support lands.
 - **Metrics migration Influx→Postgres** happens in Phase 2 with the writer swap — until then dashboards keep working on Influx; curated `results/published/**/*.json` is the source of truth for published numbers and scratch `results/runs/**` remains local. ClickHouse remains the documented exit if event volume ever outgrows Postgres (§9.1).
-- **Run-time budget**: 20 servers × 5 suites × 4 DBs is hours — selectable suites is the mitigation; a `quick` suite preset for development, full matrix for publish runs.
+- **Run-time budget**: 21 servers × 5 suites × 4 DBs is hours — selectable suites is the mitigation; a `quick` suite preset for development, full matrix for publish runs.
 - **Benchmark fairness on one machine**: generator, DBs, and SUT share the host. Out of scope for this plan, but resource-limit the generator and document the caveat in README.
