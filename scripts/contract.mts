@@ -52,10 +52,23 @@ function serverDir(image: string): string {
   return join(repoRoot, "http-servers", "typescript", image);
 }
 
-// Case-insensitive path comparison: macOS filesystems are case-insensitive and
+// Case-insensitive path handling: macOS filesystems are case-insensitive and
 // compose records whatever casing it was invoked from (e.g. ~/dev vs ~/Dev).
-function samePath(a: string, b: string): boolean {
-  return resolve(a).toLowerCase() === resolve(b).toLowerCase();
+// The stack may have been created from ANY checkout of this repo (main clone or
+// a .claude/worktrees agent worktree), so "ours" means: the recorded compose
+// file is our databases.yml inside the main repo root (worktrees live under it).
+const mainRepoRoot = (() => {
+  const res = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  return res.status === 0 ? dirname(res.stdout.trim()) : repoRoot;
+})();
+
+function isOurComposeFile(path: string): boolean {
+  const p = resolve(path).toLowerCase();
+  const suffix = join("infra", "compose", "databases.yml").toLowerCase();
+  return p.startsWith(resolve(mainRepoRoot).toLowerCase()) && p.endsWith(suffix);
 }
 
 type DbStack = { project: string; network: string };
@@ -95,7 +108,7 @@ function detectDbStack(): DbStack {
   }
 
   // config_files is a comma-separated list; ours is a single file.
-  const ours = candidates.filter((c) => c.configFiles.split(",").some((f) => samePath(f.trim(), dbComposeFile)));
+  const ours = candidates.filter((c) => c.configFiles.split(",").some((f) => isOurComposeFile(f.trim())));
 
   if (ours.length === 0) {
     const list = candidates.map((c) => `    ${c.name} (project=${c.project}, config=${c.configFiles})`).join("\n");
