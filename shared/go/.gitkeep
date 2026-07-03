@@ -1,0 +1,3 @@
+# Placeholder — shared/go scaffolding (PLAN §4).
+# Phase 0D fills this with the extracted shared infrastructure
+# (DB clients, schemas, validation, consts, env). Empty at 0C.
