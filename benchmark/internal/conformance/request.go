@@ -21,7 +21,7 @@ import (
 // buildRequest turns a resolved case into an *http.Request, reusing the
 // benchmark's client.BuildRequest so the wire format matches real runs exactly.
 func buildRequest(ctx context.Context, baseURL, testFilesDir string, c *Case) (*http.Request, error) {
-	fullURL, err := buildURL(baseURL, c.Path, c.Query)
+	requestURI, err := buildRequestURI(baseURL, c.Path, c.Query)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +33,9 @@ func buildRequest(ctx context.Context, baseURL, testFilesDir string, c *Case) (*
 	}
 
 	tc := &config.Testcase{
-		Url:     fullURL,
-		Method:  method(c.Method),
-		Headers: headers,
+		RequestURI: requestURI,
+		Method:     method(c.Method),
+		Headers:    headers,
 		// Populate expectations so client.BuildRequest derives the same Accept
 		// header the benchmark path sends (text/plain vs application/json).
 		ExpectedBody: c.Expect.Body,
@@ -70,7 +70,7 @@ func buildRequest(ctx context.Context, baseURL, testFilesDir string, c *Case) (*
 		tc.RequestType = config.RequestTypeNone
 	}
 
-	return client.BuildRequest(ctx, tc)
+	return client.BuildRequest(ctx, baseURL, tc)
 }
 
 func method(m string) string {
@@ -80,7 +80,10 @@ func method(m string) string {
 	return strings.ToUpper(m)
 }
 
-func buildURL(baseURL, path string, query map[string]string) (string, error) {
+// buildRequestURI normalizes path + query into a relative request target
+// ("/path?encoded=query"); baseURL is used only to resolve/escape the path. The
+// absolute URL is reassembled by client.BuildRequest as baseURL + RequestURI.
+func buildRequestURI(baseURL, path string, query map[string]string) (string, error) {
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid base URL %q: %w", baseURL, err)
@@ -97,7 +100,7 @@ func buildURL(baseURL, path string, query map[string]string) (string, error) {
 		}
 		full.RawQuery = q.Encode()
 	}
-	return full.String(), nil
+	return full.RequestURI(), nil
 }
 
 func encodeForm(form map[string]string) string {

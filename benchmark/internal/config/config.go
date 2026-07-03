@@ -24,10 +24,14 @@ type FileUpload struct {
 }
 
 type Testcase struct {
-	EndpointName        string
-	Name                string
-	Path                string
-	Url                 string
+	EndpointName string
+	Name         string
+	Path         string
+	// RequestURI is the relative request target (path + encoded query, e.g.
+	// "/params/search?limit=10"). The absolute URL is formed at request time as
+	// baseURL + RequestURI, so testcases are reusable across servers whose host
+	// ports testcontainers maps dynamically.
+	RequestURI          string
 	Method              string
 	Headers             map[string]string
 	RequestType         RequestType
@@ -73,14 +77,14 @@ func GetServerNames(servers []*ResolvedServer) []string {
 	return names
 }
 
-func (cfg *Config) Print() {
+func (cfg *Config) Print(serverCount int) {
 	cli.Section("Configuration")
 
 	const disabledStr = "disabled"
 
 	cli.KeyValue("Base URL", cfg.Benchmark.BaseUrl)
 	cli.KeyValuePairs(
-		"Servers", strconv.Itoa(len(cfg.Servers)),
+		"Servers", strconv.Itoa(serverCount),
 		"Endpoints", strconv.Itoa(len(cfg.Endpoints)),
 	)
 	cli.KeyValuePairs(
