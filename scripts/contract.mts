@@ -209,7 +209,7 @@ async function waitHealthy(port: number, databases: string[]): Promise<void> {
 function buildConformanceBinary(): string {
   const binPath = join(benchmarksDir, "bin", "conformance");
   console.log("\x1b[36m›\x1b[0m building Go conformance binary ...");
-  const res = spawnSync("go", ["build", "-o", binPath, "./cmd/main.go"], {
+  const res = spawnSync("go", ["build", "-o", binPath, "./cmd"], {
     cwd: benchmarksDir,
     stdio: "inherit"
   });
