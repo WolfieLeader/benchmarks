@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"chi-server/internal/database"
 )
 
 func (app *App) Start() error {
@@ -47,6 +49,8 @@ func (app *App) Start() error {
 		log.Printf("Server shutdown error: %v", err)
 		return err
 	}
+
+	database.DisconnectConnections()
 
 	log.Println("Server stopped.")
 	return nil

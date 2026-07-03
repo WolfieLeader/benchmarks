@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"chi-server/internal/config"
@@ -88,4 +89,17 @@ func InitializeConnections(env *config.Env) {
 		}(dbType)
 	}
 	wg.Wait()
+}
+
+// DisconnectConnections closes every initialized repository's connection pool
+// in reverse initialization order. Called after the HTTP server has drained so
+// in-flight requests keep their database until they finish.
+func DisconnectConnections() {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, dbType := range slices.Backward(DatabaseTypes) {
+		if repo, exists := repositories[dbType]; exists {
+			_ = repo.Disconnect()
+		}
+	}
 }
