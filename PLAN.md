@@ -17,6 +17,7 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 | Zig                    | **One server** (http.zig), **all 4 databases**, no shared layer (single implementation).                                                                                                                                                                                                                                                                                                                                           |
 | FastAPI workers        | Normalize to **single-process** like all other servers (fairness; current `--workers 4` is the biggest asymmetry).                                                                                                                                                                                                                                                                                                                 |
 | TS runtimes            | **Hono is the single multi-runtime TS app** (Node 26 + Bun + Deno — the only framework officially first-class on all three, see §4). All other TS frameworks stay on their home runtime: express/fastify/nestjs → Node, elysia → Bun, oak → Deno.                                                                                                                                                                                  |
+| Server layout          | **Flat `servers/` with prefixed folder names** (folder = entry = image; Node unprefixed for TS): ts-express, ts-bun-elysia, go-chi, py-fastapi, rs-axum, … — see §2.1 (revised 2026-07-03).                                                                                                                                                                                                                                        |
 | TS postgres driver     | Switch `pg` → **`postgres` (postgres.js)** via `drizzle-orm/postgres-js`.                                                                                                                                                                                                                                                                                                                                                          |
 | Go version             | **1.27rc1** (confirmed available) via `toolchain` directive, everywhere.                                                                                                                                                                                                                                                                                                                                                           |
 | Task runner            | **just stays** (no Makefile). We need a command runner, not a build system — incremental builds belong to each language's toolchain. Note `just` install in README for contributors.                                                                                                                                                                                                                                               |
@@ -77,22 +78,21 @@ All 10 servers expose the **exact same 16 routes** — verified consistent (stat
 
 ### 2.1 Folder structure
 
+**Flat `servers/` with prefixed names** (revised 2026-07-03; supersedes the earlier per-language subdir sketch). Every server is a self-contained island with its own toolchain, so language subdirs bought nothing: per-language lint/format configs anchor at the repo root (all the tools search upward), the workspace roots live at the repo root anyway, and discovery gets _simpler_ (one-level `servers/*/bench.json`). Flat + prefixes gives one identity everywhere — folder name = entry name = image name — and `ls servers/` reads as the roster.
+
 ```
-apps/
-  benchmark/                    # the Go client (moved from benchmarks/)
-  servers/
-    typescript/
-      express/  fastify/  nestjs/  oak/  elysia/    # one app each, home runtime
-      hono/
-        src/...                 # ONE app
-        entry/node.ts entry/bun.ts entry/deno.ts    # 3 runtime entrypoints → 3 benchmark entries
-    go/        chi/ gin/ fiber/ echo/
-    python/    fastapi/ django/ flask/
-    rust/      axum/ actix/
-    zig/       server/          # single server: http.zig, all 4 DBs
-    kotlin/    ktor/ spring-boot/
+servers/
+  ts-express/  ts-fastify/  ts-nestjs/      # Node is the default TS runtime — unprefixed
+  ts-bun-elysia/  ts-deno-oak/              # non-node runtimes named explicitly
+  ts-honojs/  ts-bun-honojs/  ts-deno-honojs/   # 3 thin runtime entries; the Hono app itself lives in shared/ (§4)
+  go-chi/  go-gin/  go-fiber/  go-echo/
+  py-fastapi/  py-django/  py-flask/
+  rs-axum/  rs-actix/
+  kt-ktor/  kt-spring-boot/
+  zig/                                      # single server: http.zig, all 4 DBs
+benchmark/                      # the Go client (moved from benchmarks/)
 shared/
-  typescript/                   # @bench/shared — db ops, zod schemas, env, consts
+  typescript/                   # @bench/shared — db ops, zod schemas, env, consts (+ the shared Hono app)
   go/                           # module: shared db/config/consts/validation
   python/                       # bench-shared: async + sync repository impls
   rust/                         # shared crate (workspace member)
@@ -102,6 +102,8 @@ scripts/                        # typed orchestration scripts; justfile stays th
 config/  infra/  grafana/  test-files/  results/
 ```
 
+Folder = entry = image (`servers/go-chi` ↔ entry `go-chi` ↔ image `bench/go-chi`). Per-language tool configs live at the repo root (`.golangci.json`, `ruff.toml`, `biome.json`, …) — still exactly one per language, discovered upward by each tool.
+
 ### 2.2 Workspace tooling — native per language, `just` as the umbrella
 
 No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and rejected): there is no build graph to optimize, just "N apps → 1 shared package" per language. The hermetic-build tools are rejected because — (1) the languages are **islands** (no Go→Rust cross-target deps), so Bazel's one-cross-language-graph superpower has nothing to bite on; (2) they **contradict the "idiomatic everywhere" decision** — replacing `cargo`/`bun`/`deno`/`gradle`/`zig build` with `BUILD` files makes each server _non-idiomatic_, the exact anti-pattern the repo avoids, and less representative as a benchmark; (3) **poor/no rules for the exotic members** (Zig especially; Bun/Deno fight rules_js/pnpm), meaning custom-rule maintenance for the hardest part; (4) **incrementality is already per-language** (build caches for Go/cargo/Gradle/tsc/Zig) and outputs are Docker images from idiomatic Dockerfiles; (5) it's a **hobby project** (CI was already cut as overkill — these are a far bigger tax). They'd only pay off at large-team scale with genuinely cross-language shared builds and remote-execution needs — none present.
@@ -109,7 +111,7 @@ No Nx/Turborepo, and **explicitly not Bazel/Buck2/Pants** (considered and reject
 | Language   | Mechanism                | Notes                                                                                                                                                                                                                                                               |
 | ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TypeScript | **pnpm workspace**       | Bun consumes pnpm-installed `node_modules` fine. **Deno does not read `pnpm-workspace.yaml`** — add a root `deno.json` with a mirrored `workspace` list and run with `--node-modules-dir=manual` (verified against Deno docs; expect first-run friction — see §12). |
-| Go         | **`go.work`**            | spans `shared/go` + each server + `apps/benchmark`                                                                                                                                                                                                                  |
+| Go         | **`go.work`**            | spans `shared/go` + each server + `benchmark/`                                                                                                                                                                                                                      |
 | Python     | **uv workspace**         | `[tool.uv.workspace]`; fastapi/django/flask depend on `bench-shared`                                                                                                                                                                                                |
 | Rust       | **Cargo workspace**      | shared crate + axum + actix                                                                                                                                                                                                                                         |
 | Kotlin     | **Gradle multi-project** | `:shared`, `:ktor`, `:spring-boot`                                                                                                                                                                                                                                  |
@@ -129,7 +131,7 @@ The current justfile hides big per-framework bash `case` blocks inside `install`
 
 ### 2.4 Docker build contexts
 
-Shared folders force build context above the app dir. Convention: **build from repo root**, `docker build -f apps/servers/go/chi/Dockerfile .` — each Dockerfile copies `shared/<lang>` + its app. `just images` updated accordingly. `.dockerignore` at root keeps contexts small.
+Shared folders force build context above the app dir. Convention: **build from repo root**, `docker build -f servers/go-chi/Dockerfile .` — each Dockerfile copies `shared/<lang>` + its app. `just images` updated accordingly. `.dockerignore` at root keeps contexts small.
 
 **Ignore files must grow with the new languages** (Phase 0C task). Root context = a root `.dockerignore` is load-bearing (a fat context slows every image build). Both `.gitignore` and root `.dockerignore` need the per-language artifacts:
 
@@ -143,7 +145,7 @@ Shared folders force build context above the app dir. Convention: **build from r
 | TS/Deno          | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual`                                                                                                 |
 | Benchmark output | **split published vs scratch** — version curated `results/published/**/*.json`; ignore scratch/local run output (`results/runs/`, tmp dirs) so machine-specific runs do not churn the repo |
 
-`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`apps/servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
+`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
 
 ---
 
@@ -204,7 +206,7 @@ Latest: **Node 26.4.0** (Current; LTS is 24.x until Oct 2026) · **Bun 1.3.14** 
 | NestJS 11                                              | ✅ native                                                    | ⚠️ real regressions (e.g. bun#27526), no official support | ⚠️ community-only, "not production-ready"  | **node-nestjs only**               |
 | Oak 17 (**JSR** `@oak/oak`; npm copy is stale at 14.1) | ⚠️ official but no TLS/`.send()`/WS                          | ⚠️ same as Node                                           | ✅ home runtime                            | **deno-oak only**                  |
 
-**Decision: Hono is the single multi-runtime TS app** — it is the only framework with first-party support on all three runtimes, which makes it the clean runtime-vs-runtime comparison (same app, same code, three runtimes). Every other framework ships on its home runtime only, avoiding the ⚠️ compat-layer tier entirely. → **8 TS entries** (was 6): the 5 home-runtime apps + hono×3.
+**Decision: Hono is the single multi-runtime TS app** — it is the only framework with first-party support on all three runtimes, which makes it the clean runtime-vs-runtime comparison (same app, same code, three runtimes). Every other framework ships on its home runtime only, avoiding the ⚠️ compat-layer tier entirely. → **8 TS entries** (was 6): the 5 home-runtime apps + hono×3. Layout (per the flat scheme, §2.1): the Hono app itself lives in `shared/typescript/` and the three entries — `ts-honojs` (node), `ts-bun-honojs`, `ts-deno-honojs` — are thin per-runtime server folders consuming it.
 
 **Driver caveat to smoke-test in conformance**: `cassandra-driver` on Bun (2023-era failures, current status unverified) and on Deno (never tested upstream) — relevant to bun-elysia, bun-hono, deno-hono, deno-oak. postgres.js / mongodb / ioredis are confirmed fine on all three.
 
@@ -228,14 +230,16 @@ Existing 16 routes are unchanged. Suites: `basic` (root/health), `params`, `web`
 
 ### Roster (final: 20 entries)
 
-| Language       | Entries                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| TypeScript (8) | node-express, node-fastify, node-nestjs, deno-oak, bun-elysia, **node-hono, bun-hono, deno-hono** |
-| Go (4)         | chi, gin, fiber, **echo**                                                                         |
-| Python (3)     | fastapi, **django**, **flask**                                                                    |
-| Rust (2)       | **axum**, **actix**                                                                               |
-| Kotlin (2)     | **ktor**, **spring-boot**                                                                         |
-| Zig (1)        | **zig** (http.zig)                                                                                |
+Entry names = folder names (flat `servers/` scheme, §2.1): Node is the default TS runtime and goes unprefixed; bun/deno are explicit.
+
+| Language       | Entries                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| TypeScript (8) | ts-express, ts-fastify, ts-nestjs, ts-deno-oak, ts-bun-elysia, **ts-honojs, ts-bun-honojs, ts-deno-honojs** |
+| Go (4)         | go-chi, go-gin, go-fiber, **go-echo**                                                                       |
+| Python (3)     | py-fastapi, **py-django**, **py-flask**                                                                     |
+| Rust (2)       | **rs-axum**, **rs-actix**                                                                                   |
+| Kotlin (2)     | **kt-ktor**, **kt-spring-boot**                                                                             |
+| Zig (1)        | **zig** (http.zig)                                                                                          |
 
 ### Zig server (researched, July 2026)
 
@@ -261,18 +265,18 @@ Two rules replace the current ad-hoc list:
 ```
 TS    = 3000 + framework×10 + runtime      runtime: 1=node 2=bun 3=deno
         express=1x, nestjs=2x, fastify=3x, oak=4x, hono=5x, elysia=6x
-        → node-express 3011 · node-nestjs 3021 · node-fastify 3031 · deno-oak 3043
-          node-hono 3051 · bun-hono 3052 · deno-hono 3053 · bun-elysia 3062
-Python= 4010 fastapi · 4020 django · 4030 flask
-Go    = 5010 chi · 5020 gin · 5030 fiber · 5040 echo
-Rust  = 6010 axum · 6020 actix
+        → ts-express 3011 · ts-nestjs 3021 · ts-fastify 3031 · ts-deno-oak 3043
+          ts-honojs 3051 · ts-bun-honojs 3052 · ts-deno-honojs 3053 · ts-bun-elysia 3062
+Python= 4010 py-fastapi · 4020 py-django · 4030 py-flask
+Go    = 5010 go-chi · 5020 go-gin · 5030 go-fiber · 5040 go-echo
+Rust  = 6010 rs-axum · 6020 rs-actix
 Zig   = 7010
-Kotlin= 8010 ktor · 8020 spring-boot
+Kotlin= 8010 kt-ktor · 8020 kt-spring-boot
 ```
 
 (Host-side reserved: 3000 Grafana, 5433 metrics-postgres — no collisions with the scheme.)
 
-Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-echo`).
+Image naming: `bench/<entry>` — the folder name is the entry is the image (e.g. `bench/ts-bun-honojs`, `bench/go-echo`).
 
 ---
 
@@ -306,7 +310,7 @@ Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-ec
 
 ### 7.4 CLI flags & server discovery (no more hardcoding)
 
-**Discovery — make the client folder-structure aware.** Today the roster lives hardcoded in `config/config.json` (`servers` list) and drifts from reality. Instead: each server app carries a small manifest (`bench.json`) next to its Dockerfile declaring `{name, language, runtime, image, databases, experimental, dev_port}`. The client **discovers the roster by scanning `apps/servers/**/bench.json`** — adding a server = adding a folder, zero central edits. `config/config.json` keeps only benchmark parameters (suites, endpoints, load profiles, container limits); the schema validates both.
+**Discovery — make the client folder-structure aware.** Today the roster lives hardcoded in `config/config.json` (`servers` list) and drifts from reality. Instead: each server app carries a small manifest (`bench.json`) next to its Dockerfile declaring `{name, language, runtime, image, databases, experimental, dev_port}`. The client **discovers the roster by scanning `servers/*/bench.json`** (one-level walk over the flat layout, §2.1) — adding a server = adding a folder, zero central edits. `config/config.json` keeps only benchmark parameters (suites, endpoints, load profiles, container limits); the schema validates both.
 
 **Flags — deliberately minimal: flags select, config configures.** `config/config.json` is the single source of truth for all behavior (load mode, rates, profiles, durations, limits, output). Flags only scope _this run_ and never introduce a second place to configure something:
 
@@ -441,7 +445,7 @@ Benchmark credibility note: pre-release/current toolchains are allowed for explo
 
 **Phase 0C — Restructure only**
 
-1. Move folders to `apps/`, `shared/`, `contract/`, and workspace roots.
+1. Move folders to flat `servers/` (prefixed names, §2.1), `benchmark/`, `shared/`, and workspace roots.
 2. Add pnpm/go.work/uv/cargo/gradle workspace wiring and Docker root-context builds.
 3. Update ignore files, Dockerfile paths, README setup, and scripts to the new layout.
 4. Run `just verify` and `just contract` for all existing entries. This PR should be mostly moves and path updates, not driver swaps.
@@ -516,7 +520,7 @@ C  RESTRUCTURE (0C) ── serial barrier: renames every path, nothing straddles
 
 ### The reordering that matters
 
-The linear list implies all of `0D` finishes before Phase 1. It should not. **After C, fork two independent tracks that share no files** (`apps/servers/**` + `shared/**` vs `apps/benchmark/**`):
+The linear list implies all of `0D` finishes before Phase 1. It should not. **After C, fork two independent tracks that share no files** (`servers/**` + `shared/**` vs `benchmark/**`):
 
 - **Server track**: D_ts / D_go / D_py (parallel) → D_swap → E → P3 → P4
 - **Client track**: P1 → P2
