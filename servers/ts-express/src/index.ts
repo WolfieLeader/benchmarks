@@ -11,7 +11,9 @@ const server = app.listen(env.PORT, env.HOST, () => {
 
 async function shutdown() {
   console.log("Shutting down...");
-  server.close();
+  // Stop accepting new connections and wait for in-flight requests to finish
+  // before tearing down the databases they depend on.
+  await new Promise<void>((resolve) => server.close(() => resolve()));
   await disconnectDatabases();
   process.exit(0);
 }
