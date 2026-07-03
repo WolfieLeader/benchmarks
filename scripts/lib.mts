@@ -123,6 +123,12 @@ function discoverServers(): Server[] {
     if (!eco) {
       fatal(`manifest ${rel}: unknown runtime "${m.runtime}" (expected ${Object.keys(RUNTIME_ECO).join(", ")})`);
     }
+    // Keep this acceptance predicate in sync with benchmark/internal/roster —
+    // the two discoverers must agree on what a valid manifest is.
+    if (m.name.trim() === "") fatal(`manifest ${rel}: "name" must be non-empty`);
+    if (!Number.isInteger(m.port) || m.port < 1 || m.port > 65535) {
+      fatal(`manifest ${rel}: port must be between 1 and 65535, got ${m.port}`);
+    }
     const prior = seen.get(m.name);
     if (prior) fatal(`duplicate server name "${m.name}" in ${rel} and ${prior}`);
     seen.set(m.name, rel);

@@ -11,7 +11,10 @@ import (
 	"benchmark-client/internal/config"
 )
 
-func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, error) {
+// BuildRequest builds an *http.Request for tc against baseURL. The absolute URL
+// is baseURL + tc.RequestURI, so the same testcase can target a server on any
+// (dynamically mapped) host port. baseURL must not have a trailing slash.
+func BuildRequest(ctx context.Context, baseURL string, tc *config.Testcase) (*http.Request, error) {
 	var bodyReader io.Reader
 	var contentType string
 
@@ -44,7 +47,7 @@ func BuildRequest(ctx context.Context, tc *config.Testcase) (*http.Request, erro
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, tc.Method, tc.Url, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, tc.Method, baseURL+tc.RequestURI, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

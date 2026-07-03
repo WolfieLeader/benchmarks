@@ -2,11 +2,12 @@ package config
 
 import "time"
 
+// Config holds benchmark parameters only. The server roster is NOT here — it is
+// discovered from servers/*/bench.json manifests (PLAN §7.4, internal/roster).
 type Config struct {
 	Benchmark     BenchmarkConfig           `json:"benchmark"`
 	Container     ContainerConfig           `json:"container"`
 	Databases     []string                  `json:"databases"`
-	Servers       []ServerConfig            `json:"servers"`
 	Endpoints     map[string]EndpointConfig `json:"endpoints"`
 	EndpointOrder []string                  `json:"-"`
 }
@@ -32,12 +33,6 @@ type BenchmarkConfig struct {
 type ContainerConfig struct {
 	CpuLimit    float64 `json:"cpu_limit"`
 	MemoryLimit string  `json:"memory_limit"`
-}
-
-type ServerConfig struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
-	Port  int    `json:"port"`
 }
 
 type EndpointConfig struct {

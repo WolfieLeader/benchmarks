@@ -27,34 +27,29 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	options := container.StartOptions{
-		Image:       server.ImageName,
-		Port:        server.Port,
-		HostPort:    8080,
-		CpuLimit:    server.CpuLimit,
-		MemoryLimit: server.MemoryLimit,
-		Network:     network,
-	}
-
-	containerId, err := container.StartWithOptions(ctx, time.Minute, &options)
+	// testcontainers starts the container, joins the DB network, applies limits,
+	// waits for /health + each /db/<db>/health, and maps a dynamic host port.
+	srv, err := container.Start(ctx, &container.StartOptions{
+		Image:          server.ImageName,
+		ContainerPort:  server.Port,
+		CpuLimit:       server.CpuLimit,
+		MemoryLimit:    server.MemoryLimit,
+		Network:        network,
+		Databases:      databases,
+		StartupTimeout: 60 * time.Second,
+	})
 	if err != nil {
 		result.SetError(fmt.Errorf("failed to start container: %w", err))
 		return result, nil, nil
 	}
-	result.ContainerId = string(containerId)
+	result.ContainerId = srv.ID
 
-	sampler := container.NewResourceSampler(string(containerId))
+	sampler := container.NewResourceSampler(srv.ID)
 
-	defer stopContainer(containerId) //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
+	defer stopContainer(srv) //nolint:contextcheck // intentionally uses fresh context for cleanup after cancellation
 
-	serverUrl := fmt.Sprintf("http://localhost:%d", options.HostPort)
-	if err = container.WaitToBeReady(ctx, 30*time.Second, serverUrl, databases); err != nil {
-		stopSampler(sampler, result)
-		result.SetError(fmt.Errorf("server did not become ready: %w", err))
-		return result, nil, nil
-	}
-
-	cli.Successf("Ready at %s (container: %.12s)", serverUrl, containerId)
+	serverUrl := srv.BaseURL
+	cli.Successf("Ready at %s (container: %.12s)", serverUrl, srv.ID)
 
 	if err = database.ResetAll(ctx, serverUrl, databases); err != nil {
 		stopSampler(sampler, result)
@@ -78,7 +73,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	progress := cli.NewProgressSpinner()
 	progress.Start(endpointCount, sequenceCount)
 
-	suite := client.NewSuite(ctx, server, &client.ProgressCallbacks{
+	suite := client.NewSuite(ctx, server, serverUrl, &client.ProgressCallbacks{
 		OnEndpoint: func(method, path string, done int) {
 			progress.UpdateEndpoint(method, path, done)
 		},
@@ -103,7 +98,7 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 		return result, nil, nil
 	}
 
-	sequences := suite.RunSequences(options.HostPort) //nolint:contextcheck // context is stored in Suite struct
+	sequences := suite.RunSequences() //nolint:contextcheck // context is stored in Suite struct
 
 	progress.Stop()
 
@@ -128,11 +123,11 @@ func countUniqueEndpoints(testcases []*config.Testcase) int {
 	return len(seen)
 }
 
-func stopContainer(containerId container.Id) {
+func stopContainer(srv *container.Server) {
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
 	defer stopCancel()
-	if err := container.Stop(stopCtx, time.Minute, containerId); err != nil {
-		cli.Warnf("Failed to stop container %s: %v", containerId, err)
+	if err := srv.Stop(stopCtx); err != nil {
+		cli.Warnf("Failed to stop container %.12s: %v", srv.ID, err)
 	}
 }
 

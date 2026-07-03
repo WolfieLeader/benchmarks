@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"benchmark-client/internal/roster"
 )
 
-func resolve(cfg *Config) ([]*ResolvedServer, error) {
+func resolve(cfg *Config, entries []roster.Entry) ([]*ResolvedServer, error) {
 	var allTestcases []*Testcase
 	order := cfg.EndpointOrder
 	if len(order) == 0 {
@@ -43,12 +45,12 @@ func resolve(cfg *Config) ([]*ResolvedServer, error) {
 
 	sequences := resolveSequences(cfg, order)
 
-	servers := make([]*ResolvedServer, 0, len(cfg.Servers))
-	for _, server := range cfg.Servers {
+	servers := make([]*ResolvedServer, 0, len(entries))
+	for _, entry := range entries {
 		servers = append(servers, &ResolvedServer{
-			Name:                server.Name,
-			ImageName:           server.Image,
-			Port:                server.Port,
+			Name:                entry.Name,
+			ImageName:           entry.Image,
+			Port:                entry.Port,
 			BaseUrl:             cfg.Benchmark.BaseUrl,
 			RequestTimeout:      cfg.Benchmark.RequestTimeout,
 			CpuLimit:            cfg.Container.CpuLimit,
@@ -253,7 +255,7 @@ func buildTestcase(baseUrl, endpointName, name string, endpoint *EndpointConfig,
 		path = strings.ReplaceAll(path, "{database}", database)
 	}
 
-	fullUrl, err := buildUrl(baseUrl, path, query)
+	requestURI, err := buildRequestURI(baseUrl, path, query)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +264,7 @@ func buildTestcase(baseUrl, endpointName, name string, endpoint *EndpointConfig,
 		EndpointName:    endpointName,
 		Name:            name,
 		Path:            path,
-		Url:             fullUrl,
+		RequestURI:      requestURI,
 		Method:          method,
 		Headers:         canonicalizeHeaders(headers),
 		ExpectedStatus:  expectedStatus,
@@ -373,7 +375,11 @@ func loadFile(filename string) (*FileUpload, error) {
 	}, nil
 }
 
-func buildUrl(baseUrl, path string, query map[string]string) (string, error) {
+// buildRequestURI normalizes path + query into a relative request target
+// ("/path?encoded=query"). baseUrl is used only to resolve/escape the path via
+// net/url; its host and port are irrelevant because the caller prepends the
+// server's actual (dynamically mapped) base URL at request time.
+func buildRequestURI(baseUrl, path string, query map[string]string) (string, error) {
 	base, err := url.Parse(baseUrl)
 	if err != nil {
 		return "", fmt.Errorf("invalid base URL: %w", err)
@@ -394,7 +400,7 @@ func buildUrl(baseUrl, path string, query map[string]string) (string, error) {
 		fullUrl.RawQuery = q.Encode()
 	}
 
-	return fullUrl.String(), nil
+	return fullUrl.RequestURI(), nil
 }
 
 func encodeFormBody(formData map[string]string) string {

@@ -38,7 +38,10 @@ func run() int {
 		return conformance.Run(ctx, cliOpts.BaseURL, cliOpts.ContractDir, cliOpts.TestFilesDir)
 	}
 
-	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile)
+	// Roster is discovered from servers/*/bench.json relative to the repo root
+	// (the client runs from benchmark/, so the repo root is one level up).
+	serversDir := filepath.Join("..", "servers")
+	cfg, resolvedServers, err := config.Load(config.DefaultConfigFile, serversDir)
 	if err != nil {
 		cli.Failf("Failed to load configuration: %v", err)
 		return 1
@@ -60,7 +63,7 @@ func run() int {
 		return 1
 	}
 
-	cfg.Print()
+	cfg.Print(len(resolvedServers))
 
 	repoRoot := ".."
 	resultsDir := filepath.Join(repoRoot, "results", time.Now().UTC().Format("20060102-150405"))

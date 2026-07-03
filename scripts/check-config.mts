@@ -1,11 +1,13 @@
 // Config + manifest consistency gate (Phase 0B): `just check-config`.
 //
-// Three checks, all reported together (never bail on the first error):
+// The roster lives in servers/*/bench.json manifests, not in config.json (PLAN
+// §7.4). Three checks, all reported together (never bail on the first error):
 //   (a) config/config.json           validates against config/config.schema.json
-//   (b) servers/*/bench.json          each validates against config/bench.schema.json
-//   (c) cross-consistency            every config.json server has a matching manifest
-//       and vice versa (name/image/port equality); every manifest database is one
-//       of config.json's databases.
+//                                     (schema no longer allows a `servers` key)
+//   (b) servers/*/bench.json          each validates against config/bench.schema.json;
+//                                     names and images are unique across manifests
+//   (c) cross-consistency            every manifest database is one of config.json's
+//                                     databases (the only remaining config↔roster tie)
 //
 // This is a verify-time dev tool, so it MAY use ajv (a root devDependency) to
 // validate against the real schema files — the single source of truth — rather
@@ -73,8 +75,6 @@ const configSchemaPath = join(repoRoot, "config", "config.schema.json");
 const config = readJson(configPath);
 if (config !== null) validate(configSchemaPath, configPath, config);
 
-type ConfigServer = { name: string; image: string; port: number };
-const configServers = (config as { servers?: ConfigServer[] } | null)?.servers ?? [];
 const configDatabases = (config as { databases?: string[] } | null)?.databases ?? [];
 
 // ── (b) servers/*/bench.json ─────────────────────────────────────────────────
@@ -97,43 +97,32 @@ if (manifestFiles.length === 0) add(`no bench.json manifests found under ${rel(s
 type Manifest = { name: string; image: string; port: number; databases: string[] };
 const manifests: { file: string; data: Manifest }[] = [];
 const nameToFile = new Map<string, string>();
+const imageToFile = new Map<string, string>();
 
 for (const file of manifestFiles) {
   const data = readJson(file);
   if (data === null) continue;
   const valid = validate(benchSchemaPath, file, data);
   const m = data as Manifest;
-  // A duplicate name breaks discovery's single-source-of-truth guarantee.
+  // Duplicate names or images break discovery's single-source-of-truth guarantee
+  // (both the Go client and lib.mts key the roster on them).
   if (typeof m.name === "string") {
     const prior = nameToFile.get(m.name);
     if (prior) add(`duplicate server name "${m.name}" in ${rel(file)} and ${prior}`);
     else nameToFile.set(m.name, rel(file));
   }
+  if (typeof m.image === "string") {
+    const prior = imageToFile.get(m.image);
+    if (prior) add(`duplicate image "${m.image}" in ${rel(file)} and ${prior}`);
+    else imageToFile.set(m.image, rel(file));
+  }
   if (valid) manifests.push({ file, data: m });
 }
 
-// ── (c) cross-consistency: config.json servers[] <-> bench.json manifests ────
-const manifestByName = new Map(manifests.map((m) => [m.data.name, m]));
-const configByName = new Map(configServers.map((s) => [s.name, s]));
-
-for (const s of configServers) {
-  const m = manifestByName.get(s.name);
-  if (!m) {
-    add(`${rel(configPath)} servers[]: "${s.name}" has no matching bench.json manifest`);
-    continue;
-  }
-  if (m.data.image !== s.image) {
-    add(`image mismatch for "${s.name}": ${rel(configPath)}=${s.image} vs ${rel(m.file)}=${m.data.image}`);
-  }
-  if (m.data.port !== s.port) {
-    add(`port mismatch for "${s.name}": ${rel(configPath)}=${s.port} vs ${rel(m.file)}=${m.data.port}`);
-  }
-}
-
+// ── (c) cross-consistency: manifest databases <-> config.json databases ─────
+// The roster no longer lives in config.json, so the only remaining tie is that a
+// manifest may only declare databases the benchmark config knows about.
 for (const m of manifests) {
-  if (!configByName.has(m.data.name)) {
-    add(`${rel(m.file)}: server "${m.data.name}" has no matching entry in ${rel(configPath)} servers[]`);
-  }
   for (const db of m.data.databases ?? []) {
     if (!configDatabases.includes(db)) {
       add(

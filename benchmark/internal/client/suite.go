@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,13 +24,16 @@ type Suite struct {
 	httpClient      *http.Client
 	transport       *http.Transport
 	server          *config.ResolvedServer
+	baseURL         string // runtime base (scheme://host:mappedPort), no trailing slash
 	serverStartTime time.Time
 	timedResults    []TimedResult
 	timedSequences  []TimedSequenceResult
 	progress        *ProgressCallbacks
 }
 
-func NewSuite(ctx context.Context, server *config.ResolvedServer, progress *ProgressCallbacks) *Suite {
+// NewSuite builds a suite that sends requests to baseURL (the server's actual,
+// dynamically mapped, base URL — e.g. "http://localhost:54123").
+func NewSuite(ctx context.Context, server *config.ResolvedServer, baseURL string, progress *ProgressCallbacks) *Suite {
 	transport := NewHTTPTransport(server.Concurrency)
 
 	return &Suite{
@@ -37,6 +41,7 @@ func NewSuite(ctx context.Context, server *config.ResolvedServer, progress *Prog
 		httpClient: &http.Client{Transport: transport},
 		transport:  transport,
 		server:     server,
+		baseURL:    strings.TrimRight(baseURL, "/"),
 		progress:   progress,
 	}
 }
@@ -250,7 +255,7 @@ func (s *Suite) executeTestcase(ctx context.Context, tc *config.Testcase) (time.
 	ctx, cancel := context.WithTimeout(ctx, s.server.RequestTimeout)
 	defer cancel()
 
-	req, err := BuildRequest(ctx, tc)
+	req, err := BuildRequest(ctx, s.baseURL, tc)
 	if err != nil {
 		return 0, err
 	}
@@ -311,7 +316,7 @@ type SequenceStepStats struct {
 	P99      time.Duration `json:"p99"`
 }
 
-func (s *Suite) RunSequences(hostPort int) []SequenceStats {
+func (s *Suite) RunSequences() []SequenceStats {
 	if len(s.server.Sequences) == 0 {
 		return nil
 	}
@@ -321,7 +326,7 @@ func (s *Suite) RunSequences(hostPort int) []SequenceStats {
 	}
 
 	s.timedSequences = nil
-	baseUrl := fmt.Sprintf("http://localhost:%d", hostPort)
+	baseUrl := s.baseURL
 	results := make([]SequenceStats, 0, len(s.server.Sequences))
 
 	for i, seq := range s.server.Sequences {

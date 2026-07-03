@@ -1,8 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Benchmark Configuration v2",
+  "description": "Benchmark parameters only. The server roster is discovered from servers/*/bench.json manifests (PLAN §7.4), not configured here.",
   "type": "object",
-  "required": ["benchmark", "container", "servers", "endpoints"],
+  "required": ["benchmark", "container", "endpoints"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -34,20 +35,6 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
-    },
-    "servers": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "image", "port"],
-        "additionalProperties": false,
-        "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "image": { "type": "string", "minLength": 1 },
-          "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
-        }
-      },
-      "minItems": 1
     },
     "endpoints": {
       "type": "object",

@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"benchmark-client/internal/roster"
 )
 
 var DefaultConfig = Config{
@@ -32,14 +34,16 @@ var DefaultConfig = Config{
 
 const (
 	DefaultConfigFile = "../config/config.json"
-	DefaultPort       = 8080
 	DefaultMethod     = "GET"
 	DefaultStatus     = 200
 )
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
-func Load(filename string) (*Config, []*ResolvedServer, error) {
+// Load reads benchmark parameters from filename and discovers the server roster
+// from serversDir (servers/*/bench.json manifests, PLAN §7.4). The roster no
+// longer lives in the config file.
+func Load(filename, serversDir string) (*Config, []*ResolvedServer, error) {
 	data, err := os.ReadFile(filename) //nolint:gosec // config file path is controlled
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
@@ -65,7 +69,12 @@ func Load(filename string) (*Config, []*ResolvedServer, error) {
 		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	resolved, err := resolve(&cfg)
+	entries, err := roster.Discover(serversDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover server roster: %w", err)
+	}
+
+	resolved, err := resolve(&cfg, entries)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
 	}
@@ -200,25 +209,6 @@ func applyDefaults(cfg *Config) error {
 		return fmt.Errorf("container memory_limit: %w", err)
 	}
 	cfg.Container.MemoryLimit = normalizedMemory
-
-	if len(cfg.Servers) == 0 {
-		return errors.New("no servers defined")
-	}
-
-	for i, server := range cfg.Servers {
-		if strings.TrimSpace(server.Name) == "" {
-			return fmt.Errorf("server[%d]: name is required", i)
-		}
-		if strings.TrimSpace(server.Image) == "" {
-			return fmt.Errorf("server[%d]: image is required", i)
-		}
-		if server.Port == 0 {
-			cfg.Servers[i].Port = DefaultPort
-		}
-		if server.Port < 0 || server.Port > 65535 {
-			return fmt.Errorf("server[%d]: port must be between 0 and 65535", i)
-		}
-	}
 
 	if len(cfg.Endpoints) == 0 {
 		return errors.New("no endpoints defined")
