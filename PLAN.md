@@ -21,6 +21,10 @@ Status: **planning approved-in-progress** · Last updated: 2026-07-03
 | Go version | **1.27rc1** (confirmed available) via `toolchain` directive, everywhere. |
 | Task runner | **just stays** (no Makefile). We need a command runner, not a build system — incremental builds belong to each language's toolchain. Note `just` install in README for contributors. |
 | Lint/format | **Strict on correctness, default on style** — formatters at ecosystem defaults (they ARE the convention), linters strict and merge-gating via `just verify` + CI. **One config per language** at the language root (no per-server copies). All lint/format tools pinned to **latest versions**. |
+| Metrics stack | **Switch InfluxDB → dedicated PostgreSQL** (metrics instance, separate from the benchmarked one); **keep Grafana**, upgrade to 13.x. Researched decision — see §9.1. |
+| Client queue | **No broker** (no Kafka/Rabbit/NATS/BullMQ) — in-process bounded channels; see §7.5. |
+| Client & orchestration | **Keep the custom Go client as both generator and orchestrator** (validation + sequences + lifecycle are the project's value); **no local K8s** (noise + complexity for zero benefit single-node); generator correctness guarded by a **cross-validation gate vs oha/k6**; see §7.6. |
+| Client flags | **Minimal — flags select, config configures.** `config/config.json` is the single source of behavior, schema-validated at startup; see §7.4. |
 
 ---
 
@@ -65,8 +69,8 @@ apps/
     zig/       server/          # single server: http.zig, all 4 DBs
     kotlin/    ktor/ spring-boot/
 shared/
-  typescript/                   # @bench/shared — db ops, zod schemas, env, consts, handler cores
-  go/                           # module: shared db/config/consts/validation/handler cores
+  typescript/                   # @bench/shared — db ops, zod schemas, env, consts
+  go/                           # module: shared db/config/consts/validation
   python/                       # bench-shared: async + sync repository impls
   rust/                         # shared crate (workspace member)
   kotlin/                       # shared Gradle module
@@ -212,7 +216,7 @@ Zig   = 7010
 Kotlin= 8010 ktor · 8020 spring-boot
 ```
 
-(Host-side reserved: 3000 Grafana, 8181 InfluxDB — no collisions with the scheme.)
+(Host-side reserved: 3000 Grafana, 5433 metrics-postgres — no collisions with the scheme.)
 
 Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-echo`).
 
@@ -222,25 +226,26 @@ Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-ec
 
 ### 7.1 Correctness of measurement
 
-- **Throughput (RPS) reported everywhere** — the current latency-only ranking cannot distinguish fast-per-request from high-throughput. New `throughput` fields in summaries, Influx, and dashboards.
+- **Throughput (RPS) reported everywhere** — the current latency-only ranking cannot distinguish fast-per-request from high-throughput. New `throughput` fields in summaries, the metrics DB, and dashboards.
 - **Open-model mode** alongside the current closed loop: constant-arrival-rate scheduling with latency measured from *intended* send time — fixes coordinated omission. Config: `mode: "closed" | "open"`, `rate`.
 - **Load profiles / ramping**: k6-style stages — `[{target, duration}]` for ramp-up → hold → ramp-down, step-load, and spike shapes; per suite.
 - **Backpressure is measured, not hidden**: in open mode, when the server can't absorb the target rate the client records schedule lag / late-starts / backlog depth explicitly — saturation becomes a first-class result instead of silently degrading into a closed loop.
 - **Max-throughput search** (phase 2 of client work): stepped ramp finding the highest rate where error-rate and p99 stay within budget → a single "capacity" number per server.
+- **Cross-validation gate**: writing a correct load generator is genuinely hard (that's why wrk2/k6 exist). Before trusting client v2's numbers, run an established tool (oha or k6) against 2–3 endpoints and require RPS/p50/p99 to agree within tolerance (~5%). Re-run this calibration whenever the generator's hot path changes. This keeps the custom client honest without giving up its advantages (§7.6).
 - Percentiles: add p99.9, use interpolated quantiles; record real wall-clock timestamps on points (drop the synthetic `baseTime + index·µs` hack — keep offsets as fields).
 
 ### 7.2 No silent drops — hard rules
 
-- Influx unreachable → **fail the run** (or explicit `--no-metrics`); never the current warn-and-drop.
+- Metrics DB unreachable → **fail the run** (or explicit `--no-metrics`); never the current warn-and-drop.
 - Bounded internal channels/buffers with accounting: any dropped/sampled point is **counted and reported** (`points_written`, `points_dropped`, `points_sampled_out` in `run_meta`); post-run verification query confirms written counts match.
-- Async Influx writes get retry + final flush with deadline; a failed flush fails the run summary.
+- Async metrics writes (batched COPY) get retry + final flush with deadline; a failed flush fails the run summary.
 - Config validated against the JSON schema **at runtime** (it's editor-only today).
 - Container/DB readiness failures, non-2xx during warmup, and mid-run container death are all distinct, loudly-reported failure modes.
 
 ### 7.3 Infrastructure
 
-- **testcontainers-go** replaces docker-CLI shell-outs for DBs + servers-under-test: real wait strategies, ryuk auto-cleanup, per-container resource limits, stats via SDK (drop the raw unix-socket HTTP client). Grafana/InfluxDB stay on compose — they outlive the run for dashboard viewing.
-- Un-hardcode: Influx URL/token, host port, required-DB list (derive from config `databases`).
+- **testcontainers-go** replaces docker-CLI shell-outs for DBs + servers-under-test: real wait strategies, ryuk auto-cleanup, per-container resource limits, stats via SDK (drop the raw unix-socket HTTP client). Grafana/metrics-postgres stay on compose — they outlive the run for dashboard viewing.
+- Un-hardcode: metrics DB DSN, host port, required-DB list (derive from config `databases`).
 - Per-server `databases` subset + `experimental` flag in config; `--suites=` and `--group=` (language/runtime) selection; DB state reset between endpoint groups, not once per server.
 - Sample DB-container resources too (CPU/mem of postgres/mongo/redis/cassandra during each server's run).
 - New tags on every measurement: `language`, `runtime`, `suite`, `experimental` — this is what makes Grafana scale.
@@ -249,21 +254,43 @@ Image naming: `bench/<language>-<entry>` (e.g. `bench/ts-bun-hono`, `bench/go-ec
 
 **Discovery — make the client folder-structure aware.** Today the roster lives hardcoded in `config/config.json` (`servers` list) and drifts from reality. Instead: each server app carries a small manifest (`bench.json`) next to its Dockerfile declaring `{name, language, runtime, image, databases, experimental, dev_port}`. The client **discovers the roster by scanning `apps/servers/**/bench.json`** — adding a server = adding a folder, zero central edits. `config/config.json` keeps only benchmark parameters (suites, endpoints, load profiles, container limits); the schema validates both.
 
-**Flags** (full set, replacing the current `--servers` + interactive prompt):
+**Flags — deliberately minimal: flags select, config configures.** `config/config.json` is the single source of truth for all behavior (load mode, rates, profiles, durations, limits, output). Flags only scope *this run* and never introduce a second place to configure something:
 
 ```
---servers=a,b,c        --languages=go,rust     --runtimes=bun,deno
---suites=basic,db      --databases=postgres    --skip-experimental
---mode=open|closed     --rate=5000             --concurrency=200
---duration=10s         --profile=ramp|spike|steady
---conformance          --quick                 (preset: 1 suite, short durations)
---no-metrics           --keep-alive            (leave grafana/dbs up)
---out=dir              --run-id=name           --compare=run_id
---list                 (print discovered roster and exit)
---dry-run              (resolve config + roster, validate, exit)
+--servers=a,b,c     select servers (default: interactive multi-select from discovery)
+--suites=basic,db   select suites
+--quick             preset: one small suite, short durations (dev loop)
+--conformance       run the contract suite instead of the benchmark
+--check             validate config against schema + resolve roster, then exit
+--no-metrics        run without the metrics DB (results JSON still written)
 ```
 
-Interactive mode stays for local use (huh multi-select fed by discovery); flags make CI/scripted runs first-class.
+That's the whole surface. Anything tempting as a flag (rate, concurrency, profile, output dir) goes in config — if two configs are needed often, that's a second config file (`config/quick.json`), not more flags.
+
+**Config correctness is enforced**: the JSON schema (today editor-only) is validated at startup — unknown keys, bad durations, unknown suite/database references, and manifest/roster mismatches are startup errors with precise messages, not silent defaults.
+
+### 7.5 Does the client need a queue / pub-sub (Kafka, RabbitMQ, NATS, BullMQ)?
+
+**No — and adding one would actively hurt.** The client is a single Go process on the same host as the system under test:
+
+- The work is already in-process: workers → bounded Go channels → aggregator → batched async metrics writer. That is the same architecture k6, vegeta, and wrk2 use; none of them use an external broker.
+- A broker container (Kafka/Rabbit/NATS) would compete for CPU/RAM with the server being measured — the benchmark would contaminate its own numbers with infrastructure it doesn't need.
+- Brokers solve durability and fan-out *across processes/machines*. We have one producer and one consumer in one process; Go channels give the same decoupling with nanosecond overhead and zero serialization.
+- The "no silent drops" requirement (§7.2) is solved by bounded channels + accounting, not by a durable queue.
+- BullMQ is a Node/Redis job queue — wrong ecosystem for a Go client entirely.
+
+The only scenario where a broker (NATS would be the pick) earns its place is **distributed multi-machine load generation** — explicitly out of scope; revisit only if the generator ever moves off-host.
+
+### 7.6 Build vs buy: custom client & orchestrator — and why not Kubernetes
+
+**Custom client: keep it — it is the project.** The generic load-generation part could be bought (k6, wrk2, vegeta, oha), but everything that makes this repo valuable is custom logic no off-the-shelf tool provides together: full response-body validation on every request (correctness, not just status codes), CRUD sequences with capture/templated vars fanned out per database, per-server container lifecycle with resource sampling, the conformance mode, and one coherent results/metrics pipeline. Gluing k6 (JS scripting, its own per-VU overhead) or wrk2 (Lua, no sequences/validation) to a separate orchestrator, a separate validator, and a separate stats collector would be *more* moving parts, not fewer. TechEmpower reached the same conclusion — custom harness. The known risk of DIY — subtle generator bugs — is handled by the **cross-validation gate** in §7.1 (calibrate against oha/k6, agree within ~5%).
+
+**Orchestrator: the Go client stays the orchestrator; no Kubernetes.** What orchestration actually requires here: start one server container at a time, wait for readiness, apply resource limits, sample stats, tear down, next. That's testcontainers-go territory (§7.3). Local K8s (kind/k3d/minikube) would add:
+- **measurement noise** — control plane + kubelet burning CPU on the same host that runs the SUT;
+- **network distortion** — kube-proxy/CNI layers between client and server, versus Docker's direct port mapping;
+- **complexity tax** — manifests, image loading into the cluster, slower iteration — for a *sequential, single-node* workload that uses none of K8s's actual value (scheduling across nodes, self-healing, service discovery).
+
+K8s becomes the right tool only if benchmarking ever goes distributed/multi-node (client on one machine, SUT on another, DBs on a third) — same trigger as the broker question, same answer: out of scope, revisit then. Plain docker compose alone was also considered and rejected for the per-server loop: it can't express "sequential lifecycle with readiness gates, stats attach, and cooldowns" — that logic needs a program, and we have one.
 
 ---
 
@@ -282,22 +309,24 @@ Extend the Go client with a **`conformance` command** (reuses the existing reque
 
 ## 9. Metrics, storage & Grafana redesign
 
-### 9.1 Is InfluxDB (SQL) the right tool? — honest assessment
+### 9.1 Storage decision: **switch InfluxDB → plain PostgreSQL** (researched, July 2026)
 
-What we actually do is **not classic time-series**: we write event data once per run (per-request latencies, aggregates) tagged by `run_id`, then run OLAP-style queries (rank, percentile, group-by, cross-run compare). The current setup even fakes timestamps (`baseTime + index·µs`) to satisfy Influx's data model — a sign of mismatch.
+What we actually do is **not classic time-series**: we write event data once per run (per-request latencies, aggregates) tagged by `run_id`, then run OLAP-style queries (rank, percentile, group-by, cross-run compare). The current setup even fakes timestamps (`baseTime + index·µs`) to satisfy Influx's data model — a sign of mismatch. Research verdict:
 
-| Option | Fit | Notes |
-| --- | --- | --- |
-| **InfluxDB 3 Core (current)** | OK, with a real risk | Already integrated; SQL via FlightSQL works in Grafana. **Risk to verify in Phase 1: Core is optimized for recent data and has had a limited query window (~72h) — if that holds in the current version, historical run-compare silently breaks as runs age out.** Also: running `--without-auth`, and Core is the free tier of a commercial product. |
-| **ClickHouse** | Best analytical fit | Built for exactly this (event OLAP): native quantiles, huge group-bys, first-class Grafana datasource. One more technology in the stack. |
-| **TimescaleDB / plain Postgres** | Least new tech | We already run Postgres; real SQL, joins, no retention weirdness; Grafana Postgres datasource is rock-solid. Percentile math is more manual (`percentile_cont`). |
+- **InfluxDB 3 Core is disqualified** for the "compare runs across weeks" requirement: the ~72h limit is real and current (implemented as a 432-Parquet-file query limit — queries touching more files *error out*; raising `query-file-limit` degrades speed/RAM because **Core has no compactor**). Historical data is second-class by design; the fix is Enterprise's non-commercial license — a mismatch traded for a license dependency. ([config-options docs](https://docs.influxdata.com/influxdb3/core/reference/config-options/), [community thread](https://community.influxdata.com/t/influxdb-3-core-seems-to-ignore-the-72-hour-query-time-range-limit/57443))
+- **Plain PostgreSQL wins** for this workload (≤ millions of rows per run): exact `percentile_cont` for p50/p95/p99/p99.9, rankings are plain `GROUP BY`/`ORDER BY`, durable history with ordinary backups, no query window, built-in core Grafana datasource with `$__timeFilter` macros — and it's already in the project. Batched inserts (COPY / multi-row) during runs.
+- **ClickHouse** (runner-up): best-in-class quantiles, but the heaviest container in the compose (~0.5–1 GB idle untuned; docs assume big machines) and a small-insert anti-pattern to manage — overkill at this scale. **TimescaleDB**: optimizations we don't need at this scale. **VictoriaMetrics/Prometheus**: confirmed anti-pattern (per-run_id labels = high-cardinality churn, approximate quantiles only, no raw events). **DuckDB/Parquet**: great for *static post-run reports*, weak as a live Grafana backend (unsigned plugin, single-writer).
+- Also considered: **MongoDB** (already in the project, but percentile/ranking analytics in aggregation pipelines are clumsy vs SQL and Grafana's Mongo support is weaker); **SQLite/DuckDB as live store** (single-writer, no server for Grafana to query mid-run — fine for post-run reports only).
+- Peer validation: TechEmpower keeps `results.json` + a custom viewer; sharkbench writes CSVs; k6 recommends Prometheus→Grafana live + HTML export post-run. Nobody at this scale runs a heavy analytics DB.
 
-**Decision path**: keep InfluxDB 3 through Phase 1 but (a) verify the query-window/retention behavior with a >1-week-old run, and (b) treat `results/*.json` as the durable source of truth regardless of store (already exported today — keep and version them). If the 72h limit bites or queries fight us, migrate to **ClickHouse** (first choice) — the writer is already isolated in `internal/influx`, so it's a swap of one package + Grafana datasource, not a redesign.
+**Why Postgres specifically, in one paragraph**: the workload is *small-scale relational OLAP* — millions of rows at most, queried by exact `run_id`/`server`/`endpoint` equality, needing exact percentiles and rankings. That is the textbook profile of a boring SQL database. Postgres does it *exactly* (`percentile_cont`, window functions), is already operated in this repo, costs one small container, has the most battle-tested Grafana datasource in existence, and imposes zero data-model contortions (no tags-vs-fields, no cardinality budgets, no retention windows). Every alternative is either a specialized engine whose specialization we don't use (ClickHouse: columnar scale; Influx/VM: high-frequency ingest with recent-data bias) or fails a hard requirement (live queries, history, exact quantiles). When no requirement demands a specialized tool, the general boring one wins.
+
+**Decisions**: (1) metrics go to a **dedicated `metrics-postgres` container** in the grafana compose stack — *never* the benchmarked postgres instance, which must stay uncontaminated; (2) the writer swap is contained — `internal/influx` becomes `internal/metrics` with the same call sites; (3) schema: `runs`, `request_events` (sampled), `endpoint_stats`, `sequence_stats`, `resource_samples` — tags become plain indexed columns, killing the fake-timestamp hack for free; (4) `results/*.json` stays the durable, versioned source of truth.
 
 ### 9.2 How we query & present results
 
-- **Query contract, documented in the repo**: dashboards read only **aggregate measurements** (`endpoint_stats`, `sequence_latency`, `resource_stats`, new `throughput`); raw `request_latency` is drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
-- **Real timestamps** on points (fixes both the fake-timestamp hack and time-window queries); `run_id` remains the primary selector everywhere.
+- **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput); raw `request_events` is drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
+- **Real timestamps** on rows; `run_id` remains the primary selector everywhere (indexed column, not a tag).
 - **Presentation layers** (in order of truth): 1) `results/<timestamp>/*.json` — durable, versioned, source of truth; 2) terminal summary tables (exists, gets RPS + capacity added); 3) Grafana dashboards (live exploration, §9.3); 4) *(Phase 4 nice-to-have)* a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
 
 ### 9.3 Grafana dashboards
@@ -359,6 +388,6 @@ Echo → Rust (axum, actix) → Python (django, flask) → Kotlin (ktor, spring-
 - **cassandra-driver on Bun/Deno unverified upstream** — conformance decides (affects bun-elysia, bun/deno-hono, deno-oak).
 - **Zig MongoDB via libmongoc** is the single biggest new-server effort item (C toolchain in Docker build).
 - **Bun/NestJS regressions** — NestJS stays Node-only for now; revisit when official support lands.
-- **InfluxDB 3 Core query-window/retention limit** — verify with an aged run in Phase 1; ClickHouse is the prepared exit (§9.1); `results/*.json` stays the source of truth either way.
+- **Metrics migration Influx→Postgres** happens in Phase 1 with the writer swap — until then dashboards keep working on Influx; `results/*.json` is the source of truth throughout. ClickHouse remains the documented exit if event volume ever outgrows Postgres (§9.1).
 - **Run-time budget**: 20 servers × 5 suites × 4 DBs is hours — selectable suites is the mitigation; a `quick` suite preset for development, full matrix for publish runs.
 - **Benchmark fairness on one machine**: generator, DBs, and SUT share the host. Out of scope for this plan, but resource-limit the generator and document the caveat in README.
