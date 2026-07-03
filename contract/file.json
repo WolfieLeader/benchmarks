@@ -1,0 +1,80 @@
+{
+  "name": "file",
+  "cases": [
+    {
+      "name": "file_upload_happy_path",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "test.txt", "contentType": "text/plain", "source": "test.txt" }
+      },
+      "expect": { "status": 200, "body": { "filename": "test.txt", "size": 14, "content": "Hello, World!\n" } }
+    },
+    {
+      "name": "file_upload_multiline",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "multi.txt", "contentType": "text/plain", "source": "multi.txt" }
+      },
+      "expect": { "status": 200, "body": { "filename": "multi.txt", "size": 21, "content": "Line 1\nLine 2\nLine 3\n" } }
+    },
+    {
+      "name": "file_rejects_non_multipart_content_type",
+      "method": "POST",
+      "path": "/params/file",
+      "body": { "not": "multipart" },
+      "expect": {
+        "status": 400,
+        "body": { "error": "invalid multipart form data", "details": "expected content-type: multipart/form-data" }
+      }
+    },
+    {
+      "name": "file_rejects_missing_file_field",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": { "fields": { "notafile": "x" } },
+      "expect": { "status": 400, "body": { "error": "file not found in form data", "details": "$present" } }
+    },
+    {
+      "name": "file_rejects_wrong_declared_content_type",
+      "note": "Part declares image/png -> rejected on the declared type.",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "logo.png", "contentType": "image/png", "text": "still just text" }
+      },
+      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed" } }
+    },
+    {
+      "name": "file_anti_sniffing_binary_lying_as_text",
+      "note": "SECURITY: binary content declared as text/plain must still be rejected by content inspection, not trusted by the header.",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "sneaky.txt", "contentType": "text/plain", "source": "binary.bin" }
+      },
+      "expect": { "status": 415, "body": { "error": "file does not look like plain text" } }
+    },
+    {
+      "name": "file_rejects_sniffed_binary_without_declared_type",
+      "note": "SECURITY: no declared content-type; server sniffs the bytes and rejects non-text.",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "blob", "source": "binary.bin" }
+      },
+      "expect": { "status": 415, "body": { "error": "only text/plain files are allowed" } }
+    },
+    {
+      "name": "file_rejects_oversized_payload",
+      "note": "SECURITY: >1MiB payload is synthesized by the runner (not committed) and must be rejected 413.",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "big.txt", "contentType": "text/plain", "sizeBytes": 1100000 }
+      },
+      "expect": { "status": 413, "body": { "error": "file size exceeds limit" } }
+    }
+  ]
+}
