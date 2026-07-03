@@ -1,0 +1,37 @@
+packages:
+  - "shared/typescript"
+  - "servers/ts-express"
+  - "servers/ts-fastify"
+  - "servers/ts-nestjs"
+  - "servers/ts-bun-elysia"
+  - "servers/ts-bun-honojs"
+  - "servers/ts-deno-oak"
+
+# pnpm 11 moved all settings out of package.json's `pnpm` field / .npmrc into
+# this file. `allowBuilds` replaces the old `onlyBuiltDependencies` allowlist
+# (approve postinstall/build scripts): esbuild (via tsx in the Node servers) and
+# @nestjs/core (Nest's install hook).
+allowBuilds:
+  esbuild: true
+  "@nestjs/core": true
+
+# bson is pinned to 7.2.0 for the WHOLE workspace. mongodb 7.4 pulls bson 7.3.x,
+# which crashes on Bun at import (`node:v8 isBuildingSnapshot` is unimplemented in
+# Bun 1.3.14). Pre-workspace this override lived only in the two Bun servers'
+# package.json, but mongodb is now a single shared dependency (@bench/shared), so
+# pnpm resolves ONE bson version for every consumer — there is no per-member
+# scoping (pnpm overrides are graph-path scoped, not workspace-member scoped), and
+# the mongodb->bson path is identical for the Node and Bun servers. 7.2.0 works on
+# both runtimes (verified via the contract gate), so a single root override is the
+# only correct arrangement here. (Escalated to the lead: the Node servers move from
+# 7.3.1 to 7.2.0 as a result — functionally equivalent for our usage.)
+overrides:
+  bson: 7.2.0
+
+minimumReleaseAgeExclude:
+  - tsx@4.23.0
+
+# pnpm 11 defaults `minimumReleaseAge` to 1 day (supply-chain cooldown: a newly
+# published version is not resolved until it is 24h old). Kept at the default on
+# purpose — the prerelease pins we track (typescript@rc, drizzle-orm@rc) are
+# already well past 24h, so `just update`'s channel re-pin resolves them fine.
