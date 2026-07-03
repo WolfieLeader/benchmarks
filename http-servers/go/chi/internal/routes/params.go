@@ -80,7 +80,7 @@ func handleCookieParams(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//nolint:gosec // G124: benchmark fixture cookie; the exact Set-Cookie value is contract-locked, so Secure/SameSite cannot be added
+	//nolint:gosec // G124: benchmark fixture cookie on a local HTTP-only rig; Secure/SameSite deliberately omitted for response parity across all server implementations
 	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
 	utils.WriteResponse(w, http.StatusOK, map[string]any{"cookie": cookie})
 }
