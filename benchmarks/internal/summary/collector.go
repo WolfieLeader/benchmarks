@@ -1,7 +1,8 @@
 package summary
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -104,7 +105,7 @@ func NewWriter(cfg *config.BenchmarkConfig, resultsDir string) *Writer {
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
 	summary := serverSummaryFromResult(result)
 
-	data, err := json.MarshalIndent(summary, "", "  ")
+	data, err := json.Marshal(summary, jsontext.WithIndent("  "))
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal server results: %w", err)
 	}
@@ -157,7 +158,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 		Servers: serverSummaries,
 	}
 
-	data, err := json.MarshalIndent(metaResults, "", "  ")
+	data, err := json.Marshal(metaResults, jsontext.WithIndent("  "))
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to marshal meta results: %w", err)
 	}

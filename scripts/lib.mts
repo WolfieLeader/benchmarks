@@ -9,11 +9,38 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const httpServersDir = join(repoRoot, "http-servers");
+
+// NOTE: the two process.env mutations below run at module load — they are an
+// IMPORT SIDE EFFECT, not a function. Every runtime importer of lib.mts gets
+// them for free, but a future *type-only* import (`import type { … }`) is erased
+// by Node's type-stripping and would skip them entirely; a Go command spawned
+// off such a path would miss the toolchain pin. Keep any consumer that spawns
+// `go`/`golangci-lint` on a value import of this module.
+
+// Go toolchain pin (PLAN §0.1, §10). Every Go command the scripts spawn — build,
+// go run, go get/tidy, the conformance binary in contract.mts — must resolve the
+// Go 1.27rc1 toolchain (each go.mod's `go 1.27rc1` directive already forces this
+// under the default GOTOOLCHAIN=auto; the explicit pin makes it deterministic).
+// json/v2 is in the RC's default baseline — no GOEXPERIMENT needed. This var
+// only affects `go`; other ecosystems (pnpm/bun/deno/uv) ignore it.
+process.env.GOTOOLCHAIN ??= "go1.27rc1";
+// golangci-lint refuses to load any module targeting a Go version newer than
+// the Go it was built with, so the brew bottle (built with go1.26.x) cannot
+// lint the go-1.27rc1 modules. A rebuild lives in ~/go/bin (PLAN §0.1:
+// `GOTOOLCHAIN=go1.27rc1 go install .../golangci-lint/v2/cmd/golangci-lint@<pinned ver>`);
+// prepend it so it outranks the brew one for every command these scripts spawn.
+// Blast radius: this prepend is process-wide, so it fronts ~/go/bin for EVERY
+// spawned command (pnpm/bun/deno/uv/docker included), not just Go — deliberate
+// but not narrowed, since runStep spawns bare shell strings with no per-command
+// env and threading a Go-only PATH through would ripple across all callers. The
+// only ~/go/bin binaries in play are Go tools, so the wider scope is inert here.
+process.env.PATH = `${join(homedir(), "go", "bin")}:${process.env.PATH ?? ""}`;
 
 export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "root";
 

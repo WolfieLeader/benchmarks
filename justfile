@@ -7,7 +7,7 @@ py_dir := "http-servers/python"
 
 # Run benchmark suite (use --help for flags)
 benchmark *args:
-    cd benchmarks && go run ./cmd/main.go {{args}}
+    cd benchmarks && GOTOOLCHAIN=go1.27rc1 go run ./cmd/main.go {{args}}
 
 alias benchmarks := benchmark
 

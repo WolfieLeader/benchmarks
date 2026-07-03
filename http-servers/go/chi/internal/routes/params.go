@@ -3,7 +3,8 @@ package routes
 import (
 	"bufio"
 	"cmp"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -17,6 +18,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+// decodeOpts keeps json/v2 request decoding aligned with every other server in
+// the suite: duplicate keys take the last value (JSON.parse semantics in the
+// JS/Python stacks), where json/v2 alone would reject them by default.
+var decodeOpts = jsontext.AllowDuplicateNames(true)
 
 func RegisterParams(r chi.Router) {
 	r.Get("/search", handleSearchParams)
@@ -56,7 +62,7 @@ func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.UnmarshalRead(r.Body, &body, decodeOpts); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 		return
 	}

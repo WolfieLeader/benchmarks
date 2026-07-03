@@ -3,7 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"math/rand"
@@ -154,7 +154,7 @@ func executeSequenceStep(ctx context.Context, client *http.Client, baseUrl strin
 	var respData any
 	needsParse := len(endpoint.Capture) > 0 || endpoint.ExpectedBody != nil
 	if needsParse {
-		if err := json.Unmarshal(body, &respData); err != nil {
+		if err := json.Unmarshal(body, &respData, respOpts); err != nil {
 			return duration, fmt.Errorf("failed to parse response: %w", err)
 		}
 	}

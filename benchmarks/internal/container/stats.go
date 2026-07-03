@@ -2,7 +2,8 @@ package container
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"net"
 	"net/http"
@@ -131,10 +132,12 @@ func (r *ResourceSampler) stream(ctx context.Context) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	decoder := json.NewDecoder(resp.Body)
+	// The stats endpoint streams one JSON object per second; UnmarshalDecode
+	// pulls the next top-level value off the jsontext decoder each iteration.
+	decoder := jsontext.NewDecoder(resp.Body)
 	for {
 		var stats dockerStatsAPI
-		if err := decoder.Decode(&stats); err != nil {
+		if err := json.UnmarshalDecode(decoder, &stats); err != nil {
 			return // Connection closed or context canceled
 		}
 

@@ -1,13 +1,18 @@
 package client
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"benchmark-client/internal/config"
 )
+
+// respOpts: server responses are parsed with json/v1's tolerance for duplicate
+// keys (last wins) so the validator's judgment is unchanged by the v2 move.
+var respOpts = jsontext.AllowDuplicateNames(true)
 
 func ValidateResponse(tc *config.Testcase, resp *http.Response, body []byte) error {
 	if resp.StatusCode != tc.ExpectedStatus {
@@ -49,7 +54,7 @@ func validateJSONBody(expected any, actual []byte) error {
 	switch exp := expected.(type) {
 	case map[string]any:
 		var actualBody map[string]any
-		if err := json.Unmarshal(actual, &actualBody); err != nil {
+		if err := json.Unmarshal(actual, &actualBody, respOpts); err != nil {
 			return fmt.Errorf("failed to parse response as JSON object: %w (body: %s)",
 				err, truncate(actual, 200))
 		}
@@ -60,7 +65,7 @@ func validateJSONBody(expected any, actual []byte) error {
 
 	case []any:
 		var actualBody []any
-		if err := json.Unmarshal(actual, &actualBody); err != nil {
+		if err := json.Unmarshal(actual, &actualBody, respOpts); err != nil {
 			return fmt.Errorf("failed to parse response as JSON array: %w (body: %s)",
 				err, truncate(actual, 200))
 		}
@@ -71,7 +76,7 @@ func validateJSONBody(expected any, actual []byte) error {
 
 	default:
 		var actualValue any
-		if err := json.Unmarshal(actual, &actualValue); err != nil {
+		if err := json.Unmarshal(actual, &actualValue, respOpts); err != nil {
 			return fmt.Errorf("failed to parse response as JSON: %w (body: %s)",
 				err, truncate(actual, 200))
 		}

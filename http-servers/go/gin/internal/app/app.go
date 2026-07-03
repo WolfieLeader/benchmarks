@@ -7,6 +7,7 @@ import (
 	"gin-server/internal/consts"
 	"gin-server/internal/database"
 	"gin-server/internal/routes"
+	"gin-server/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,7 +30,7 @@ func New() *App {
 	r.Use(gin.Recovery())
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"hello": "world"})
+		utils.WriteResponse(c, http.StatusOK, gin.H{"hello": "world"})
 	})
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
@@ -38,7 +39,7 @@ func New() *App {
 	routes.RegisterDb(r.Group("/db"), env)
 
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
+		utils.WriteResponse(c, http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
 	})
 
 	return &App{env: env, router: r}

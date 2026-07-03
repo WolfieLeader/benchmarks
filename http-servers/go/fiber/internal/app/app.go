@@ -1,7 +1,8 @@
 package app
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"fiber-server/internal/config"
 	"fiber-server/internal/consts"
@@ -19,9 +20,16 @@ type App struct {
 }
 
 func New() *App {
+	// json/v2's Marshal/Unmarshal take variadic options, so they don't satisfy
+	// fiber's non-variadic encoder/decoder func types directly — wrap them.
+	// AllowDuplicateNames keeps decoding aligned with every other server in the
+	// suite: duplicate keys take the last value (JSON.parse semantics in the
+	// JS/Python stacks), where json/v2 alone would reject them by default.
 	r := fiber.New(fiber.Config{
-		JSONEncoder: json.Marshal,
-		JSONDecoder: json.Unmarshal,
+		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
+		JSONDecoder: func(data []byte, v any) error {
+			return json.Unmarshal(data, v, jsontext.AllowDuplicateNames(true))
+		},
 	})
 
 	env := config.LoadEnv()
