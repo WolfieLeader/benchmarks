@@ -26,7 +26,7 @@ export default defineConfig({
       /^drizzle-orm(\/.*)?$/,
       /^ioredis(\/.*)?$/,
       /^mongodb(\/.*)?$/,
-      /^pg(\/.*)?$/,
+      /^postgres(\/.*)?$/,
       /^uuid(\/.*)?$/,
       /^zod(\/.*)?$/
     ]
