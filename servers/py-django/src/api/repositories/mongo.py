@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -29,6 +30,28 @@ class MongoRepository:
         self._url = url
         self._db_name = db_name
         self._client: MongoClient[dict[str, Any]] | None = None
+        # Build the sync_to_async bridges once, not per request: each sync_to_async
+        # call allocates a fresh SyncToAsync wrapper, so constructing them on the hot
+        # path would tax every mongo request. thread_sensitive=False so calls run
+        # concurrently in the default executor rather than serializing onto one thread.
+        self._create_async: Callable[[CreateUser], Coroutine[Any, Any, User]] = sync_to_async(
+            self._create, thread_sensitive=False
+        )
+        self._find_by_id_async: Callable[[str], Coroutine[Any, Any, User | None]] = sync_to_async(
+            self._find_by_id, thread_sensitive=False
+        )
+        self._update_async: Callable[[str, UpdateUser], Coroutine[Any, Any, User | None]] = sync_to_async(
+            self._update, thread_sensitive=False
+        )
+        self._delete_async: Callable[[str], Coroutine[Any, Any, bool]] = sync_to_async(
+            self._delete, thread_sensitive=False
+        )
+        self._delete_all_async: Callable[[], Coroutine[Any, Any, None]] = sync_to_async(
+            self._delete_all, thread_sensitive=False
+        )
+        self._health_check_async: Callable[[], Coroutine[Any, Any, bool]] = sync_to_async(
+            self._health_check, thread_sensitive=False
+        )
 
     def _collection(self):
         if self._client is None:
@@ -88,19 +111,19 @@ class MongoRepository:
         return True
 
     async def create(self, data: CreateUser) -> User:
-        return await sync_to_async(self._create, thread_sensitive=False)(data)
+        return await self._create_async(data)
 
     async def find_by_id(self, id: str) -> User | None:
-        return await sync_to_async(self._find_by_id, thread_sensitive=False)(id)
+        return await self._find_by_id_async(id)
 
     async def update(self, id: str, data: UpdateUser) -> User | None:
-        return await sync_to_async(self._update, thread_sensitive=False)(id, data)
+        return await self._update_async(id, data)
 
     async def delete(self, id: str) -> bool:
-        return await sync_to_async(self._delete, thread_sensitive=False)(id)
+        return await self._delete_async(id)
 
     async def delete_all(self) -> None:
-        await sync_to_async(self._delete_all, thread_sensitive=False)()
+        await self._delete_all_async()
 
     async def health_check(self) -> bool:
-        return await sync_to_async(self._health_check, thread_sensitive=False)()
+        return await self._health_check_async()
