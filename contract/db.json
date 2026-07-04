@@ -59,7 +59,7 @@
           "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance-suite.com", "favoriteNumber": "$absent" } }
         },
         { "name": "delete", "method": "DELETE", "path": "/db/postgres/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
-        { "name": "read_after_delete_404", "method": "GET", "path": "/db/postgres/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/postgres/users/{id}", "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } } },
         { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
       ]
     },
@@ -96,7 +96,7 @@
           "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance-suite.com", "favoriteNumber": "$absent" } }
         },
         { "name": "delete", "method": "DELETE", "path": "/db/mongodb/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
-        { "name": "read_after_delete_404", "method": "GET", "path": "/db/mongodb/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/mongodb/users/{id}", "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } } },
         { "name": "delete_all", "method": "DELETE", "path": "/db/mongodb/users", "expect": { "status": 200, "body": { "success": true } } }
       ]
     },
@@ -133,7 +133,7 @@
           "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance-suite.com", "favoriteNumber": "$absent" } }
         },
         { "name": "delete", "method": "DELETE", "path": "/db/redis/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
-        { "name": "read_after_delete_404", "method": "GET", "path": "/db/redis/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/redis/users/{id}", "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } } },
         { "name": "delete_all", "method": "DELETE", "path": "/db/redis/users", "expect": { "status": 200, "body": { "success": true } } }
       ]
     },
@@ -170,8 +170,120 @@
           "expect": { "status": 201, "body": { "id": "$id", "name": "Bob", "email": "bob@conformance-suite.com", "favoriteNumber": "$absent" } }
         },
         { "name": "delete", "method": "DELETE", "path": "/db/cassandra/users/{id}", "expect": { "status": 200, "body": { "success": true } } },
-        { "name": "read_after_delete_404", "method": "GET", "path": "/db/cassandra/users/{id}", "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } } },
+        { "name": "read_after_delete_404", "method": "GET", "path": "/db/cassandra/users/{id}", "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } } },
         { "name": "delete_all", "method": "DELETE", "path": "/db/cassandra/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+
+    {
+      "name": "favorite_number_boundary_values",
+      "note": "BOUNDARY: favoriteNumber is an integer in [0,100] inclusive on every server (Go *int validate min=0/max=100; TS zod z.number().int().min(0).max(100); pydantic Field(ge=0,le=100); zig i32 checked 0..100). 0 must be accepted and echoed as 0 — distinct from absent (see create_without_favorite_number) — and 100 (inclusive max) accepted. Below-min / above-max / fractional rejection is covered by the create_rejects_* cases.",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create_zero",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Zero", "email": "zero@conformance-suite.com", "favoriteNumber": 0 },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Zero", "email": "zero@conformance-suite.com", "favoriteNumber": 0 } }
+        },
+        {
+          "name": "create_inclusive_max",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Max", "email": "max@conformance-suite.com", "favoriteNumber": 100 },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Max", "email": "max@conformance-suite.com", "favoriteNumber": 100 } }
+        },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "reset_clears_existing_users",
+      "note": "Proves DELETE /db/<db>/reset actually removes prior rows (not merely returns ok): a user created before reset is gone afterward. reset maps to deleteAll on every server.",
+      "flow": [
+        {
+          "name": "seed",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Ghost", "email": "ghost@conformance-suite.com" },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Ghost", "email": "ghost@conformance-suite.com", "favoriteNumber": "$absent" } }
+        },
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        { "name": "read_after_reset_404", "method": "GET", "path": "/db/postgres/users/{id}", "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } } }
+      ]
+    },
+    {
+      "name": "create_duplicate_keys_last_value_wins",
+      "note": "CANON: duplicate JSON keys resolve last-wins on the DB create path too (previously proven only on /params/body). The persisted user carries the LAST `name`, proving the server applied last-wins at decode rather than the harness parser. Expressed via rawBody because duplicate keys cannot be written as a JSON object literal.",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create_dup",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "rawBody": "{\"name\":\"First\",\"name\":\"Second\",\"email\":\"dup@conformance-suite.com\",\"favoriteNumber\":7}",
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Second", "email": "dup@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read_persisted_last_value",
+          "method": "GET",
+          "path": "/db/postgres/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Second", "email": "dup@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "unicode_name_round_trips",
+      "note": "UNICODE: a multi-byte name (Latin-accented + CJK + emoji + RTL Arabic) survives create -> store -> retrieve byte-for-byte. name validation is min-length-1 with no max in any server's schema (DB column varchar(255)) and no server applies a byte-length cap, so multi-byte names are accepted and preserved. The GET (not just the create echo) proves the storage layer round-trips, since mongo/redis/cassandra build the create response from the request rather than a read-back.",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "José 世界 🚀 مرحبا", "email": "unicode@conformance-suite.com", "favoriteNumber": 42 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "José 世界 🚀 مرحبا", "email": "unicode@conformance-suite.com", "favoriteNumber": 42 } }
+        },
+        {
+          "name": "read",
+          "method": "GET",
+          "path": "/db/postgres/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "José 世界 🚀 مرحبا", "email": "unicode@conformance-suite.com", "favoriteNumber": 42 } }
+        },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
+    {
+      "name": "patch_ignores_unknown_field_noop",
+      "note": "CANON: PATCH (update) ignores unknown JSON fields. A body carrying only a wrongly-cased key (\"Name\" not \"name\") and no valid fields is a no-op: the unknown key is stripped, no column changes, and the unchanged row returns 200 (never 400). Case-sensitivity is asserted the opposite way on CREATE (create_rejects_case_mismatched_field_names, 400) — there the mismatched key leaves the required field missing; here every update field is optional, so the ignored key simply yields an empty patch. The read-back proves the store was untouched, not merely the echo.",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "patch_mismatched_case_field",
+          "method": "PATCH",
+          "path": "/db/postgres/users/{id}",
+          "body": { "Name": "SHOULD BE IGNORED" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read_unchanged",
+          "method": "GET",
+          "path": "/db/postgres/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
       ]
     },
 
@@ -179,34 +291,34 @@
       "name": "unknown_database_health_unavailable",
       "method": "GET",
       "path": "/db/mysql/health",
-      "expect": { "status": 503, "text": "Service Unavailable" }
+      "expect": { "status": 503, "headers": { "Content-Type": "text/plain" }, "text": "Service Unavailable" }
     },
     {
       "name": "unknown_database_create_404",
       "method": "POST",
       "path": "/db/mysql/users",
       "body": { "name": "X", "email": "x@y.com" },
-      "expect": { "status": 404, "body": { "error": "not found", "details": "unknown database type: mysql" } }
+      "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "unknown database type: mysql" } }
     },
     {
       "name": "unknown_database_read_404",
       "method": "GET",
       "path": "/db/mysql/users/123",
-      "expect": { "status": 404, "body": { "error": "not found", "details": "unknown database type: mysql" } }
+      "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "unknown database type: mysql" } }
     },
     {
       "name": "create_rejects_invalid_email",
       "method": "POST",
       "path": "/db/mongodb/users",
       "body": { "name": "X", "email": "not-an-email" },
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "create_rejects_out_of_range_favorite_number",
       "method": "POST",
       "path": "/db/mongodb/users",
       "body": { "name": "X", "email": "x@y.com", "favoriteNumber": 101 },
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "create_rejects_malformed_favorite_number_type",
@@ -214,21 +326,37 @@
       "method": "POST",
       "path": "/db/mongodb/users",
       "rawBody": "{\"name\":\"X\",\"email\":\"x@y.com\",\"favoriteNumber\":\"abc\"}",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_negative_favorite_number",
+      "note": "BOUNDARY: favoriteNumber below the inclusive minimum (0) is rejected. Uniform: Go validate min=0, TS zod .min(0), pydantic ge=0, zig i32<0 check.",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "body": { "name": "X", "email": "x@y.com", "favoriteNumber": -1 },
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "create_rejects_fractional_favorite_number",
+      "note": "BOUNDARY: a fractional favoriteNumber is rejected as a non-integer. Uniform: Go/zig fail decoding a float into int; TS zod .int() rejects; pydantic rejects a number with a fractional part even in lax mode. Integral floats (7.0) and numeric strings (\"7\") are deliberately NOT asserted — those diverge (pydantic lax coerces them, Go/zig reject at decode). rawBody guarantees the wire value is the JSON number 3.5.",
+      "method": "POST",
+      "path": "/db/mongodb/users",
+      "rawBody": "{\"name\":\"X\",\"email\":\"x@y.com\",\"favoriteNumber\":3.5}",
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "create_rejects_empty_name",
       "method": "POST",
       "path": "/db/mongodb/users",
       "body": { "name": "", "email": "x@y.com" },
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "create_rejects_malformed_json",
       "method": "POST",
       "path": "/db/mongodb/users",
       "rawBody": "{bad",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "create_rejects_case_mismatched_field_names",
@@ -236,13 +364,36 @@
       "method": "POST",
       "path": "/db/mongodb/users",
       "rawBody": "{\"Name\":\"x\",\"Email\":\"y@conformance-suite.com\",\"FavoriteNumber\":7}",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "read_nonexistent_user_404",
       "method": "GET",
       "path": "/db/mongodb/users/000000000000000000000000",
-      "expect": { "status": 404, "body": { "error": "not found", "details": "$present" } }
+      "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } }
+    },
+    {
+      "name": "patch_rejects_malformed_json",
+      "note": "PATCH negative: a malformed body is rejected 400 by the same guard as the create path (decode/parse runs before the id lookup). id is a well-formed but irrelevant ObjectId.",
+      "method": "PATCH",
+      "path": "/db/mongodb/users/000000000000000000000000",
+      "rawBody": "{bad",
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
+    },
+    {
+      "name": "patch_nonexistent_user_404",
+      "note": "PATCH negative: a valid update to a well-formed but nonexistent id returns 404 (repo.update yields no row -> not found). Mirrors read_nonexistent_user_404.",
+      "method": "PATCH",
+      "path": "/db/mongodb/users/000000000000000000000000",
+      "body": { "name": "Nobody" },
+      "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } }
+    },
+    {
+      "name": "delete_nonexistent_user_404",
+      "note": "DELETE negative: deleting a well-formed but nonexistent id returns 404 (repo.delete reports nothing removed), never 200 success:false. Uniform across all servers.",
+      "method": "DELETE",
+      "path": "/db/mongodb/users/000000000000000000000000",
+      "expect": { "status": 404, "headers": { "Content-Type": "application/json" }, "body": { "error": "not found", "details": "$present" } }
     }
   ]
 }

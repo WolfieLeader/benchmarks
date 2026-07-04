@@ -142,35 +142,35 @@
       "method": "POST",
       "path": "/params/body",
       "rawBody": "{\"key\": }",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_rejects_top_level_array",
       "method": "POST",
       "path": "/params/body",
       "body": [1, 2, 3],
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_rejects_top_level_string",
       "method": "POST",
       "path": "/params/body",
       "body": "smuggled",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_rejects_top_level_number",
       "method": "POST",
       "path": "/params/body",
       "body": 5,
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_rejects_top_level_bool",
       "method": "POST",
       "path": "/params/body",
       "body": true,
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_rejects_top_level_null",
@@ -178,7 +178,7 @@
       "method": "POST",
       "path": "/params/body",
       "rawBody": "null",
-      "expect": { "status": 400, "body": { "error": "invalid JSON body", "details": "$present" } }
+      "expect": { "status": 400, "headers": { "Content-Type": "application/json" }, "body": { "error": "invalid JSON body", "details": "$present" } }
     },
     {
       "name": "body_duplicate_keys_last_value_wins",
@@ -187,6 +187,14 @@
       "path": "/params/body",
       "rawBody": "{\"name\":\"first\",\"email\":\"dup@conformance-suite.com\",\"favoriteNumber\":7,\"name\":\"second\"}",
       "expect": { "status": 200, "body": { "body": { "name": "second", "email": "dup@conformance-suite.com", "favoriteNumber": 7 } } }
+    },
+    {
+      "name": "body_echoes_multibyte_unicode",
+      "note": "UNICODE: multi-byte input (Latin-accented + CJK + emoji + RTL Arabic) must round-trip byte-for-byte through JSON decode and re-encode. The echo route is the pure JSON path (no user schema), so this isolates parser/serializer Unicode handling. Every server preserves bytes: verified across the JS json path, Go json/v2, Python json (ensure_ascii=False), and zig std.json (escape_unicode=false).",
+      "method": "POST",
+      "path": "/params/body",
+      "body": { "name": "José 世界 🚀 مرحبا", "tag": "café-🎉" },
+      "expect": { "status": 200, "body": { "body": { "name": "José 世界 🚀 مرحبا", "tag": "café-🎉" } } }
     }
   ]
 }
