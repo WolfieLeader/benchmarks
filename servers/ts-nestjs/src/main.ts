@@ -137,4 +137,4 @@ async function bootstrap() {
   process.on("SIGINT", shutdown);
 }
 
-bootstrap();
+void bootstrap();

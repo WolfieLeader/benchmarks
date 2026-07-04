@@ -15,7 +15,7 @@ import {
   SNIFF_LEN
 } from "@bench/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { collectFormFields } from "../app.js";
+import { collectFormFields } from "../forms.js";
 
 // @fastify/multipart (via busboy) defaults a file part with no declared
 // Content-Type to "text/plain" per RFC 2046, erasing the distinction the
