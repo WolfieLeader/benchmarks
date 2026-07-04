@@ -19,11 +19,14 @@
   "packageManager": "pnpm@11.9.0",
   "workspaces": [
     "shared/typescript",
+    "shared/typescript-hono",
     "servers/ts-express",
     "servers/ts-fastify",
     "servers/ts-nestjs",
     "servers/ts-bun-elysia",
+    "servers/ts-honojs",
     "servers/ts-bun-honojs",
+    "servers/ts-deno-honojs",
     "servers/ts-deno-oak"
   ]
 }

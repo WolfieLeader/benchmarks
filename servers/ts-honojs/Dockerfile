@@ -1,7 +1,8 @@
 # Root-context build (PLAN §2.4). pnpm workspace: the frozen install needs every
-# member's package.json to resolve the single root lockfile; `pnpm deploy` then
-# prunes to a self-contained single-server image (only this server + the built
-# @bench/shared, injected — no other server's deps, no workspace symlink graph).
+# member's package.json to resolve the single root lockfile; the builder then
+# builds @bench/shared and @bench/hono-app (the shared Hono app, PLAN §4) and
+# `pnpm deploy` prunes to a self-contained single-server image (this server + the
+# two built @bench/* packages, injected — no other server's deps).
 FROM node:26.4.0-alpine AS builder
 WORKDIR /app
 ENV CI=true
@@ -21,9 +22,11 @@ COPY servers/ts-deno-oak/package.json ./servers/ts-deno-oak/
 RUN pnpm install --frozen-lockfile
 
 COPY shared/typescript ./shared/typescript
-COPY servers/ts-express ./servers/ts-express
+COPY shared/typescript-hono ./shared/typescript-hono
+COPY servers/ts-honojs ./servers/ts-honojs
 RUN pnpm --filter @bench/shared run build
-RUN pnpm --filter server-express deploy --legacy --prod=false /deploy
+RUN pnpm --filter @bench/hono-app run build
+RUN pnpm --filter server-honojs deploy --legacy --prod=false /deploy
 
 FROM node:26.4.0-alpine
 WORKDIR /app
@@ -31,7 +34,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     ENV=prod \
     HOST=0.0.0.0 \
-    PORT=3001 \
+    PORT=22005 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -47,5 +50,5 @@ RUN addgroup -g 1001 -S app-group && \
 
 USER app-runner
 
-EXPOSE 3001
+EXPOSE 22005
 CMD ["node", "--enable-source-maps", "--import", "tsx", "src/index.ts"]

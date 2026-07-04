@@ -10,11 +10,14 @@ RUN npm i -g pnpm@11.9.0
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY shared/typescript/package.json ./shared/typescript/
+COPY shared/typescript-hono/package.json ./shared/typescript-hono/
 COPY servers/ts-express/package.json ./servers/ts-express/
 COPY servers/ts-fastify/package.json ./servers/ts-fastify/
 COPY servers/ts-nestjs/package.json ./servers/ts-nestjs/
 COPY servers/ts-bun-elysia/package.json ./servers/ts-bun-elysia/
+COPY servers/ts-honojs/package.json ./servers/ts-honojs/
 COPY servers/ts-bun-honojs/package.json ./servers/ts-bun-honojs/
+COPY servers/ts-deno-honojs/package.json ./servers/ts-deno-honojs/
 COPY servers/ts-deno-oak/package.json ./servers/ts-deno-oak/
 RUN pnpm install --frozen-lockfile
 

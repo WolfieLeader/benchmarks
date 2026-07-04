@@ -6,7 +6,7 @@
   // every exported symbol as dead. The pnpm workspace root is the only vantage
   // point with the whole import graph. (Biome configs went per-project full-copy;
   // knip cannot, for this reason.)
-  "ignoreWorkspaces": ["servers/ts-deno-oak"],
+  "ignoreWorkspaces": ["servers/ts-deno-oak", "servers/ts-deno-honojs"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.mts"],

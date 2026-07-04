@@ -8,8 +8,8 @@
     "lint:fix": "biome check --fix ./src"
   },
   "dependencies": {
-    "@bench/shared": "workspace:*",
-    "hono": "^4.12.27"
+    "@bench/hono-app": "workspace:*",
+    "@bench/shared": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",

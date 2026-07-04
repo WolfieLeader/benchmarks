@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "dev": "deno run --watch --allow-net --allow-env --allow-read src/index.ts",
+    "start": "deno run --allow-net --allow-env --allow-read src/index.ts",
+    "check": "deno check src/**/*.ts",
+    "format": "deno fmt",
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix"
+  },
+  "nodeModulesDir": "manual",
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "singleQuote": false,
+    "proseWrap": "preserve",
+    "semiColons": true,
+    "trailingCommas": "never",
+    "newLineKind": "auto",
+    "spaceSurroundingProperties": true,
+    "jsx.bracketPosition": "sameLine"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

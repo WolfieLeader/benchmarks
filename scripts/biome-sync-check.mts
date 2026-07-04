@@ -29,8 +29,10 @@ const CONFIGS = [
   "servers/ts-fastify/biome.jsonc",
   "servers/ts-nestjs/biome.jsonc",
   "servers/ts-bun-elysia/biome.jsonc",
+  "servers/ts-honojs/biome.jsonc",
   "servers/ts-bun-honojs/biome.jsonc",
-  "shared/typescript/biome.jsonc"
+  "shared/typescript/biome.jsonc",
+  "shared/typescript-hono/biome.jsonc"
 ] as const;
 
 // The reference copy every other is compared against. Any drift surfaces as a

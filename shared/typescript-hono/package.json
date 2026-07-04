@@ -1,0 +1,33 @@
+{
+  "name": "@bench/hono-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write ./src",
+    "lint": "biome lint ./src",
+    "lint:fix": "biome check --fix ./src"
+  },
+  "dependencies": {
+    "@bench/shared": "workspace:*",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.2",
+    "@types/node": "^26.1.0",
+    "typescript": "7.0.1-rc"
+  },
+  "engines": {
+    "node": ">=25.6.0"
+  }
+}
