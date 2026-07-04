@@ -7,7 +7,7 @@ from uuid import UUID
 from cassandra.cluster import Cluster  # type: ignore[import-untyped]
 from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
 
-from src.database.types import CreateUser, UpdateUser, User
+from bench_shared.schemas import CreateUser, UpdateUser, User
 
 
 class _ContactPointAddressTranslator(AddressTranslator):

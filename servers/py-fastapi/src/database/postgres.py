@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from src.database.types import CreateUser, UpdateUser, User
+from bench_shared.schemas import CreateUser, UpdateUser, User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine

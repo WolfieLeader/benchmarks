@@ -3,7 +3,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src.consts.errors import INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, make_error
+from bench_shared.errors import INTERNAL_ERROR, INVALID_JSON_BODY, NOT_FOUND, make_error
 
 
 async def validation_exception_handler(request: Request, exc: Exception):

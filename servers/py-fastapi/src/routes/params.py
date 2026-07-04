@@ -3,8 +3,8 @@ from typing import Any
 from fastapi import APIRouter, Body, Cookie, File, Header, Request, Response, UploadFile
 from fastapi.exceptions import HTTPException
 
-from src.consts.defaults import DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SAFE_INT_LIMIT, SNIFF_LEN
-from src.consts.errors import (
+from bench_shared.consts import DEFAULT_LIMIT, MAX_FILE_BYTES, NULL_BYTE, SAFE_INT_LIMIT, SNIFF_LEN
+from bench_shared.errors import (
     EXPECTED_FORM_CONTENT_TYPE,
     EXPECTED_MULTIPART_CONTENT_TYPE,
     FILE_NOT_FOUND,
