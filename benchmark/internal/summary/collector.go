@@ -44,17 +44,18 @@ var durationOpts = json.JoinOptions(
 )
 
 type ServerResult struct {
-	Name        string                   `json:"name"`
-	ContainerId string                   `json:"-"`
-	ImageName   string                   `json:"-"`
-	Port        int                      `json:"-"`
-	StartTime   time.Time                `json:"-"`
-	EndTime     time.Time                `json:"-"`
-	Duration    time.Duration            `json:"-"`
-	Results     []client.EndpointResult  `json:"-"`
-	Sequences   []client.SequenceStats   `json:"-"`
-	Error       string                   `json:"-"`
-	Resources   *container.ResourceStats `json:"-"`
+	Name        string                              `json:"name"`
+	ContainerId string                              `json:"-"`
+	ImageName   string                              `json:"-"`
+	Port        int                                 `json:"-"`
+	StartTime   time.Time                           `json:"-"`
+	EndTime     time.Time                           `json:"-"`
+	Duration    time.Duration                       `json:"-"`
+	Results     []client.EndpointResult             `json:"-"`
+	Sequences   []client.SequenceStats              `json:"-"`
+	Error       string                              `json:"-"`
+	Resources   *container.ResourceStats            `json:"-"`
+	DbResources map[string]*container.ResourceStats `json:"-"` // database service -> stats during this server's run
 }
 
 type MetaResults struct {
@@ -83,13 +84,14 @@ type BenchmarkSummary struct {
 }
 
 type ServerSummary struct {
-	Name       string                   `json:"name"`
-	DurationMs int64                    `json:"duration_ms"`
-	Error      string                   `json:"error,omitempty"`
-	Stats      *StatsSummary            `json:"stats,omitempty"`
-	Results    []EndpointSummary        `json:"results,omitempty"`
-	Sequences  []client.SequenceStats   `json:"sequences,omitempty"`
-	Resources  *container.ResourceStats `json:"resources,omitempty"`
+	Name        string                              `json:"name"`
+	DurationMs  int64                               `json:"duration_ms"`
+	Error       string                              `json:"error,omitempty"`
+	Stats       *StatsSummary                       `json:"stats,omitempty"`
+	Results     []EndpointSummary                   `json:"results,omitempty"`
+	Sequences   []client.SequenceStats              `json:"sequences,omitempty"`
+	Resources   *container.ResourceStats            `json:"resources,omitempty"`
+	DbResources map[string]*container.ResourceStats `json:"db_resources,omitempty"`
 }
 
 type EndpointSummary struct {
@@ -183,12 +185,13 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 	serverSummaries := make([]ServerSummary, 0, len(servers))
 	for _, s := range servers {
 		serverSummaries = append(serverSummaries, ServerSummary{
-			Name:       s.Name,
-			DurationMs: s.DurationMs,
-			Error:      s.Error,
-			Stats:      s.Stats,
-			Sequences:  s.Sequences,
-			Resources:  s.Resources,
+			Name:        s.Name,
+			DurationMs:  s.DurationMs,
+			Error:       s.Error,
+			Stats:       s.Stats,
+			Sequences:   s.Sequences,
+			Resources:   s.Resources,
+			DbResources: s.DbResources,
 		})
 	}
 
@@ -298,13 +301,14 @@ func serverSummaryFromResult(result *ServerResult) ServerSummary {
 	}
 
 	return ServerSummary{
-		Name:       result.Name,
-		DurationMs: result.Duration.Milliseconds(),
-		Error:      result.Error,
-		Stats:      aggregateStats(result.Results),
-		Results:    results,
-		Sequences:  result.Sequences,
-		Resources:  result.Resources,
+		Name:        result.Name,
+		DurationMs:  result.Duration.Milliseconds(),
+		Error:       result.Error,
+		Stats:       aggregateStats(result.Results),
+		Results:     results,
+		Sequences:   result.Sequences,
+		Resources:   result.Resources,
+		DbResources: result.DbResources,
 	}
 }
 

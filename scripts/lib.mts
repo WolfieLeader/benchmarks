@@ -10,7 +10,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -173,7 +173,9 @@ const mainRepoRoot = (() => {
 function isOurComposeFile(path: string): boolean {
   const p = resolve(path).toLowerCase();
   const suffix = join("infra", "docker", "databases.yml").toLowerCase();
-  return p.startsWith(resolve(mainRepoRoot).toLowerCase()) && p.endsWith(suffix);
+  // The trailing separator is load-bearing: without it a sibling checkout
+  // like <root>-backup would match too.
+  return p.startsWith(resolve(mainRepoRoot).toLowerCase() + sep) && p.endsWith(suffix);
 }
 
 export type DbStack = { project: string; network: string };
@@ -204,11 +206,15 @@ export function detectDbStack(): DbStack {
         "inspect",
         id,
         "--format",
-        `{{.Name}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}`
+        `{{.Name}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}`
       ],
       { encoding: "utf8" }
     );
-    const [name = "", project = "", configFiles = "", network = ""] = inspect.stdout.trim().split("\t");
+    // Trim only the trailing newline: .trim() would eat the tab before an
+    // empty networks field and shift the destructuring.
+    const [name = "", project = "", configFiles = "", network = ""] = inspect.stdout
+      .replace(/\n+$/, "")
+      .split("\t");
     candidates.push({ name: name.replace(/^\//, ""), project, configFiles, network });
   }
 
@@ -226,8 +232,19 @@ export function detectDbStack(): DbStack {
     fatal(`multiple postgres containers match ${dbComposeFile} — ambiguous stack, stop the extras:\n${list}`);
   }
   const stack = ours[0];
-  if (!stack.network) fatal(`could not detect the docker network for container ${stack.name}`);
-  return { project: stack.project, network: stack.network };
+  // A container attached to extra networks (docker network connect) still
+  // belongs to its project's default network; anything else is ambiguous.
+  const networks = stack.network.split(/\s+/).filter(Boolean);
+  let network = networks[0] ?? "";
+  if (networks.length > 1) {
+    const def = `${stack.project}_default`;
+    if (!networks.includes(def)) {
+      fatal(`container ${stack.name} is attached to multiple networks (${networks.join(", ")}) and none is ${def}`);
+    }
+    network = def;
+  }
+  if (!network) fatal(`could not detect the docker network for container ${stack.name}`);
+  return { project: stack.project, network };
 }
 
 // Preflight the SAME stack whose network the server will join: every database

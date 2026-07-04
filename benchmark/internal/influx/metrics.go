@@ -227,15 +227,32 @@ func (c *Client) WriteEndpointStats(runId, server string, results []client.Endpo
 }
 
 func (c *Client) WriteResourceStats(runId, server string, stats *container.ResourceStats) {
+	c.writeResourcePoint(stats, map[string]string{
+		tagRunId:  runId,
+		tagServer: server,
+		tagSource: "server",
+	})
+}
+
+// WriteDbResourceStats records a database container's resource usage during
+// one server's run (PLAN §7.3): same resource_stats measurement, distinguished
+// by source=database + the database tag.
+func (c *Client) WriteDbResourceStats(runId, server, db string, stats *container.ResourceStats) {
+	c.writeResourcePoint(stats, map[string]string{
+		tagRunId:    runId,
+		tagServer:   server,
+		tagSource:   "database",
+		tagDatabase: db,
+	})
+}
+
+func (c *Client) writeResourcePoint(stats *container.ResourceStats, tags map[string]string) {
 	if c == nil || stats == nil {
 		return
 	}
 
 	c.WritePoint("resource_stats",
-		map[string]string{
-			tagRunId:  runId,
-			tagServer: server,
-		},
+		tags,
 		map[string]any{
 			"memory_min_bytes": stats.Memory.MinBytes,
 			"memory_avg_bytes": stats.Memory.AvgBytes,

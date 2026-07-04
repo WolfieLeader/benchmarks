@@ -24,6 +24,7 @@ type Orchestrator struct {
 	compose        *database.ComposeManager
 	writer         *summary.Writer
 	databases      []string
+	dbContainers   map[string]string // database service -> container ID, for resource sampling
 	influx         *influx.Client
 	runId          string
 	noMetrics      bool
@@ -70,18 +71,32 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	}
 
 	cli.Infof("Starting database stack...")
-	if err := o.compose.StartDatabases(ctx); err != nil {
-		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
-		return err
-	}
-	cli.Successf("Database stack started")
-
-	cli.Infof("Waiting for databases to be healthy...")
-	if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
+	stack, err := o.compose.EnsureDatabases(ctx)
+	if err != nil {
+		// cleanupStacks, not just grafana: a failed compose up may have
+		// created part of an owned stack that must be torn down.
 		o.cleanupStacks() //nolint:contextcheck // cleanup uses fresh context
 		return err
 	}
+	if stack.Owned {
+		cli.Successf("Database stack started (project %s)", stack.Project)
+	} else {
+		cli.Successf("Reusing running database stack (project %s) — it will be left running", stack.Project)
+	}
+
+	cli.Infof("Waiting for databases to be healthy...")
+	if healthErr := o.compose.WaitHealthy(ctx, 2*time.Minute, o.databases); healthErr != nil {
+		o.cleanupStacks() //nolint:contextcheck // cleanup uses fresh context
+		return healthErr
+	}
 	cli.Successf("All databases ready")
+
+	dbContainers, err := o.compose.DatabaseContainers(ctx, o.databases)
+	if err != nil {
+		o.cleanupStacks() //nolint:contextcheck // cleanup uses fresh context
+		return fmt.Errorf("failed to resolve database containers for resource sampling: %w", err)
+	}
+	o.dbContainers = dbContainers
 
 	interrupted := o.runBenchmarkLoop(ctx)
 
@@ -157,7 +172,7 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 
 		cli.ServerHeader(server.Name)
 
-		result, timedResults, timedSequences := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName())
+		result, timedResults, timedSequences := RunServerBenchmark(ctx, server, o.databases, o.compose.NetworkName(), o.dbContainers)
 
 		summary.PrintServerSummary(result)
 		path, err := o.writer.ExportServerResult(result)
@@ -174,6 +189,9 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 			o.influx.WriteEndpointStats(o.runId, server.Name, result.Results)     //nolint:contextcheck // uses stored context from Client
 			if result.Resources != nil {
 				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
+			}
+			for db, stats := range result.DbResources {
+				o.influx.WriteDbResourceStats(o.runId, server.Name, db, stats) //nolint:contextcheck // uses stored context from Client
 			}
 			cli.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
 		}
@@ -196,7 +214,7 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 
 		if i < len(o.servers)-1 {
 			cli.Infof("Verifying databases are healthy...")
-			if err := o.compose.WaitHealthy(ctx, 2*time.Minute); err != nil {
+			if err := o.compose.WaitHealthy(ctx, 2*time.Minute, o.databases); err != nil {
 				cli.Failf("Databases did not recover: %v", err)
 				break
 			}
@@ -228,6 +246,10 @@ func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 }
 
 func (o *Orchestrator) cleanupDatabases() {
+	if stack := o.compose.Stack(); stack != nil && !stack.Owned {
+		cli.Infof("Leaving adopted database stack running (project %s)", stack.Project)
+		return
+	}
 	cli.Infof("Stopping database stack...")
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
