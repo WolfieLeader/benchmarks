@@ -13,7 +13,10 @@ import (
 	"benchmark-client/internal/summary"
 )
 
-func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, databases []string, network string) (*summary.ServerResult, []client.TimedResult, []client.TimedSequenceResult) {
+func RunServerBenchmark(
+	ctx context.Context, server *config.ResolvedServer,
+	databases []string, network string, dbContainers map[string]string,
+) (*summary.ServerResult, []client.TimedResult, []client.TimedSequenceResult) {
 	result := &summary.ServerResult{
 		Name:      server.Name,
 		ImageName: server.ImageName,
@@ -65,10 +68,12 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	}
 
 	sampler.Start(ctx)
+	dbSamplers := startDbSamplers(ctx, dbContainers)
 	result.StartTime = time.Now()
 
 	suiteOut, err := runSuite(ctx, server, serverUrl)
 	stopSampler(sampler, result)
+	stopDbSamplers(dbSamplers, result)
 	if err != nil {
 		result.SetError(err)
 		return result, nil, nil
@@ -154,5 +159,29 @@ func stopSampler(sampler *container.ResourceSampler, result *summary.ServerResul
 	if sampler != nil {
 		stats := sampler.Stop()
 		result.Resources = &stats
+	}
+}
+
+// startDbSamplers samples the shared database containers for the duration of
+// this server's run (PLAN §7.3) — one sampler per DB service, same stream as
+// the server sampler.
+func startDbSamplers(ctx context.Context, dbContainers map[string]string) map[string]*container.ResourceSampler {
+	samplers := make(map[string]*container.ResourceSampler, len(dbContainers))
+	for db, id := range dbContainers {
+		s := container.NewResourceSampler(id)
+		s.Start(ctx)
+		samplers[db] = s
+	}
+	return samplers
+}
+
+func stopDbSamplers(samplers map[string]*container.ResourceSampler, result *summary.ServerResult) {
+	if len(samplers) == 0 {
+		return
+	}
+	result.DbResources = make(map[string]*container.ResourceStats, len(samplers))
+	for db, s := range samplers {
+		stats := s.Stop()
+		result.DbResources[db] = &stats
 	}
 }
