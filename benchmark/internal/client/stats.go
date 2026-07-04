@@ -1,6 +1,7 @@
 package client
 
 import (
+	"math"
 	"slices"
 	"time"
 )
@@ -15,6 +16,7 @@ type Stats struct {
 	P50         time.Duration `json:"p50"`
 	P95         time.Duration `json:"p95"`
 	P99         time.Duration `json:"p99"`
+	P999        time.Duration `json:"p999"`
 	SuccessRate float64       `json:"success_rate"`
 }
 
@@ -60,19 +62,33 @@ func CalculateStats(latencies []time.Duration, successCount, totalCount int, ela
 	stats.P50 = Percentile(latencies, 50)
 	stats.P95 = Percentile(latencies, 95)
 	stats.P99 = Percentile(latencies, 99)
+	stats.P999 = Percentile(latencies, 99.9)
 	return stats
 }
 
-func Percentile(sorted []time.Duration, p int) time.Duration {
-	if len(sorted) == 0 {
+// Percentile returns the p-th percentile (p in [0,100], fractional allowed —
+// e.g. 99.9) of the already-sorted input, using linear interpolation between
+// the two closest ranks (PostgreSQL percentile_cont / NIST "linear" / R type-7
+// semantics). The caller must pass a slice sorted ascending; CalculateStats
+// sorts before calling. For n samples the target rank is (p/100)·(n-1), so p0
+// yields the min, p100 the max, and interior percentiles interpolate.
+func Percentile(sorted []time.Duration, p float64) time.Duration {
+	n := len(sorted)
+	if n == 0 {
 		return 0
 	}
 	if p <= 0 {
 		return sorted[0]
 	}
 	if p >= 100 {
-		return sorted[len(sorted)-1]
+		return sorted[n-1]
 	}
-	index := (p * (len(sorted) - 1)) / 100
-	return sorted[index]
+	rank := (p / 100) * float64(n-1)
+	lo := int(math.Floor(rank))
+	hi := lo + 1
+	if hi >= n {
+		return sorted[n-1]
+	}
+	frac := rank - float64(lo)
+	return sorted[lo] + time.Duration(frac*float64(sorted[hi]-sorted[lo]))
 }
