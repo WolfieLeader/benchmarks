@@ -9,7 +9,7 @@ benchmark *args:
 
 alias benchmarks := benchmark
 
-# Start a dev server (ts-bun-honojs, ts-bun-elysia, ts-deno-oak, ts-express, ts-nestjs, ts-fastify, go-chi, go-gin, go-fiber, py-fastapi)
+# Start a dev server (ts-bun-honojs, ts-bun-elysia, ts-deno-oak, ts-express, ts-nestjs, ts-fastify, go-chi, go-gin, go-fiber, py-fastapi, zig)
 [group('dev')]
 dev server:
     node scripts/dev.mts {{server}}
@@ -59,33 +59,11 @@ images entry='all':
 # Remove all Docker images (best effort)
 [group('docker')]
 remove-images:
-    -docker rmi bench/ts-bun-honojs bench/ts-bun-elysia bench/ts-deno-oak bench/ts-express bench/ts-nestjs bench/ts-fastify bench/py-fastapi bench/go-chi bench/go-gin bench/go-fiber
+    node scripts/remove-images.mts
 
 # Remove build artifacts and node_modules
 clean:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ ! -d "{{servers_dir}}" ]]; then
-        echo "Refusing to clean: expected repo layout not found" && exit 1
-    fi
-    echo "Cleaning build artifacts..."
-    rm -rf \
-        "{{servers_dir}}/py-fastapi/.venv" \
-        "{{servers_dir}}/py-fastapi/__pycache__" \
-        "{{servers_dir}}/py-fastapi/src/__pycache__" \
-        "{{servers_dir}}/ts-bun-honojs/node_modules" \
-        "{{servers_dir}}/ts-bun-elysia/node_modules" \
-        "{{servers_dir}}/ts-express/node_modules" \
-        "{{servers_dir}}/ts-nestjs/node_modules" \
-        "{{servers_dir}}/ts-fastify/node_modules" \
-        "{{servers_dir}}/ts-deno-oak/node_modules" \
-        "{{servers_dir}}/go-chi/bin" \
-        "{{servers_dir}}/go-chi/tmp" \
-        "{{servers_dir}}/go-gin/bin" \
-        "{{servers_dir}}/go-gin/tmp" \
-        "{{servers_dir}}/go-fiber/bin" \
-        "{{servers_dir}}/go-fiber/tmp"
-    echo "Clean complete!"
+    node scripts/clean.mts
 
 # Type check a target (or 'all')
 [group('verify')]

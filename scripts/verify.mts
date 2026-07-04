@@ -52,7 +52,14 @@ function checks(s: Server): Record<CheckKind, Step | null> {
       return {
         typecheck: st("typecheck", `go build -o bin/${s.goBin ?? "server"} ./cmd/main.go`),
         format: st("format", "golangci-lint fmt --diff ./..."),
-        lint: st("lint", "golangci-lint run ./...")
+        // --allow-parallel-runners: `run` (unlike `fmt`) takes a machine-wide
+        // lock ($TMPDIR/golangci-lint.lock, ~5s grace) and then dies with
+        // "parallel golangci-lint is running" — our worker pool runs the Go
+        // targets concurrently, so without this flag verify-all flakes. Safe:
+        // the analysis cache is a fork of cmd/go's build cache, documented
+        // multi-process-safe on one machine ("may duplicate effort but will
+        // not corrupt the cache"), and each target is a separate module dir.
+        lint: st("lint", "golangci-lint run --allow-parallel-runners ./...")
       };
     case "uv":
       return {

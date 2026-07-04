@@ -7,6 +7,14 @@ packages:
   - "servers/ts-bun-honojs"
   - "servers/ts-deno-oak"
 
+# The DENO workspace mirror lives in the root `package.json` `workspaces` array,
+# NOT here. Deno reads `package.json` `workspaces` (that is what produces the root
+# `deno.lock`) and does NOT read this file; each member's `deno.json` sets
+# `nodeModulesDir: "manual"` so Deno consumes the pnpm-installed `node_modules`.
+# Keep the two package lists (this `packages:` block and package.json
+# `workspaces`) in sync — the root `workspaces` array is load-bearing, not
+# redundant.
+
 # pnpm 11 moved all settings out of package.json's `pnpm` field / .npmrc into
 # this file. `allowBuilds` replaces the old `onlyBuiltDependencies` allowlist
 # (approve postinstall/build scripts): esbuild (via tsx in the Node servers) and
@@ -14,6 +22,11 @@ packages:
 allowBuilds:
   esbuild: true
   "@nestjs/core": true
+
+# Do not prompt to delete an existing top-level `node_modules` on the first
+# install over a pre-workspace checkout — proceed non-interactively instead of
+# aborting with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY (no TTY / CI=true).
+confirmModulesPurge: false
 
 # bson is pinned to 7.2.0 for the WHOLE workspace. mongodb 7.4 pulls bson 7.3.x,
 # which crashes on Bun at import (`node:v8 isBuildingSnapshot` is unimplemented in

@@ -37,19 +37,20 @@
 
 ## Stack Map 📦
 
-| Folder                  | Runtime       | Framework       | Port |
-| ----------------------- | ------------- | --------------- | ---- |
-| `benchmark`             | Go 1.25.7     | -               | -    |
-| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1   | 3001 |
-| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27  | 3002 |
-| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0   | 3003 |
-| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0      | 3004 |
-| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27    | 3005 |
-| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29   | 3006 |
-| `servers/go-chi`        | Go 1.26.4     | Chi 5.3.0       | 5001 |
-| `servers/go-gin`        | Go 1.26.4     | Gin 1.12.0      | 5002 |
-| `servers/go-fiber`      | Go 1.26.4     | Fiber 2.52.13   | 5003 |
-| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128 | 4001 |
+| Folder                  | Runtime       | Framework       | Port  |
+| ----------------------- | ------------- | --------------- | ----- |
+| `benchmark`             | Go 1.27rc1    | -               | -     |
+| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1   | 3001  |
+| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27  | 3002  |
+| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0   | 3003  |
+| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0      | 3004  |
+| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27    | 3005  |
+| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29   | 3006  |
+| `servers/go-chi`        | Go 1.27rc1    | Chi 5.3.0       | 5001  |
+| `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0      | 5002  |
+| `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0     | 5003  |
+| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128 | 4001  |
+| `servers/zig`           | Zig 0.16      | http.zig        | 26001 |
 
 ### Pinned dependencies 📌
 
@@ -62,12 +63,15 @@ bump; each tracks the newest release of its dist-tag channel via
 | `typescript`  | `7.0.1-rc`   | `rc`    | TypeScript 7 native `tsc` (`latest` is still 6.x) |
 | `drizzle-orm` | `1.0.0-rc.4` | `rc`    | drizzle 1.0 RC (`latest` is still 0.45.x)         |
 
-Held back: `bson` is overridden to `7.2.0` on the Bun servers (`ts-bun-elysia`,
-`ts-bun-honojs`; package.json `overrides`). bson 7.3.x calls
+Held back: `bson` is pinned to `7.2.0` for the whole workspace via
+`pnpm-workspace.yaml` `overrides`. bson 7.3.x calls
 `v8.startupSnapshot.isBuildingSnapshot()` at import time, which Bun 1.3.14
 ships as a throwing stub (`NotImplementedError`), crashing the server on boot.
-7.2.0 sits inside mongodb's own `^7.2.0` range; drop the override once Bun
-implements it.
+Since PR #26 mongodb is a single shared dependency (`@bench/shared`), and pnpm
+resolves one bson version for every consumer (overrides are graph-path scoped,
+not per-member), so the Node servers pin to 7.2.0 too — pnpm cannot scope an
+override to just the Bun members. 7.2.0 sits inside mongodb's own `^7.2.0`
+range; drop the override once Bun implements the stub.
 
 NestJS dev mode tradeoff: under TS7 `nest start --watch` is gone, so
 `ts-nestjs`'s `dev` compiles with `tsc` then runs `node --watch dist/main.js`.
@@ -79,8 +83,13 @@ re-run `tsc` (or `just dev ts-nestjs`) to pick up changes.
 ```sh
 just benchmark                # Run benchmark (interactive mode)
 just benchmark --servers=a,b  # Run benchmark for specific servers only
-just dev honojs               # Start dev server (honojs, express, fastify, etc.)
+just dev ts-bun-honojs        # Start dev server (ts-bun-honojs, ts-express, go-chi, etc.)
 ```
+
+> First `pnpm install` over a checkout that predates the pnpm workspace can want
+> to purge the old top-level `node_modules`. `pnpm-workspace.yaml` sets
+> `confirmModulesPurge: false`, so the install proceeds non-interactively (no
+> `CI=true` or TTY needed) instead of aborting with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
 
 ## Configuration ⚙️
 
@@ -156,9 +165,9 @@ All servers connect to all 4 databases with the same user schema.
 
 Metrics are exported to InfluxDB and visualized in Grafana during benchmarks.
 
-| Service | URL                   | Username | Password  |
-| ------- | --------------------- | -------- | --------- |
-| Grafana | http://localhost:3000 | admin    | benchmark |
+| Service | URL                   | Username | Password |
+| ------- | --------------------- | -------- | -------- |
+| Grafana | http://localhost:3000 | admin    | 123456   |
 
 ### Exported Metrics
 
@@ -176,13 +185,13 @@ Metrics are exported to InfluxDB and visualized in Grafana during benchmarks.
 All verification commands accept an optional target (default: `all`).
 
 ```sh
-just typecheck chi       # Type check only chi
-just fmt honojs          # Format only honojs
-just lint fastapi        # Lint only fastapi
-just verify express      # Full verification for express
+just typecheck go-chi        # Type check only go-chi
+just fmt ts-bun-honojs       # Format only ts-bun-honojs
+just lint py-fastapi         # Lint only py-fastapi
+just verify ts-express       # Full verification for ts-express
 ```
 
-Valid targets: `honojs`, `elysia`, `oak`, `express`, `nestjs`, `fastify`, `chi`, `gin`, `fiber`, `fastapi`, `benchmark`, `root`
+Valid targets: `ts-express`, `ts-nestjs`, `ts-fastify`, `ts-deno-oak`, `ts-bun-honojs`, `ts-bun-elysia`, `go-chi`, `go-gin`, `go-fiber`, `py-fastapi`, `zig`, `benchmark`, `root` (the `servers/*/bench.json` `name` fields, plus `benchmark` and `root`)
 
 ### Full Command Reference
 
