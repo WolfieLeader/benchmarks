@@ -51,6 +51,7 @@ export type Server = {
   image?: string; // docker image tag; present => included in `images`
   dev?: string; // dev command; present => included in `dev`
   goBin?: string; // eco "go": build output name (default "server")
+  lib?: boolean; // eco "go": library module (no ./cmd/main.go) — build ./... instead
   port?: number; // host/container port (from the manifest; servers only)
 };
 
@@ -146,6 +147,9 @@ function discoverServers(): Server[] {
 // static rows appended after discovery — not a roster fallback.
 const EXTRA_TARGETS: Server[] = [
   { name: "benchmark", dir: join(repoRoot, "benchmark"), eco: "go", goBin: "benchmark" },
+  // Shared Go module consumed by the go-* servers via a path `replace` (PLAN §3/§2.2).
+  // It is a library (no ./cmd/main.go), so verify builds `./...` rather than a binary.
+  { name: "shared-go", dir: join(repoRoot, "shared", "go"), eco: "go", lib: true },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 
