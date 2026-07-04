@@ -1,10 +1,13 @@
 packages:
   - "shared/typescript"
+  - "shared/typescript-hono"
   - "servers/ts-express"
   - "servers/ts-fastify"
   - "servers/ts-nestjs"
   - "servers/ts-bun-elysia"
+  - "servers/ts-honojs"
   - "servers/ts-bun-honojs"
+  - "servers/ts-deno-honojs"
   - "servers/ts-deno-oak"
 
 # The DENO workspace mirror lives in the root `package.json` `workspaces` array,

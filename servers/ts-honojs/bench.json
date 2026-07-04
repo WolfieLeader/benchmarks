@@ -1,11 +1,11 @@
 {
   "$schema": "../../config/bench.schema.json",
-  "name": "ts-bun-honojs",
+  "name": "ts-honojs",
   "language": "typescript",
-  "runtime": "bun",
-  "image": "bench/ts-bun-honojs",
-  "port": 22105,
+  "runtime": "node",
+  "image": "bench/ts-honojs",
+  "port": 22005,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
   "experimental": false,
-  "dev_port": 22105
+  "dev_port": 22005
 }

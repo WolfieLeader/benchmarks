@@ -1,0 +1,10 @@
+{
+  "name": "ts-deno-honojs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bench/hono-app": "workspace:*",
+    "@bench/shared": "workspace:*"
+  }
+}

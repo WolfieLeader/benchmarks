@@ -52,12 +52,12 @@ importers:
 
   servers/ts-bun-honojs:
     dependencies:
+      '@bench/hono-app':
+        specifier: workspace:*
+        version: link:../../shared/typescript-hono
       '@bench/shared':
         specifier: workspace:*
         version: link:../../shared/typescript
-      hono:
-        specifier: ^4.12.27
-        version: 4.12.27
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.2
@@ -68,6 +68,15 @@ importers:
       typescript:
         specifier: 7.0.1-rc
         version: 7.0.1-rc
+
+  servers/ts-deno-honojs:
+    dependencies:
+      '@bench/hono-app':
+        specifier: workspace:*
+        version: link:../../shared/typescript-hono
+      '@bench/shared':
+        specifier: workspace:*
+        version: link:../../shared/typescript
 
   servers/ts-deno-oak:
     dependencies:
@@ -138,6 +147,34 @@ importers:
       fastify:
         specifier: ^5.9.0
         version: 5.9.0
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.5.2
+        version: 2.5.2
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.0
+      typescript:
+        specifier: 7.0.1-rc
+        version: 7.0.1-rc
+
+  servers/ts-honojs:
+    dependencies:
+      '@bench/hono-app':
+        specifier: workspace:*
+        version: link:../../shared/typescript-hono
+      '@bench/shared':
+        specifier: workspace:*
+        version: link:../../shared/typescript
+      '@hono/node-server':
+        specifier: ^2.0.8
+        version: 2.0.8(hono@4.12.27)
+      hono:
+        specifier: ^4.12.27
+        version: 4.12.27
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.2
@@ -240,6 +277,25 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      typescript:
+        specifier: 7.0.1-rc
+        version: 7.0.1-rc
+
+  shared/typescript-hono:
+    dependencies:
+      '@bench/shared':
+        specifier: workspace:*
+        version: link:../typescript
+      hono:
+        specifier: ^4.12.27
+        version: 4.12.27
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.5.2
+        version: 2.5.2
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
       typescript:
         specifier: 7.0.1-rc
         version: 7.0.1-rc
@@ -509,6 +565,12 @@ packages:
 
   '@fastify/proxy-addr@5.1.0':
     resolution: {integrity: sha512-INS+6gh91cLUjB+PVHfu1UqcB76Sqtpyp7bnL+FYojhjygvOPA9ctiD/JDKsyD9Xgu4hUhCSJBPig/w7duNajw==}
+
+  '@hono/node-server@2.0.8':
+    resolution: {integrity: sha512-GuCWzLxwg218fy1JaHculFsdcuY12hxit83V+algozTPnwhNjLrRL/Alg9OYjLZLoUZ1rw/S4CdTMsnkSKCmFA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4
 
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
@@ -2161,6 +2223,10 @@ snapshots:
     dependencies:
       '@fastify/forwarded': 3.0.1
       ipaddr.js: 2.4.0
+
+  '@hono/node-server@2.0.8(hono@4.12.27)':
+    dependencies:
+      hono: 4.12.27
 
   '@ioredis/commands@1.10.0': {}
 

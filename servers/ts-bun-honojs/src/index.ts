@@ -1,17 +1,20 @@
+import { createApp } from "@bench/hono-app";
 import {
   disconnectDatabases,
   env,
   initializeDatabases,
-  MAX_REQUEST_BYTES,
   setIdGenerator,
   setRedisRepositoryFactory
 } from "@bench/shared";
 import { randomUUIDv7 } from "bun";
-import { createApp } from "./app";
 import { RedisUserRepository } from "./redis";
 
-// Wire the Bun-native adapters (PLAN §3) before opening any DB connection:
-// randomUUIDv7 for id generation, Bun.RedisClient-backed repository for Redis.
+// Bun runtime entry (PLAN §4): runs the shared Hono app on Bun's native
+// `Bun.serve`. Wire the Bun-native adapters (PLAN §3) before opening any DB
+// connection — randomUUIDv7 for id generation, a Bun.RedisClient-backed
+// repository for Redis — so the Bun entry keeps its native edge while sharing the
+// same app + @bench/shared as the Node and Deno entries. The 10 MiB request cap
+// lives in the shared app's `bodyLimit` middleware, identical across runtimes.
 setIdGenerator(randomUUIDv7);
 setRedisRepositoryFactory((url) => new RedisUserRepository(url));
 
@@ -22,8 +25,7 @@ const app = createApp();
 const server = Bun.serve({
   port: env.PORT,
   hostname: env.HOST,
-  fetch: app.fetch,
-  maxRequestBodySize: MAX_REQUEST_BYTES
+  fetch: app.fetch
 });
 
 console.log(`Server running at http://${env.HOST}:${env.PORT}/`);
