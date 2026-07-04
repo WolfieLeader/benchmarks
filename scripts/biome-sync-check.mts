@@ -13,15 +13,17 @@
 // matching scripts/contract.mts — it parses JSONC by stripping comments, no
 // external parser.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// The exact set of projects that must carry the identical ladder. This list is
-// itself the source of truth: adding a Biome-linted TS project means adding its
-// biome.jsonc here (and ts-deno-oak is deliberately absent — it uses deno lint).
+// The exact set of projects that must carry the identical ladder. Adding a
+// Biome-linted TS project means adding its biome.jsonc here (ts-deno-oak is
+// deliberately absent — it uses deno lint). The discovery sweep below asserts
+// this list matches the biome.jsonc files that actually exist, so a new copy
+// can't silently skip the drift gate.
 const CONFIGS = [
   "servers/ts-express/biome.jsonc",
   "servers/ts-fastify/biome.jsonc",
@@ -54,6 +56,27 @@ const DEVIATIONS: Deviation[] = [
 
 const problems: string[] = [];
 const add = (msg: string): void => void problems.push(msg);
+
+// Discovery sweep: every biome.jsonc under servers/* and shared/* must be
+// registered in CONFIGS — an unregistered copy would lint by its own rules
+// while this gate stays green, which is exactly the drift it exists to stop.
+function discoverConfigs(): string[] {
+  const found: string[] = [];
+  for (const parent of ["servers", "shared"]) {
+    for (const entry of readdirSync(join(repoRoot, parent), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const rel = `${parent}/${entry.name}/biome.jsonc`;
+      if (existsSync(join(repoRoot, rel))) found.push(rel);
+    }
+  }
+  return found;
+}
+const registered = new Set<string>(CONFIGS);
+for (const rel of discoverConfigs()) {
+  if (!registered.has(rel)) {
+    add(`${rel}: biome.jsonc exists but is not registered in CONFIGS — add it so the drift gate covers it`);
+  }
+}
 
 // Strip `//` line and `/* */` block comments while respecting string context, so
 // `"https://..."` and message strings survive intact. Trailing commas are not

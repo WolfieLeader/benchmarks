@@ -120,6 +120,12 @@ if (!only && targets.some((s) => s.eco === "root")) {
     name: "biome-sync",
     steps: [{ label: "biome-sync", cmd: "node scripts/biome-sync-check.mts", cwd: repoRoot }]
   });
+  // Dead exports/deps across the workspace (knip.json holds the rationale for
+  // why this runs at the root: cross-package visibility into @bench/shared).
+  jobs.push({
+    name: "knip",
+    steps: [{ label: "knip", cmd: "pnpm exec knip", cwd: repoRoot }]
+  });
 }
 
 const results = await runJobs(jobs);

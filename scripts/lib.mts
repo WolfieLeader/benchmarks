@@ -150,6 +150,10 @@ const EXTRA_TARGETS: Server[] = [
   // Shared Go module consumed by the go-* servers via a path `replace` (PLAN §3/§2.2).
   // It is a library (no ./cmd/main.go), so verify builds `./...` rather than a binary.
   { name: "shared-go", dir: join(repoRoot, "shared", "go"), eco: "go", lib: true },
+  // Its TS twin: @bench/shared carries the same strict Biome ladder as the
+  // servers, so its own code must be gated too — not just its config (which the
+  // biome-sync check covers).
+  { name: "shared-typescript", dir: join(repoRoot, "shared", "typescript"), eco: "pnpm" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 
