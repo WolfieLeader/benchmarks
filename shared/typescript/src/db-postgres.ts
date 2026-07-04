@@ -23,7 +23,9 @@ export class PostgresUserRepository implements UserRepository {
   private db: ReturnType<typeof drizzle>;
 
   constructor(connectionString: string) {
-    this.sql = postgres(connectionString, { max: 50, idle_timeout: 30 });
+    // onnotice: postgres.js prints server NOTICEs to stdout by default,
+    // violating the logger-off-in-prod convention — silence them.
+    this.sql = postgres(connectionString, { max: 50, idle_timeout: 30, onnotice: () => {} });
     this.db = drizzle({ client: this.sql });
   }
 
