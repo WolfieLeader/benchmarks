@@ -15,8 +15,8 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { repoRoot, SERVERS, type Server } from "./lib.mts";
+import { join } from "node:path";
+import { dbPreflight, detectDbStack, repoRoot, SERVERS, type Server } from "./lib.mts";
 
 // A fully-resolved server entry: the roster rows that carry both an image and a
 // port (i.e. the discovered servers, not the benchmark/root helper targets).
@@ -27,10 +27,6 @@ type EntryResult = { name: string; passed: number; failed: number; ok: boolean; 
 const benchmarkDir = join(repoRoot, "benchmark");
 const contractDir = join(repoRoot, "contract");
 const testFilesDir = join(repoRoot, "contract", "test-files");
-
-// The compose file our databases stack is defined in — used to pick OUR stack
-// when other compose projects on this host also run a postgres service.
-const dbComposeFile = join(repoRoot, "infra", "docker", "databases.yml");
 
 const HEALTH_TIMEOUT_MS = 45_000;
 const HEALTH_INTERVAL_MS = 300;
@@ -53,111 +49,8 @@ function roster(): Entry[] {
   );
 }
 
-// Case-insensitive path handling: macOS filesystems are case-insensitive and
-// compose records whatever casing it was invoked from (e.g. ~/dev vs ~/Dev).
-// The stack may have been created from ANY checkout of this repo (main clone or
-// a .claude/worktrees agent worktree), so "ours" means: the recorded compose
-// file is our databases.yml inside the main repo root (worktrees live under it).
-const mainRepoRoot = (() => {
-  const res = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  });
-  return res.status === 0 ? dirname(res.stdout.trim()) : repoRoot;
-})();
-
-function isOurComposeFile(path: string): boolean {
-  const p = resolve(path).toLowerCase();
-  const suffix = join("infra", "docker", "databases.yml").toLowerCase();
-  return p.startsWith(resolve(mainRepoRoot).toLowerCase()) && p.endsWith(suffix);
-}
-
-type DbStack = { project: string; network: string };
-
-// The server container reaches the DBs by compose service name (postgres,
-// mongodb, ...), so it must join the network OUR DB containers live on.
-// Other compose projects on this host may also run a postgres service (other
-// repos, the Phase 2 metrics-postgres), so "first postgres container" is not
-// safe: match on the com.docker.compose.project.config_files label pointing at
-// our infra/docker/databases.yml, and fail loud on zero or ambiguous matches.
-function detectDbStack(): DbStack {
-  const ps = spawnSync(
-    "docker",
-    ["ps", "--filter", "label=com.docker.compose.service=postgres", "--format", "{{.ID}}"],
-    { encoding: "utf8" }
-  );
-  const ids = ps.stdout.trim().split("\n").filter(Boolean);
-  if (ids.length === 0) {
-    fail("no running postgres container found — start the databases with:  just db-up");
-  }
-
-  type Candidate = { name: string; project: string; configFiles: string; network: string };
-  const candidates: Candidate[] = [];
-  for (const id of ids) {
-    const inspect = spawnSync(
-      "docker",
-      [
-        "inspect",
-        id,
-        "--format",
-        `{{.Name}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}`
-      ],
-      { encoding: "utf8" }
-    );
-    const [name = "", project = "", configFiles = "", network = ""] = inspect.stdout.trim().split("\t");
-    candidates.push({ name: name.replace(/^\//, ""), project, configFiles, network });
-  }
-
-  // config_files is a comma-separated list; ours is a single file.
-  const ours = candidates.filter((c) => c.configFiles.split(",").some((f) => isOurComposeFile(f.trim())));
-
-  if (ours.length === 0) {
-    const list = candidates.map((c) => `    ${c.name} (project=${c.project}, config=${c.configFiles})`).join("\n");
-    fail(
-      `found running postgres container(s), but none belong to this repo's databases stack (${dbComposeFile}):\n${list}\n  Start ours with:  just db-up`
-    );
-  }
-  if (ours.length > 1) {
-    const list = ours.map((c) => `    ${c.name} (project=${c.project}, network=${c.network})`).join("\n");
-    fail(`multiple postgres containers match ${dbComposeFile} — ambiguous stack, stop the extras:\n${list}`);
-  }
-  const stack = ours[0];
-  if (!stack.network) fail(`could not detect the docker network for container ${stack.name}`);
-  return { project: stack.project, network: stack.network };
-}
-
-// Preflight the SAME stack whose network the server will join: every database
-// service must have a running, healthy container in that compose project.
-function dbPreflight(stack: DbStack, databases: string[]): void {
-  const bad: string[] = [];
-  for (const db of databases) {
-    const ps = spawnSync(
-      "docker",
-      [
-        "ps",
-        "--filter",
-        `label=com.docker.compose.project=${stack.project}`,
-        "--filter",
-        `label=com.docker.compose.service=${db}`,
-        "--format",
-        "{{.ID}}"
-      ],
-      { encoding: "utf8" }
-    );
-    const id = ps.stdout.trim().split("\n")[0]?.trim();
-    if (!id) {
-      bad.push(`${db} (no running container in project ${stack.project})`);
-      continue;
-    }
-    const health = spawnSync("docker", ["inspect", id, "--format", "{{.State.Health.Status}}"], {
-      encoding: "utf8"
-    }).stdout.trim();
-    if (health !== "healthy") bad.push(`${db} (health: ${health || "unknown"})`);
-  }
-  if (bad.length > 0) {
-    fail(`databases not ready: ${bad.join(", ")}\n  Start them with:  just db-up`);
-  }
-}
+// DB-stack detection + preflight (detectDbStack/dbPreflight) live in lib.mts,
+// shared with calibrate.mts — same "fail loud on zero or ambiguous stacks" rules.
 
 function imageExists(image: string): boolean {
   return spawnSync("docker", ["image", "inspect", image], { stdio: "ignore" }).status === 0;

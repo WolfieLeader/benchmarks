@@ -52,29 +52,9 @@ var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OP
 // from serversDir (servers/*/bench.json manifests, PLAN §7.4). The roster no
 // longer lives in the config file.
 func Load(filename, serversDir string) (*Config, []*ResolvedServer, error) {
-	data, err := os.ReadFile(filename) //nolint:gosec // config file path is controlled
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	ext := strings.ToLower(filepath.Ext(filename))
-	if ext != ".json" {
-		return nil, nil, fmt.Errorf("unsupported config file format: %s", ext)
-	}
-
-	var cfg Config
-	if err = json.Unmarshal(data, &cfg); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse JSON config: %w", err)
-	}
-
-	order, err := extractKeyOrder(data, "endpoints")
+	cfg, err := loadConfigFile(filename)
 	if err != nil {
 		return nil, nil, err
-	}
-	cfg.EndpointOrder = order
-
-	if err = applyDefaults(&cfg); err != nil {
-		return nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	entries, err := roster.Discover(serversDir)
@@ -82,12 +62,61 @@ func Load(filename, serversDir string) (*Config, []*ResolvedServer, error) {
 		return nil, nil, fmt.Errorf("failed to discover server roster: %w", err)
 	}
 
-	resolved, err := resolve(&cfg, entries)
+	resolved, err := resolve(cfg, entries)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
 	}
 
-	return &cfg, resolved, nil
+	return cfg, resolved, nil
+}
+
+// LoadTarget reads benchmark parameters from filename for --target mode: one
+// externally-managed server whose lifecycle the caller owns, so no roster
+// discovery and no container metadata. targetUrl replaces the config's
+// base_url so resolution (URI escaping) and the printed config reflect the
+// server actually being hit.
+func LoadTarget(filename, targetUrl string) (*Config, *ResolvedServer, error) {
+	cfg, err := loadConfigFile(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg.Benchmark.BaseUrl = targetUrl
+
+	resolved, err := resolve(cfg, []roster.Entry{{Name: "target"}})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve configuration: %w", err)
+	}
+
+	return cfg, resolved[0], nil
+}
+
+func loadConfigFile(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename) //nolint:gosec // config file path is controlled
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".json" {
+		return nil, fmt.Errorf("unsupported config file format: %s", ext)
+	}
+
+	var cfg Config
+	if err = json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON config: %w", err)
+	}
+
+	order, err := extractKeyOrder(data, "endpoints")
+	if err != nil {
+		return nil, err
+	}
+	cfg.EndpointOrder = order
+
+	if err = applyDefaults(&cfg); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return &cfg, nil
 }
 
 func extractKeyOrder(data []byte, key string) ([]string, error) {

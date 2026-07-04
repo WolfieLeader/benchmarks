@@ -20,6 +20,7 @@ just verify <target|all>    # non-mutating: typecheck → format-check → lint 
 just fmt / just lint        # the writing counterparts
 just install|update|images|dev <target>
 just benchmark              # the actual benchmark TUI/run
+just calibrate [entry]      # cross-validate client v2 vs oha (docs/calibration.md); re-run when the generator hot path changes
 ```
 
 - All dispatch logic lives in typed `scripts/*.mts` (Node 26 native type-stripping — no tsx, no build step; `scripts/contract.mts` stays npm-dependency-free). Adding a server = one roster row / one `bench.json` manifest — never a new bash branch.

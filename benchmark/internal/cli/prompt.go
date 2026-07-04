@@ -16,6 +16,9 @@ type Options struct {
 	BaseURL      string   // base URL for conformance runs
 	ContractDir  string   // contract cases directory for conformance runs
 	TestFilesDir string   // upload fixtures directory for conformance runs
+	Target       string   // benchmark one externally-managed server at this base URL (no containers, no metrics)
+	ConfigFile   string   // config file path override (default ../config/config.json)
+	ResultsDir   string   // results output directory override (default ../results/<timestamp>)
 }
 
 var bannerLines = []string{
@@ -173,6 +176,18 @@ func ParseFlags(args []string) (*Options, error) {
 		case strings.HasPrefix(arg, "--test-files-dir="):
 			opts.TestFilesDir = strings.TrimSpace(strings.TrimPrefix(arg, "--test-files-dir="))
 			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--target="):
+			opts.Target = strings.TrimSpace(strings.TrimPrefix(arg, "--target="))
+			if opts.Target == "" {
+				return nil, errors.New("--target requires a URL")
+			}
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--config="):
+			opts.ConfigFile = strings.TrimSpace(strings.TrimPrefix(arg, "--config="))
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--results-dir="):
+			opts.ResultsDir = strings.TrimSpace(strings.TrimPrefix(arg, "--results-dir="))
+			hasExplicitFlags = true
 		case arg == "--help" || arg == "-h":
 			printHelp()
 			return nil, ErrHelp
@@ -183,6 +198,15 @@ func ParseFlags(args []string) (*Options, error) {
 
 	if len(unknownFlags) > 0 {
 		return nil, fmt.Errorf("unknown flags: %s", strings.Join(unknownFlags, ", "))
+	}
+
+	if opts.Target != "" {
+		if opts.Conformance || len(opts.Servers) > 0 {
+			return nil, errors.New("--target cannot be combined with --servers or --conformance")
+		}
+		if !strings.HasPrefix(opts.Target, "http://") && !strings.HasPrefix(opts.Target, "https://") {
+			return nil, fmt.Errorf("--target must be an http(s) URL, got %q", opts.Target)
+		}
 	}
 
 	if !hasExplicitFlags {
@@ -202,6 +226,9 @@ Options:
   --base-url=URL     Base URL for --conformance (default http://localhost:8080)
   --contract-dir=DIR Contract cases directory for --conformance (default ../contract)
   --test-files-dir=DIR Upload fixtures directory for --conformance (default ../contract/test-files)
+  --target=URL       Benchmark one externally-managed server at URL (no containers, no metrics DB)
+  --config=PATH      Config file override (default ../config/config.json)
+  --results-dir=DIR  Results output directory override (default ../results/<timestamp>)
   --help, -h         Show this help message
 
 Interactive mode:
@@ -209,6 +236,7 @@ Interactive mode:
 
 Examples:
   benchmark                                            # Interactive mode
-  benchmark --servers=chi,gin                          # Benchmark specific servers
-  benchmark --conformance --base-url=http://localhost:5001  # Run the contract gate`)
+  benchmark --servers=go-chi,go-gin                    # Benchmark specific servers
+  benchmark --conformance --base-url=http://localhost:5001  # Run the contract gate
+  benchmark --target=http://localhost:8080 --config=../config/calibration.json  # External target`)
 }

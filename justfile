@@ -92,6 +92,11 @@ alias conformance := contract
 check-config:
     node scripts/check-config.mts
 
+# Calibration gate: cross-validate client v2 against oha on one server (docs/calibration.md)
+[group('verify')]
+calibrate entry='go-chi' *args='':
+    node scripts/calibrate.mts {{entry}} {{args}}
+
 # Non-mutating verification gate for a target (or 'all'): type/build check + format-check + lint
 [group('verify')]
 verify target='all':

@@ -1,10 +1,55 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+// LoadTarget must resolve a config without any roster on disk — target mode
+// benchmarks an externally-managed server (calibration gate, PLAN §7.6).
+func TestLoadTarget(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "calibration.json")
+	cfgJSON := `{
+		"benchmark": {
+			"concurrency": 8,
+			"duration_per_endpoint": "1s",
+			"request_timeout": "2s",
+			"load": { "mode": "open", "rate": 100 }
+		},
+		"databases": [],
+		"endpoints": {
+			"health": { "route": "GET /health", "expect": { "status": 200, "text": "OK" } }
+		}
+	}`
+	if err := os.WriteFile(path, []byte(cfgJSON), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, target, err := LoadTarget(path, "http://localhost:5001")
+	if err != nil {
+		t.Fatalf("LoadTarget: %v", err)
+	}
+	if target.Name != "target" {
+		t.Errorf("target name: got %q, want %q", target.Name, "target")
+	}
+	if cfg.Benchmark.BaseUrl != "http://localhost:5001" {
+		t.Errorf("base_url not replaced by target: %q", cfg.Benchmark.BaseUrl)
+	}
+	if cfg.Benchmark.Concurrency != 8 {
+		t.Errorf("concurrency: got %d, want 8", cfg.Benchmark.Concurrency)
+	}
+	if target.Load.Mode != LoadModeOpen || target.Load.Rate != 100 || target.Load.MaxInFlight != DefaultMaxInFlight {
+		t.Errorf("load config not threaded: %+v", target.Load)
+	}
+	if len(target.Testcases) != 1 || target.Testcases[0].Method != "GET" || target.Testcases[0].Path != "/health" {
+		t.Fatalf("testcases not resolved: %+v", target.Testcases)
+	}
+}
 
 func TestApplyLoadDefaults(t *testing.T) {
 	t.Parallel()

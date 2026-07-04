@@ -67,11 +67,43 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 	sampler.Start(ctx)
 	result.StartTime = time.Now()
 
+	suiteOut, err := runSuite(ctx, server, serverUrl)
+	stopSampler(sampler, result)
+	if err != nil {
+		result.SetError(err)
+		return result, nil, nil
+	}
+
+	result.Complete(suiteOut.allResults())
+	result.Sequences = suiteOut.sequences
+
+	return result, suiteOut.timedResults, suiteOut.timedSequences
+}
+
+// suiteOutput carries everything a suite run produces; shared by the container
+// path (RunServerBenchmark) and the external-target path (RunTarget).
+type suiteOutput struct {
+	endpoints      []client.EndpointResult
+	sequences      []client.SequenceStats
+	timedResults   []client.TimedResult
+	timedSequences []client.TimedSequenceResult
+}
+
+func (s *suiteOutput) allResults() []client.EndpointResult {
+	all := s.endpoints
+	all = append(all, client.SequenceStepsToResults(s.sequences)...)
+	return all
+}
+
+// runSuite drives the endpoint suite and sequences against serverUrl with a
+// progress spinner. It owns no container or sampler state — callers do.
+func runSuite(ctx context.Context, server *config.ResolvedServer, serverUrl string) (*suiteOutput, error) {
 	endpointCount := countUniqueEndpoints(server.Testcases)
 	sequenceCount := len(server.Sequences)
 
 	progress := cli.NewProgressSpinner()
 	progress.Start(endpointCount, sequenceCount)
+	defer progress.Stop()
 
 	suite := client.NewSuite(ctx, server, serverUrl, &client.ProgressCallbacks{
 		OnEndpoint: func(method, path string, done int) {
@@ -85,34 +117,21 @@ func RunServerBenchmark(ctx context.Context, server *config.ResolvedServer, data
 
 	endpoints, err := suite.RunAll() //nolint:contextcheck // context is stored in Suite struct
 	if err != nil {
-		progress.Stop()
-		stopSampler(sampler, result)
-		result.SetError(fmt.Errorf("benchmark failed: %w", err))
-		return result, nil, nil
+		return nil, fmt.Errorf("benchmark failed: %w", err)
 	}
 
 	if ctx.Err() != nil {
-		progress.Stop()
-		stopSampler(sampler, result)
-		result.SetError(ctx.Err())
-		return result, nil, nil
+		return nil, ctx.Err()
 	}
 
 	sequences := suite.RunSequences() //nolint:contextcheck // context is stored in Suite struct
 
-	progress.Stop()
-
-	timedResults := suite.GetTimedResults()
-	timedSequences := suite.GetTimedSequences()
-
-	stopSampler(sampler, result)
-
-	allResults := endpoints
-	allResults = append(allResults, client.SequenceStepsToResults(sequences)...)
-	result.Complete(allResults)
-	result.Sequences = sequences
-
-	return result, timedResults, timedSequences
+	return &suiteOutput{
+		endpoints:      endpoints,
+		sequences:      sequences,
+		timedResults:   suite.GetTimedResults(),
+		timedSequences: suite.GetTimedSequences(),
+	}, nil
 }
 
 func countUniqueEndpoints(testcases []*config.Testcase) int {
