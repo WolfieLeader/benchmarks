@@ -175,6 +175,10 @@ const EXTRA_TARGETS: Server[] = [
   // uv eco steps (pyright · ruff format --check · ruff check) run standalone here
   // via its own dev group.
   { name: "shared-python", dir: join(repoRoot, "shared", "python"), eco: "uv" },
+  // Rust twin: the shared crate carries the same clippy pedantic floor as the
+  // server, and clippy/rustfmt only lint the crate in cwd — a path dependency
+  // is compiled but never linted, so the crate needs its own row.
+  { name: "shared-rust", dir: join(repoRoot, "shared", "rust"), eco: "cargo" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 

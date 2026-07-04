@@ -36,7 +36,7 @@ fn cass(err: impl std::fmt::Display) -> DbError {
 /// `broadcast_rpc_address = 127.0.0.1`, so the driver would otherwise open its
 /// per-node connection pool to 127.0.0.1 — which, from another container, is the
 /// client itself. The known-node (contact point) address is never translated, so
-/// this only rewrites the discovered rpc_address back to a reachable host.
+/// this only rewrites the discovered `rpc_address` back to a reachable host.
 struct ContactPointTranslator {
     target: SocketAddr,
 }
