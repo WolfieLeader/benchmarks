@@ -176,7 +176,7 @@ Metrics are exported to InfluxDB and visualized in Grafana during benchmarks.
 | `request_latency`       | latency_ns, server_offset_ms, endpoint_offset_ms           | run_id, server, endpoint, method            |
 | `sequence_latency`      | total_duration_ns, server_offset_ms, sequence_offset_ms    | run_id, server, sequence_id, database       |
 | `sequence_step_latency` | latency_ns, server_offset_ms                               | run_id, server, sequence_id, database, step |
-| `resource_stats`        | memory_min/avg/max_bytes, cpu_min/avg/max_percent, samples | run_id, server                              |
+| `resource_stats`        | memory_min/avg/max_bytes, cpu_min/avg/max_percent, samples | run_id, server, source, database (DB only)  |
 
 ## Development 🛠️
 

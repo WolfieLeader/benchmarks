@@ -23,6 +23,7 @@ func TestOurComposeFileMatcher(t *testing.T) {
 		{"case-insensitive (macOS)", filepath.Join(root, "Infra", "Docker", "DATABASES.yml"), true},
 		{"agent worktree under the main root", filepath.Join(root, ".claude", "worktrees", "agent-x", "infra", "docker", "databases.yml"), true},
 		{"other repo's databases.yml", "/somewhere/else/infra/docker/databases.yml", false},
+		{"sibling checkout sharing the root as a name prefix", filepath.Join(root+"-backup", "infra", "docker", "databases.yml"), false},
 		{"our repo but a different compose file", filepath.Join(root, "infra", "docker", "grafana.yml"), false},
 		{"surrounding whitespace trimmed", "  " + filepath.Join(root, "infra", "docker", "databases.yml") + "  ", true},
 	}
@@ -55,6 +56,34 @@ func TestStopDatabasesRespectsOwnership(t *testing.T) {
 	}
 	if m.projectName() != "docker" {
 		t.Errorf("projectName: got %q, want the adopted stack's project", m.projectName())
+	}
+}
+
+func TestPickNetwork(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		field   string
+		want    string
+		wantErr bool
+	}{
+		{"no networks", "", "", false},
+		{"single network", "docker_default ", "docker_default", false},
+		{"extra network but default present", "metrics docker_default ", "docker_default", false},
+		{"multiple networks, no default", "metrics other ", "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := pickNetwork("docker", tc.field)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("pickNetwork(%q) error = %v, wantErr %v", tc.field, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Errorf("pickNetwork(%q) = %q, want %q", tc.field, got, tc.want)
+			}
+		})
 	}
 }
 

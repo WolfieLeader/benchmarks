@@ -73,7 +73,9 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	cli.Infof("Starting database stack...")
 	stack, err := o.compose.EnsureDatabases(ctx)
 	if err != nil {
-		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
+		// cleanupStacks, not just grafana: a failed compose up may have
+		// created part of an owned stack that must be torn down.
+		o.cleanupStacks() //nolint:contextcheck // cleanup uses fresh context
 		return err
 	}
 	if stack.Owned {

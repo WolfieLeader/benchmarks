@@ -69,10 +69,13 @@ func (m *ComposeManager) EnsureDatabases(ctx context.Context) (*Stack, error) {
 		return existing, nil
 	}
 
+	// Claim ownership before compose up: a partially-created stack (compose up
+	// failed or was interrupted) must still be ours to tear down, or it leaks
+	// and the next run adopts it as unowned.
+	m.stack = &Stack{Project: DatabaseProject, Network: DatabaseProject + "_default", Owned: true}
 	if err := m.composeUp(ctx, m.databasesPath, DatabaseProject); err != nil {
 		return nil, err
 	}
-	m.stack = &Stack{Project: DatabaseProject, Network: DatabaseProject + "_default", Owned: true}
 	return m.stack, nil
 }
 

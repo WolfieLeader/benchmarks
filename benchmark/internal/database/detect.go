@@ -31,28 +31,30 @@ func (m *ComposeManager) detectExistingStack(ctx context.Context) (*Stack, error
 	isOurs := ourComposeFileMatcher(ctx, m.repoRoot)
 
 	type candidate struct {
-		name    string
-		project string
-		network string
+		name     string
+		project  string
+		networks string
 	}
 	var ours []candidate
 	for _, id := range ids {
 		inspect, inspectErr := exec.CommandContext(ctx, "docker", //nolint:gosec // ids come from docker ps output
 			"inspect", id, "--format",
-			`{{.Name}}	{{index .Config.Labels "com.docker.compose.project"}}	{{index .Config.Labels "com.docker.compose.project.config_files"}}	{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}`,
+			`{{.Name}}	{{index .Config.Labels "com.docker.compose.project"}}	{{index .Config.Labels "com.docker.compose.project.config_files"}}	{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}`,
 		).Output()
 		if inspectErr != nil {
 			return nil, fmt.Errorf("docker inspect %s failed: %w", id, inspectErr)
 		}
-		parts := strings.SplitN(strings.TrimSpace(string(inspect)), "\t", 4)
+		// Trim only the trailing newline: TrimSpace would eat the tab before an
+		// empty networks field and hide it from the explicit error below.
+		parts := strings.SplitN(strings.TrimRight(string(inspect), "\n"), "\t", 4)
 		if len(parts) < 4 {
 			continue
 		}
-		name, project, configFiles, network := parts[0], parts[1], parts[2], parts[3]
+		name, project, configFiles, networks := parts[0], parts[1], parts[2], parts[3]
 
 		// config_files is a comma-separated list; ours is a single file.
 		if slices.ContainsFunc(strings.Split(configFiles, ","), isOurs) {
-			ours = append(ours, candidate{name: strings.TrimPrefix(name, "/"), project: project, network: network})
+			ours = append(ours, candidate{name: strings.TrimPrefix(name, "/"), project: project, networks: networks})
 		}
 	}
 
@@ -62,17 +64,40 @@ func (m *ComposeManager) detectExistingStack(ctx context.Context) (*Stack, error
 	if len(ours) > 1 {
 		var list []string
 		for _, c := range ours {
-			list = append(list, fmt.Sprintf("%s (project=%s, network=%s)", c.name, c.project, c.network))
+			list = append(list, fmt.Sprintf("%s (project=%s, networks=%s)", c.name, c.project, strings.TrimSpace(c.networks)))
 		}
 		return nil, fmt.Errorf("multiple postgres containers match this repo's databases stack — ambiguous, stop the extras: %s",
 			strings.Join(list, "; "))
 	}
 
 	stack := ours[0]
-	if stack.network == "" {
+	network, err := pickNetwork(stack.project, stack.networks)
+	if err != nil {
+		return nil, fmt.Errorf("container %s: %w", stack.name, err)
+	}
+	if network == "" {
 		return nil, fmt.Errorf("could not detect the docker network for container %s", stack.name)
 	}
-	return &Stack{Project: stack.project, Network: stack.network, Owned: false}, nil
+	return &Stack{Project: stack.project, Network: network, Owned: false}, nil
+}
+
+// pickNetwork chooses the compose network from a container's space-separated
+// network list. A container attached to extra networks (docker network
+// connect) still belongs to its project's default network; anything else is
+// ambiguous and must fail loud rather than yield a mangled network name.
+func pickNetwork(project, field string) (string, error) {
+	networks := strings.Fields(field)
+	switch len(networks) {
+	case 0:
+		return "", nil
+	case 1:
+		return networks[0], nil
+	}
+	def := project + "_default"
+	if slices.Contains(networks, def) {
+		return def, nil
+	}
+	return "", fmt.Errorf("attached to multiple networks (%s) and none is %s", strings.Join(networks, ", "), def)
 }
 
 // ourComposeFileMatcher reports whether a compose config_files path is this
@@ -81,7 +106,9 @@ func (m *ComposeManager) detectExistingStack(ctx context.Context) (*Stack, error
 // this repo (main clone or a .claude/worktrees agent worktree, which live
 // under it) is recognized as ours.
 func ourComposeFileMatcher(ctx context.Context, repoRoot string) func(string) bool {
-	root := strings.ToLower(mainRepoRoot(ctx, repoRoot))
+	// The trailing separator is load-bearing: without it a sibling checkout
+	// like <root>-backup would match too.
+	root := strings.ToLower(mainRepoRoot(ctx, repoRoot)) + string(filepath.Separator)
 	suffix := strings.ToLower(string(filepath.Separator) + filepath.Join("infra", "docker", "databases.yml"))
 	return func(path string) bool {
 		p := strings.ToLower(filepath.Clean(strings.TrimSpace(path)))
