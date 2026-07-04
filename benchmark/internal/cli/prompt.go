@@ -178,6 +178,9 @@ func ParseFlags(args []string) (*Options, error) {
 			hasExplicitFlags = true
 		case strings.HasPrefix(arg, "--target="):
 			opts.Target = strings.TrimSpace(strings.TrimPrefix(arg, "--target="))
+			if opts.Target == "" {
+				return nil, errors.New("--target requires a URL")
+			}
 			hasExplicitFlags = true
 		case strings.HasPrefix(arg, "--config="):
 			opts.ConfigFile = strings.TrimSpace(strings.TrimPrefix(arg, "--config="))
@@ -233,7 +236,7 @@ Interactive mode:
 
 Examples:
   benchmark                                            # Interactive mode
-  benchmark --servers=chi,gin                          # Benchmark specific servers
+  benchmark --servers=go-chi,go-gin                    # Benchmark specific servers
   benchmark --conformance --base-url=http://localhost:5001  # Run the contract gate
   benchmark --target=http://localhost:8080 --config=../config/calibration.json  # External target`)
 }

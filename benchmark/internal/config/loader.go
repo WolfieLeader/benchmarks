@@ -72,12 +72,15 @@ func Load(filename, serversDir string) (*Config, []*ResolvedServer, error) {
 
 // LoadTarget reads benchmark parameters from filename for --target mode: one
 // externally-managed server whose lifecycle the caller owns, so no roster
-// discovery and no container metadata — the base URL is supplied at run time.
-func LoadTarget(filename string) (*Config, *ResolvedServer, error) {
+// discovery and no container metadata. targetUrl replaces the config's
+// base_url so resolution (URI escaping) and the printed config reflect the
+// server actually being hit.
+func LoadTarget(filename, targetUrl string) (*Config, *ResolvedServer, error) {
 	cfg, err := loadConfigFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
+	cfg.Benchmark.BaseUrl = targetUrl
 
 	resolved, err := resolve(cfg, []roster.Entry{{Name: "target"}})
 	if err != nil {

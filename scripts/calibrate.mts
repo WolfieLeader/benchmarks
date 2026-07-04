@@ -10,9 +10,10 @@
 //      (concurrency C) and the same open shape (rate R, CO-corrected); open
 //      mode is the pass/fail gate, closed mode is reported (the client's
 //      response-validation tax makes closed throughput legitimately lower),
-//   3. Experiment B — ceiling: steps the client's open rate until offered_rate
-//      decouples from target_rate, then fires oha at the same rate to attribute
-//      the wall (client vs server),
+//   3. Experiment B — ceiling: steps the client's open rate until either wall
+//      signal fires — dropped iterations (queue wall) or offered_rate
+//      decoupling from target (dispatcher wall) — then fires oha at the same
+//      rate to attribute the wall (client vs server),
 //   4. prints the comparison table and exits non-zero on open-mode drift.
 //
 // The measured numbers and tolerance rationale live in docs/calibration.md —
@@ -31,11 +32,16 @@ const OPEN_RATE = 5000; // Experiment A open-mode rate — far below any ceiling
 const RPS_TOLERANCE = 0.05; // open-mode RPS must agree within ±5%
 const LATENCY_TOLERANCE = 0.1; // open-mode p50/p99 within ±10%…
 const LATENCY_FLOOR_NS = 1_000_000; // …or within 1ms absolute (timer granularity floor, wrk2 README)
+const MAX_IN_FLIGHT = 512; // written into every open config AND passed to oha -c — one value, same shape
 const CEILING_RATES = [5_000, 10_000, 20_000, 40_000, 80_000, 160_000];
-// The arrival clock never blocks (k6 semantics), so offered/target stays ~100%
-// even under saturation — the real wall signal is dropped iterations (workers
-// + queue full because responses can't keep up with arrivals).
-const DROP_RATIO_OK = 0.001; // <=0.1% dropped = rate sustained
+// Two distinct wall signals, either ends the search:
+// - dropped iterations: the QUEUE wall — workers can't absorb on-time arrivals
+//   (the arrival clock itself never blocks, k6 semantics, so drops are how
+//   server-side saturation shows up);
+// - offered_rate decoupling from target: the DISPATCHER wall — the client's
+//   own arrival clock produced arrivals late, so the queue never even filled.
+const DROP_RATIO_OK = 0.001; // <=0.1% dropped = queue kept up
+const OFFERED_TRACK_OK = 0.99; // offered/target >= 99% = dispatcher kept schedule
 const OFFERED_RATIO_OK = 0.95; // oha attribution: achieved/target below this = it hit the wall too
 const HEALTH_TIMEOUT_MS = 45_000;
 
@@ -43,9 +49,13 @@ const quick = process.argv.includes("--quick"); // smoke-test the harness, NOT a
 const MEASURE_DURATION = quick ? "5s" : "30s";
 const CEILING_DURATION = quick ? "3s" : "10s";
 
+// fail() throws (instead of process.exit) so the container-cleanup `finally`
+// in main() runs on every failure path — a leaked server container holds the
+// host port and breaks the next calibrate/contract run.
+class CalibrationError extends Error {}
+
 function fail(message: string): never {
-  console.error(`${c.red("✗")} ${message}`);
-  process.exit(1);
+  throw new CalibrationError(message);
 }
 
 function info(message: string): void {
@@ -305,13 +315,19 @@ async function main(): Promise<void> {
     sanity("closed", closedOurs, closedOha, "200");
 
     const openConfig = structuredClone(baseConfig);
-    openConfig.benchmark.load = { mode: "open", rate: OPEN_RATE };
+    openConfig.benchmark.load = { mode: "open", rate: OPEN_RATE, max_in_flight: MAX_IN_FLIGHT };
     const openConfigPath = join(runDir, "open.json");
     writeFileSync(openConfigPath, JSON.stringify(openConfig, null, 2));
     const openOurs = runClient(bin, base, openConfigPath, join(runDir, "open"));
     // oha's CO-corrected mode mirrors ours: -q total rate + latency from the
-    // scheduled send time; -c matches our max_in_flight worker bound (512).
-    const openOha = runOha(url, MEASURE_DURATION, ["-q", String(OPEN_RATE), "-c", "512", "--latency-correction"]);
+    // scheduled send time; -c matches our max_in_flight worker bound.
+    const openOha = runOha(url, MEASURE_DURATION, [
+      "-q",
+      String(OPEN_RATE),
+      "-c",
+      String(MAX_IN_FLIGHT),
+      "--latency-correction"
+    ]);
     sanity("open", openOurs, openOha, "200");
     if (!openOurs.open) fail("client open-mode run produced no open stats");
     if (openOurs.open.dropped_iterations > 0) {
@@ -340,14 +356,15 @@ async function main(): Promise<void> {
     for (const rate of CEILING_RATES) {
       const cfg = structuredClone(baseConfig);
       cfg.benchmark.duration_per_endpoint = CEILING_DURATION;
-      cfg.benchmark.load = { mode: "open", rate };
+      cfg.benchmark.load = { mode: "open", rate, max_in_flight: MAX_IN_FLIGHT };
       const cfgPath = join(runDir, `ceiling-${rate}.json`);
       writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
       const ours = runClient(bin, base, cfgPath, join(runDir, `ceiling-${rate}`));
       if (!ours.open) fail("ceiling run produced no open stats");
       const dropRatio = ours.open.dropped_iterations / Math.max(1, ours.open.attempted);
-      const line = `rate ${String(rate).padStart(6)}: offered ${ours.open.offered_rate.toFixed(0).padStart(7)}, dropped ${ours.open.dropped_iterations} (${(dropRatio * 100).toFixed(2)}%)`;
-      if (dropRatio <= DROP_RATIO_OK) {
+      const offeredRatio = ours.open.offered_rate / ours.open.target_rate;
+      const line = `rate ${String(rate).padStart(6)}: offered ${ours.open.offered_rate.toFixed(0).padStart(7)} (${(offeredRatio * 100).toFixed(1)}%), dropped ${ours.open.dropped_iterations} (${(dropRatio * 100).toFixed(2)}%)`;
+      if (dropRatio <= DROP_RATIO_OK && offeredRatio >= OFFERED_TRACK_OK) {
         console.log(`  ${c.green("✓")} ${line}`);
         ceiling = rate;
         continue;
@@ -355,7 +372,7 @@ async function main(): Promise<void> {
       console.log(`  ${c.red("✗")} ${line}`);
       // Attribute the wall: if oha sustains this rate against the same server,
       // the wall is the client's; if oha can't either, it's the server's.
-      const attr = runOha(url, CEILING_DURATION, ["-q", String(rate), "-c", "512", "--latency-correction"]);
+      const attr = runOha(url, CEILING_DURATION, ["-q", String(rate), "-c", String(MAX_IN_FLIGHT), "--latency-correction"]);
       const ohaRatio = attr.summary.requestsPerSec / rate;
       wall = ohaRatio >= OFFERED_RATIO_OK ? "client" : "server";
       console.log(`    oha at the same rate: ${attr.summary.requestsPerSec.toFixed(0)} rps (${(ohaRatio * 100).toFixed(1)}%) → wall is the ${c.bold(wall)}'s`);
@@ -380,4 +397,12 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+try {
+  await main();
+} catch (err) {
+  if (err instanceof CalibrationError) {
+    console.error(`${c.red("✗")} ${err.message}`);
+    process.exit(1);
+  }
+  throw err;
+}

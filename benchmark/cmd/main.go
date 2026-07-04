@@ -46,7 +46,7 @@ func run() int {
 	// Target mode benchmarks one externally-managed server: no roster, no
 	// containers, no compose stacks, no metrics DB (calibration gate, PLAN §7.6).
 	if cliOpts != nil && cliOpts.Target != "" {
-		cfg, target, loadErr := config.LoadTarget(configFile)
+		cfg, target, loadErr := config.LoadTarget(configFile, cliOpts.Target)
 		if loadErr != nil {
 			cli.Failf("Failed to load configuration: %v", loadErr)
 			return 1

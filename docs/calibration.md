@@ -35,7 +35,9 @@ One go-chi container (same limits as a real run: 4 CPUs / 2 GB), both
 generators hit the identical instance via the client's `--target` mode, on
 `GET /health` — the dumbest contract endpoint: no input, no JSON, no DB.
 Config: `config/calibration.json` (closed base; the script derives the open and
-ceiling variants).
+ceiling variants). Note: `check-config` validates only `config/config.json` —
+calibration.json relies on the editor `$schema` hint plus the Go loader's own
+validation at load time, which rejects any invalid config before a run starts.
 
 - **Experiment A — agreement (the gate).** Same closed shape (c=200, 30s) and
   same open shape (5,000 req/s, 30s, CO-corrected) from both tools.
@@ -47,10 +49,13 @@ ceiling variants).
     (the project's purpose), so its closed loop is legitimately slower — the
     check is that the gap stays small and stable, not zero.
 - **Experiment B — ceiling.** Step the client's open rate (5k → 160k, 10s
-  each) until dropped iterations exceed 0.1% of attempts (the arrival clock
-  never blocks, so `offered_rate` stays ~100% even under saturation — drops
-  are the wall signal). Then fire oha at the failing rate to attribute the
-  wall: if oha sustains it, the wall is the client's; if not, the server's.
+  each) until either wall signal fires: dropped iterations above 0.1% of
+  attempts (the **queue** wall — workers can't absorb on-time arrivals; the
+  arrival clock itself never blocks, so server saturation shows up here), or
+  `offered_rate` falling below 99% of target (the **dispatcher** wall — the
+  client's own arrival clock produced arrivals late). Then fire oha at the
+  failing rate to attribute the wall: if oha sustains it, the wall is the
+  client's; if not, the server's.
 
 ### Why a 1 ms latency floor (three-instrument tie-break, 2026-07-04)
 

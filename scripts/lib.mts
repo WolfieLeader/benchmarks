@@ -45,7 +45,7 @@ process.env.PATH = `${join(homedir(), "go", "bin")}:${process.env.PATH ?? ""}`;
 export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "root";
 
 export type Server = {
-  name: string; // CLI target key (e.g. "express", "chi")
+  name: string; // CLI target key (e.g. "ts-express", "go-chi")
   dir: string; // working directory for its commands
   eco: Eco; // toolchain family — commands derive from this per script
   image?: string; // docker image tag; present => included in `images`

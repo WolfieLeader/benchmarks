@@ -30,12 +30,15 @@ func TestLoadTarget(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg, target, err := LoadTarget(path)
+	cfg, target, err := LoadTarget(path, "http://localhost:5001")
 	if err != nil {
 		t.Fatalf("LoadTarget: %v", err)
 	}
 	if target.Name != "target" {
 		t.Errorf("target name: got %q, want %q", target.Name, "target")
+	}
+	if cfg.Benchmark.BaseUrl != "http://localhost:5001" {
+		t.Errorf("base_url not replaced by target: %q", cfg.Benchmark.BaseUrl)
 	}
 	if cfg.Benchmark.Concurrency != 8 {
 		t.Errorf("concurrency: got %d, want 8", cfg.Benchmark.Concurrency)
