@@ -56,7 +56,7 @@ async def header_params(
 
 
 @params_router.post("/body")
-async def body_params(body: Any = Body()):
+async def body_params(body: Any = Body()) -> dict[str, Any]:
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail=make_error(INVALID_JSON_BODY, "expected a JSON object"))
     return {"body": body}
@@ -87,7 +87,7 @@ async def form_params(request: Request):
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=make_error(INVALID_FORM_DATA, str(e) or "failed to parse form body")
-        )
+        ) from e
 
     name_val = form.get("name")
     name = _strip_or(name_val if isinstance(name_val, str) else None, "none")
@@ -136,11 +136,11 @@ async def file_params(request: Request, file: UploadFile | None = File(default=N
 
     try:
         content = data.decode("utf-8")
-    except UnicodeDecodeError:
+    except UnicodeDecodeError as e:
         raise HTTPException(
             status_code=415,
             detail=make_error(FILE_NOT_TEXT, "file is not valid UTF-8"),
-        )
+        ) from e
 
     return {
         "filename": file.filename,

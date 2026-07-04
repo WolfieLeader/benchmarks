@@ -40,7 +40,7 @@ async def create_user(database: str, data: CreateUser):
         user = await repo.create(data)
         return user.model_dump(exclude_none=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e
 
 
 @db_router.get("/{database}/users/{id}")
@@ -49,7 +49,7 @@ async def get_user(database: str, id: str):
     try:
         user = await repo.find_by_id(id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e
     if user is None:
         raise _not_found(id)
     return user.model_dump(exclude_none=True)
@@ -61,7 +61,7 @@ async def update_user(database: str, id: str, data: UpdateUser):
     try:
         user = await repo.update(id, data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e
     if user is None:
         raise _not_found(id)
     return user.model_dump(exclude_none=True)
@@ -73,7 +73,7 @@ async def delete_user(database: str, id: str):
     try:
         deleted = await repo.delete(id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e
     if not deleted:
         raise _not_found(id)
     return {"success": True}
@@ -86,7 +86,7 @@ async def delete_all_users(database: str):
         await repo.delete_all()
         return {"success": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e
 
 
 @db_router.delete("/{database}/reset")
@@ -96,4 +96,4 @@ async def reset_database(database: str):
         await repo.delete_all()
         return {"status": "ok"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e))
+        raise HTTPException(status_code=500, detail=make_error(INTERNAL_ERROR, e)) from e

@@ -395,6 +395,35 @@ ASGITransport(app=app), base_url="http://test")` calls the ASGI app directly wit
 
 ## 10. In this repo
 
+- **Strictness ladder — applied 2026-07-04 (Stage 2).** Both `servers/py-fastapi/pyproject.toml` and
+  `shared/python/pyproject.toml` now carry a byte-identical lint/type block (full-copy convention, same as the
+  Go/TS servers):
+  - **pyright `typeCheckingMode = "strict"` with ZERO subtractions.** Strict initially surfaced 80 errors, ~66 of
+    them `reportUnknown{Member,Argument,Variable}Type` cascading out of the untyped `motor` and `cassandra-driver`
+    stubs. Rather than disable those three rules repo-wide (which would also blind them to our own code), the
+    library seams are pinned to explicit `Any`: `AsyncIOMotorClient[dict[str, Any]]` /
+    `AsyncIOMotorCollection[dict[str, Any]]` in `mongodb.py`, `list[Any]`/`Any` returns on cassandra's
+    `_execute`/`_execute_one`. An explicit `Any` annotation is "known" to pyright, so `reportUnknown*` never fires —
+    strict then passes clean with **no `report*` flag excluded** (the §7.42 escape-hatch pattern, done at the seam
+    instead of per-line). The remaining real fixes were our own code: middleware `call_next: RequestResponseEndpoint`
+    - `-> Response` annotations (`main.py`), return-type/type-argument annotations, and one genuine typing bug —
+      `mongodb.create` built `doc` as an inferred `dict[str, ObjectId | str]` then assigned an `int` favoriteNumber
+      (`reportArgumentType`), fixed by annotating `doc: dict[str, Any]`.
+  - **ruff `select = ["E", "F", "B", "UP", "SIM", "C4", "RET", "PERF", "RUF", "S", "ASYNC"]`** — the E/F default
+    plus curated bug-catching families; `ASYNC` because this is an async server. Fixes made: 8× `B904` (chain
+    wrapped exceptions with `raise … from e`/`from None` in `db.py`/`params.py`), `B008` handled the idiomatic way
+    via `flake8-bugbear.extend-immutable-calls` whitelisting the FastAPI DI factories (`Body`/`File`/`Depends`/… —
+    NOT a rule-wide B008 disable). Two narrow, rationale-carrying suppressions remain: `# noqa: S608` on cassandra's
+    dynamic `UPDATE` (the interpolated fragments are static `"<col> = %s"` literals; all values are `%s`-bound) and
+    `# noqa: S104` ×3 on the `HOST = "0.0.0.0"` bind-all default in `shared/python/env.py` (the deliberate container
+    default every server shares — a config-level `ignore` there would be the prohibited rule-wide disable).
+  - **No test-file overrides yet** — no `tests/` tree exists. A `[tool.ruff.lint.per-file-ignores]` for `tests/**`
+    relaxing `S101` (assert) / `S105-6` (hardcoded test creds) returns when the first tests land (noted inline in
+    both pyproject.toml files).
+  - **`shared/python` is now a gated verify target** (`scripts/lib.mts` EXTRA_TARGETS row `shared-python`, eco
+    `uv`) — closes the pre-existing gap flagged in PR #39 review where its twin `shared-typescript`/`shared-go`
+    were gated but it was not. It gained its own `[dependency-groups] dev` (pyright + ruff) so the uv eco steps
+    (`pyright src` · `ruff format --check .` · `ruff check .`) run standalone against it.
 - **Single-process, pool-of-50 is the fairness canon — applied 2026-07-04.** `PLAN.md:194` locks "Normalize
   FastAPI: 1 worker, pg pool 50"; py-fastapi now runs uvicorn with `--workers 1` (`Dockerfile:38`) and
   Postgres uses `pool_size=50, max_overflow=0` (`src/database/postgres.py:37`) — the old `--workers 4` was the

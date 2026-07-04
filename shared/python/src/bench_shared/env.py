@@ -14,7 +14,9 @@ class Env(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     ENV: Literal["dev", "prod"] = "dev"
-    HOST: str = "0.0.0.0"
+    # S104: binding all interfaces is the deliberate container default for every
+    # server in the fleet (the HOST env contract) — not an accidental exposure.
+    HOST: str = "0.0.0.0"  # noqa: S104
     PORT: int = 4001
     POSTGRES_URL: str = "postgres://postgres:postgres@localhost:5432/benchmarks"
     MONGODB_URL: str = "mongodb://localhost:27017"
@@ -28,17 +30,17 @@ class Env(BaseModel):
     @classmethod
     def normalize_host(cls, value: str | None) -> str:
         trimmed = (value or "").strip()
-        return trimmed or "0.0.0.0"
+        return trimmed or "0.0.0.0"  # noqa: S104  (deliberate bind-all default, see HOST field)
 
     @field_validator("HOST")
     @classmethod
     def validate_host(cls, value: str) -> str:
         if value == "localhost":
-            return "0.0.0.0"
+            return "0.0.0.0"  # noqa: S104  (deliberate bind-all default, see HOST field)
         try:
             ipaddress.ip_address(value)
         except ValueError:
-            raise ValueError("HOST must be a valid IP or 'localhost'")
+            raise ValueError("HOST must be a valid IP or 'localhost'") from None
         return value
 
     @field_validator("PORT", mode="before")

@@ -154,6 +154,11 @@ const EXTRA_TARGETS: Server[] = [
   // servers, so its own code must be gated too — not just its config (which the
   // biome-sync check covers).
   { name: "shared-typescript", dir: join(repoRoot, "shared", "typescript"), eco: "pnpm" },
+  // Its Python twin: bench-shared carries the same strict pyright + ruff ladder as
+  // py-fastapi (its only consumer today), so its own code must be gated too — the
+  // uv eco steps (pyright · ruff format --check · ruff check) run standalone here
+  // via its own dev group.
+  { name: "shared-python", dir: join(repoRoot, "shared", "python"), eco: "uv" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 

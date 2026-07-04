@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import uuid
+from typing import Any
 from uuid import UUID
 from cassandra.cluster import Cluster  # type: ignore[import-untyped]
 from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
@@ -49,12 +50,12 @@ class CassandraUserRepository:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(self._executor, self._connect_sync)
 
-    async def _execute(self, query: str, params: tuple = ()) -> list:
+    async def _execute(self, query: str, params: tuple[Any, ...] = ()) -> list[Any]:
         await self._connect()
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, lambda: list(self._session.execute(query, params)))  # type: ignore[union-attr]
 
-    async def _execute_one(self, query: str, params: tuple = ()):
+    async def _execute_one(self, query: str, params: tuple[Any, ...] = ()) -> Any | None:
         rows = await self._execute(query, params)
         return rows[0] if rows else None
 
@@ -97,8 +98,8 @@ class CassandraUserRepository:
         if existing is None:
             return None
 
-        set_clauses = []
-        params: list = []
+        set_clauses: list[str] = []
+        params: list[Any] = []
 
         if data.name is not None:
             set_clauses.append("name = %s")
@@ -117,7 +118,9 @@ class CassandraUserRepository:
             return existing
 
         params.append(uuid_id)
-        query = f"UPDATE users SET {', '.join(set_clauses)} WHERE id = %s"
+        # S608 suppressed: set_clauses holds only static "<col> = %s" literals built above; all
+        # values are bound via %s params, never interpolated — no user input reaches the SQL text.
+        query = f"UPDATE users SET {', '.join(set_clauses)} WHERE id = %s"  # noqa: S608
         await self._execute(query, tuple(params))
         return existing
 
