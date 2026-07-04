@@ -339,10 +339,14 @@ repo `src/user.zig`.
 `duplicate_field_behavior` defaults to `.@"error"` (values `.use_first`, `.use_last`);
 `ignore_unknown_fields` defaults to `false` (unknown key → `error.UnknownField`).
 This repo intentionally sets `.duplicate_field_behavior = .use_last` (JS/Python
-last-wins) and leaves `ignore_unknown_fields = false` so PascalCase/unknown keys are
-_rejected_ — that strictness is the contract, not an accident (`user.zig:32`).
+last-wins) everywhere, and splits unknown-field handling per route (canon ruled
+2026-07-04): **create** keeps `ignore_unknown_fields = false` so PascalCase/unknown
+keys are _rejected_ with 400, while **update (PATCH)** sets
+`.ignore_unknown_fields = true` so unknown keys are ignored (a PATCH carrying only a
+mismatched-case key is a 200 no-op) — deliberate per-route options, not an accident
+(`user.zig`, `create_opts` vs `update_opts`).
 Source: [ParseOptions docs](https://ziglang.org/documentation/master/std/#std.json.ParseOptions);
-repo `src/user.zig:29-32`.
+repo `src/user.zig`.
 
 6.3. **Mind string lifetimes: parsed strings may point _into_ the input buffer.** The
 default `allocate = .alloc_if_needed` references the source JSON rather than copying.
