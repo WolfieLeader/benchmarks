@@ -18,6 +18,8 @@ pub const CreateUser = struct {
 };
 
 /// Patch payload. All fields optional; absent fields leave the column untouched.
+/// Unknown keys are ignored (see `update_opts`): a PATCH carrying only unknown
+/// keys parses to all-null and applies as a no-op, matching cross-server canon.
 pub const UpdateUser = struct {
     name: ?[]const u8 = null,
     email: ?[]const u8 = null,
@@ -26,17 +28,23 @@ pub const UpdateUser = struct {
 
 pub const ValidationError = error{Invalid};
 
-// JSON parse options shared by every decode: last-wins on duplicate keys
-// (JS `JSON.parse` / Python semantics) and case-sensitive field matching
-// (unknown/PascalCase keys are rejected). Matches the cross-server canon.
-const parse_opts: std.json.ParseOptions = .{ .duplicate_field_behavior = .use_last };
+// Duplicate keys resolve last-wins on every decode (JS `JSON.parse` / Python
+// semantics). CREATE keeps `ignore_unknown_fields = false` (the default): a body
+// with only unknown/PascalCase keys is missing the required `name`/`email` and so
+// fails to parse (400) — strictness that is the create contract.
+const create_opts: std.json.ParseOptions = .{ .duplicate_field_behavior = .use_last };
+// UPDATE ignores unknown fields (cross-server canon): every other server strips
+// them, so a PATCH with a mismatched-case key becomes a no-op returning the
+// existing row unchanged (200). Required-field parsing does not apply — all
+// UpdateUser fields are optional.
+const update_opts: std.json.ParseOptions = .{ .duplicate_field_behavior = .use_last, .ignore_unknown_fields = true };
 
 pub fn parseCreate(arena: std.mem.Allocator, body: []const u8) !CreateUser {
-    return std.json.parseFromSliceLeaky(CreateUser, arena, body, parse_opts);
+    return std.json.parseFromSliceLeaky(CreateUser, arena, body, create_opts);
 }
 
 pub fn parseUpdate(arena: std.mem.Allocator, body: []const u8) !UpdateUser {
-    return std.json.parseFromSliceLeaky(UpdateUser, arena, body, parse_opts);
+    return std.json.parseFromSliceLeaky(UpdateUser, arena, body, update_opts);
 }
 
 pub fn validateCreate(data: CreateUser) ValidationError!void {
