@@ -1,9 +1,10 @@
 package routes
 
 import (
-	"fiber-server/internal/config"
-	"fiber-server/internal/consts"
-	"fiber-server/internal/database"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
+
 	"fiber-server/internal/utils"
 
 	"github.com/go-playground/validator/v10"

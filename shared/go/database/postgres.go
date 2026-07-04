@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"gin-server/internal/database/sqlc"
+	"shared/database/sqlc"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

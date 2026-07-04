@@ -6,12 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"shared/consts"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	"gin-server/internal/consts"
 	"gin-server/internal/utils"
 
 	"github.com/gin-gonic/gin"

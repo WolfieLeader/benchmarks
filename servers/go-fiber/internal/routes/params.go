@@ -6,12 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"shared/consts"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	"fiber-server/internal/consts"
 	"fiber-server/internal/utils"
 
 	"github.com/gofiber/fiber/v3"

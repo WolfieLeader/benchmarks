@@ -2,10 +2,17 @@ FROM golang:1.27rc1-alpine AS builder
 
 WORKDIR /app
 
-COPY servers/go-fiber/go.mod servers/go-fiber/go.sum ./
+# Shared Go module is the `replace shared => ../../shared/go` target; copy it
+# first (and preserve the repo-relative layout) so the module graph resolves.
+COPY shared/go ./shared/go
+
+COPY servers/go-fiber/go.mod servers/go-fiber/go.sum ./servers/go-fiber/
+WORKDIR /app/servers/go-fiber
 RUN go mod download
 
-COPY servers/go-fiber ./
+WORKDIR /app
+COPY servers/go-fiber ./servers/go-fiber
+WORKDIR /app/servers/go-fiber
 
 ENV CGO_ENABLED=0 \
     GOOS=linux
@@ -27,7 +34,7 @@ ENV ENV=prod \
     CASSANDRA_KEYSPACE=benchmarks \
     CASSANDRA_LOCAL_DATACENTER=datacenter1
 
-COPY --from=builder /app/bin/server .
+COPY --from=builder /app/servers/go-fiber/bin/server .
 
 RUN addgroup -g 1001 -S app-group && \
     adduser -S app-runner -u 1001 -G app-group

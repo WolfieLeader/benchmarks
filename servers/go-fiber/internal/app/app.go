@@ -4,10 +4,10 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
 
-	"fiber-server/internal/config"
-	"fiber-server/internal/consts"
-	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
 	"fiber-server/internal/utils"
 
@@ -53,7 +53,7 @@ func New() *App {
 		},
 	})
 
-	env := config.LoadEnv()
+	env := config.LoadEnv(5003)
 
 	database.InitializeConnections(env)
 

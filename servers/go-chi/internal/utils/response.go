@@ -4,8 +4,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"net/http"
-
-	"chi-server/internal/consts"
+	"shared/consts"
 )
 
 type ErrorResponse struct {

@@ -2,10 +2,10 @@ package app
 
 import (
 	"net/http"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
 
-	"chi-server/internal/config"
-	"chi-server/internal/consts"
-	"chi-server/internal/database"
 	"chi-server/internal/routes"
 	"chi-server/internal/utils"
 
@@ -31,7 +31,7 @@ func maxBodyBytes(next http.Handler) http.Handler {
 func New() *App {
 	r := chi.NewRouter()
 
-	env := config.LoadEnv()
+	env := config.LoadEnv(5001)
 
 	database.InitializeConnections(env)
 

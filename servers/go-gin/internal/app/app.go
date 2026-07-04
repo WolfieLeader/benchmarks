@@ -2,10 +2,10 @@ package app
 
 import (
 	"net/http"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
 
-	"gin-server/internal/config"
-	"gin-server/internal/consts"
-	"gin-server/internal/database"
 	"gin-server/internal/routes"
 	"gin-server/internal/utils"
 
@@ -30,7 +30,7 @@ func maxBodyBytes() gin.HandlerFunc {
 func New() *App {
 	r := gin.New()
 
-	env := config.LoadEnv()
+	env := config.LoadEnv(5002)
 
 	database.InitializeConnections(env)
 
