@@ -2,7 +2,10 @@ package utils
 
 import (
 	"encoding/json/v2"
+	"errors"
 	"net/http"
+
+	"chi-server/internal/consts"
 )
 
 type ErrorResponse struct {
@@ -37,4 +40,17 @@ func WriteError(w http.ResponseWriter, status int, message string, detail ...any
 	if err := json.MarshalWrite(w, resp); err != nil {
 		return
 	}
+}
+
+// WriteBodyError renders a JSON request-body decode failure. A body over the
+// global cap surfaces as *http.MaxBytesError from the MaxBytesReader-wrapped
+// body and becomes 413 "request body too large"; everything else is a plain
+// 400 "invalid JSON body".
+func WriteBodyError(w http.ResponseWriter, err error) {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrRequestTooLarge)
+		return
+	}
+	WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 }

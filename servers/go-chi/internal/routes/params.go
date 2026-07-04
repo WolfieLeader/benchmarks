@@ -63,7 +63,7 @@ func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
 func handleBodyParams(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
 	if err := json.UnmarshalRead(r.Body, &body, decodeOpts); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(w, err)
 		return
 	}
 	if body == nil {

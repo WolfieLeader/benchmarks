@@ -69,7 +69,7 @@ func createUser(c *gin.Context) {
 
 	var data database.CreateUser
 	if err := utils.BindJSON(c, &data); err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(c, err)
 		return
 	}
 
@@ -109,7 +109,7 @@ func updateUser(c *gin.Context) {
 
 	var data database.UpdateUser
 	if err := utils.BindJSON(c, &data); err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(c, err)
 		return
 	}
 
