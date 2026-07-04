@@ -150,7 +150,9 @@ All 16 routes with meaningful variations, plus the negative and security cases:
 - **path safety** — encoded traversal input returns a normal response, never a file read.
 - **JSON parse semantics** — duplicate keys resolve last-wins, proven on both `/params/body`
   and the DB create path; field names are case-sensitive so PascalCase keys fail
-  required-field validation (400) on create.
+  required-field validation (400) on create. On `PATCH` (canon), where every field is
+  optional, the same mismatched-case key is instead ignored — an empty no-op update that
+  returns the unchanged row (`200`).
 - **lifecycle** — `reset` provably clears prior rows (create → reset → read is 404).
 
 No JWT cases yet — those endpoints arrive in a later phase.
@@ -160,9 +162,6 @@ No JWT cases yet — those endpoints arrive in a later phase.
 - **405 method-not-allowed** — a known path with the wrong method is not uniform: go-chi and
   ts-deno-oak return `405` + `Allow` (empty body); py-fastapi returns `405 {"error":"Method
 Not Allowed"}` (no `Allow`); the other eight fall through to `404 {"error":"not found"}`.
-- **PATCH with PascalCase field names** — zig rejects unknown JSON fields at parse (`400`),
-  while every other server ignores/strips them, making the update a no-op that returns the
-  existing row (`200`).
 - **error `details` on 415/413** — genuinely optional (`$optional`): go-chi/go-fiber/go-gin/zig
   omit it, the rest include a detail string. Left as `$optional`, not tightened to `$absent`.
 - **name/email length maxima** — no server-level max; only the DB `varchar(255)` bounds them,

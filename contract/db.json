@@ -257,6 +257,35 @@
         { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
       ]
     },
+    {
+      "name": "patch_ignores_unknown_field_noop",
+      "note": "CANON: PATCH (update) ignores unknown JSON fields. A body carrying only a wrongly-cased key (\"Name\" not \"name\") and no valid fields is a no-op: the unknown key is stripped, no column changes, and the unchanged row returns 200 (never 400). Case-sensitivity is asserted the opposite way on CREATE (create_rejects_case_mismatched_field_names, 400) — there the mismatched key leaves the required field missing; here every update field is optional, so the ignored key simply yields an empty patch. The read-back proves the store was untouched, not merely the echo.",
+      "flow": [
+        { "name": "reset", "method": "DELETE", "path": "/db/postgres/reset", "expect": { "status": 200, "body": { "status": "ok" } } },
+        {
+          "name": "create",
+          "method": "POST",
+          "path": "/db/postgres/users",
+          "body": { "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 },
+          "capture": { "id": "id" },
+          "expect": { "status": 201, "body": { "id": "$id", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "patch_mismatched_case_field",
+          "method": "PATCH",
+          "path": "/db/postgres/users/{id}",
+          "body": { "Name": "SHOULD BE IGNORED" },
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        {
+          "name": "read_unchanged",
+          "method": "GET",
+          "path": "/db/postgres/users/{id}",
+          "expect": { "status": 200, "body": { "id": "{id}", "name": "Original", "email": "noop@conformance-suite.com", "favoriteNumber": 7 } }
+        },
+        { "name": "delete_all", "method": "DELETE", "path": "/db/postgres/users", "expect": { "status": 200, "body": { "success": true } } }
+      ]
+    },
 
     {
       "name": "unknown_database_health_unavailable",
