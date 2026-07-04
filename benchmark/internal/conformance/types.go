@@ -49,7 +49,7 @@ type MultipartFile struct {
 	Field       string `json:"field,omitempty"`       // form field name, default "file"
 	Filename    string `json:"filename,omitempty"`    // filename in Content-Disposition
 	ContentType string `json:"contentType,omitempty"` // part Content-Type header; omitted if empty
-	Source      string `json:"source,omitempty"`      // fixture filename in test-files/
+	Source      string `json:"source,omitempty"`      // fixture filename in contract/test-files/
 	Text        string `json:"text,omitempty"`        // inline literal content
 	SizeBytes   int    `json:"sizeBytes,omitempty"`   // synthesize N bytes (for oversized-payload cases)
 	FillByte    string `json:"fillByte,omitempty"`    // single char used for synthesized content, default "A"

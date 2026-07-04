@@ -27,29 +27,29 @@ update target='all':
 # Start database stack
 [group('docker')]
 db-up:
-    docker compose -f infra/compose/databases.yml up -d
+    docker compose -f infra/docker/databases.yml up -d
 
 # Stop database stack
 [group('docker')]
 db-down:
-    docker compose -f infra/compose/databases.yml down -v
+    docker compose -f infra/docker/databases.yml down -v
 
 # Start Grafana/InfluxDB stack
 [group('docker')]
 grafana-up:
-    docker compose -f infra/compose/grafana.yml down -v
-    docker compose -f infra/compose/grafana.yml up -d
+    docker compose -f infra/docker/grafana.yml down -v
+    docker compose -f infra/docker/grafana.yml up -d
     @echo "Grafana: http://localhost:3000 (admin/123456)"
 
 # Stop Grafana/InfluxDB stack
 [group('docker')]
 grafana-down:
-    docker compose -f infra/compose/grafana.yml down -v
+    docker compose -f infra/docker/grafana.yml down -v
 
 # View Grafana logs
 [group('docker')]
 grafana-logs:
-    docker compose -f infra/compose/grafana.yml logs -f
+    docker compose -f infra/docker/grafana.yml logs -f
 
 # Build Docker image(s) for an entry (or 'all')
 [group('docker')]

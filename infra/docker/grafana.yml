@@ -24,8 +24,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ../../grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=123456

@@ -196,7 +196,7 @@ Options:
   --conformance      Run the contract conformance suite instead of the benchmark
   --base-url=URL     Base URL for --conformance (default http://localhost:8080)
   --contract-dir=DIR Contract cases directory for --conformance (default ../contract)
-  --test-files-dir=DIR Upload fixtures directory for --conformance (default ../test-files)
+  --test-files-dir=DIR Upload fixtures directory for --conformance (default ../contract/test-files)
   --help, -h         Show this help message
 
 Interactive mode:

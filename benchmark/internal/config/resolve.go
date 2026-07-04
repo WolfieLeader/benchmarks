@@ -347,7 +347,7 @@ func loadFile(filename string) (*FileUpload, error) {
 		return nil, errors.New("invalid filename: path traversal not allowed")
 	}
 
-	testFilesDir := filepath.Join("..", "test-files")
+	testFilesDir := filepath.Join("..", "contract", "test-files")
 	path := filepath.Join(testFilesDir, filename)
 
 	absTestFilesDir, err := filepath.Abs(testFilesDir)

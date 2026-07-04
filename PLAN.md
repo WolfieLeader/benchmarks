@@ -99,9 +99,9 @@ shared/
   python/                       # bench-shared: async + sync repository impls
   rust/                         # shared crate (workspace member)
   kotlin/                       # shared Gradle module
-contract/                       # language-neutral API spec + conformance cases (JSON)
+contract/                       # language-neutral API spec + conformance cases (JSON) + test-files/ upload fixtures
 scripts/                        # typed orchestration scripts; justfile stays thin
-config/  infra/  grafana/  test-files/  results/
+config/  results/               # infra/ holds docker/ (compose files) + grafana/ (dashboards, provisioning)
 ```
 
 Folder = entry = image (`servers/go-chi` ↔ entry `go-chi` ↔ image `bench/go-chi`). Per-language tool configs live at the repo root (`.golangci.json`, `ruff.toml`, `biome.json`, …) — still exactly one per language, discovered upward by each tool.
@@ -149,7 +149,7 @@ Shared folders force build context above the app dir. Convention: **build from r
 | TS/Deno          | `node_modules/`, `dist/`, Deno-generated `node_modules/` under `--node-modules-dir=manual`                                                                                                 |
 | Benchmark output | **split published vs scratch** — version curated `results/published/**/*.json`; ignore scratch/local run output (`results/runs/`, tmp dirs) so machine-specific runs do not churn the repo |
 
-`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `grafana/`, `infra/` volumes, and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
+`.dockerignore` additionally excludes globally (independent of git): `.git/`, all of the above, `*.md`, `infra/` (compose + grafana), and scratch `results/`. Do **not** rely on one root `.dockerignore` to exclude "other apps' source" differently for each Dockerfile — Docker ignore rules are context-wide, not per target. If context size becomes a real problem, use Dockerfile-specific ignore files (`servers/.../Dockerfile.dockerignore`) or BuildKit named contexts; otherwise prefer a simple root context that is correct over a clever one that can accidentally omit needed shared files.
 
 ---
 
@@ -386,7 +386,7 @@ Behavior:
 
 - Runs every endpoint + every variation **once, sequentially, strict full-body assertions**.
 - Adds **negative cases** the benchmark never exercises: 400 invalid JSON / non-object body / bad form, 404 unknown user + unknown database, 413 oversized file, 415 wrong content type, malformed `favoriteNumber`, invalid email, JWT 401.
-- Adds **security-behavior cases** — the contract's security properties, asserted per server: file upload must inspect actual content, not trust the `Content-Type` header (**anti-sniffing**: an image/binary sent with `Content-Type: text/plain` must be rejected 415 `"file does not look like plain text"` — already part of the contract, now explicitly tested with a binary fixture in `test-files/`); size caps enforced pre-read (413); JSON body type enforcement (no array/null smuggling); JWT signature + expiry actually verified (tampered/expired token → 401); path params handled safely (`/params/url/..%2f` style inputs return a normal 200/404, never traversal).
+- Adds **security-behavior cases** — the contract's security properties, asserted per server: file upload must inspect actual content, not trust the `Content-Type` header (**anti-sniffing**: an image/binary sent with `Content-Type: text/plain` must be rejected 415 `"file does not look like plain text"` — already part of the contract, now explicitly tested with a binary fixture in `contract/test-files/`); size caps enforced pre-read (413); JSON body type enforcement (no array/null smuggling); JWT signature + expiry actually verified (tampered/expired token → 401); path params handled safely (`/params/url/..%2f` style inputs return a normal 200/404, never traversal).
 - Cases live in top-level `contract/` (language-neutral JSON), consumed by both benchmark and conformance modes.
 - `just contract <entry>` is the normal gate; `just conformance <entry>` may remain as an alias. Exit code is CI-friendly even if the project stays local-first. **No server ships without passing.** Also the smoke test for risky runtime×driver combos (cassandra-driver × Bun/Deno).
 - This is what makes "idiomatic everywhere" safe: implementations may differ in style as much as their frameworks demand, but the observable contract may not — the suite is the referee.
@@ -411,7 +411,7 @@ What we actually do is **not classic time-series**: we write event data once per
 
 ### 9.2 How we query & present results
 
-- **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput) for official numbers; raw `request_events` is sampled drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
+- **Query contract, documented in the repo**: dashboards read only **aggregate tables** (`endpoint_stats`, `sequence_stats`, `resource_samples`, throughput) for official numbers; raw `request_events` is sampled drilldown-only. Canonical queries (per-run ranking, cross-run diff, saturation curve) live as `.sql` files in `infra/grafana/queries/` so they're reviewable and reusable — dashboards reference them, not ad-hoc copies.
 - **Real timestamps** on rows; `run_id` remains the primary selector everywhere (indexed column, not a tag).
 - **Presentation layers** (in order of truth): 1) curated `results/published/**/*.json` — durable, versioned, source of truth for published numbers; 2) scratch `results/runs/<timestamp>/**` — local run artifacts, ignored by git unless intentionally promoted; 3) terminal summary tables (exists, gets RPS + capacity added); 4) Grafana dashboards (live exploration, §9.3); 5) _(Phase 5 nice-to-have)_ a generated static report — one HTML/PNG per run from the JSONs, for the README results section, so published numbers don't depend on a running Grafana.
 

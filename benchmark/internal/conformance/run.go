@@ -19,7 +19,7 @@ const (
 	// DefaultContractDir is resolved relative to the client's working directory
 	// (benchmark/), matching how config and test-files are located.
 	DefaultContractDir = "../contract"
-	DefaultTestFiles   = "../test-files"
+	DefaultTestFiles   = "../contract/test-files"
 	DefaultBaseURL     = "http://localhost:8080"
 	requestTimeout     = 15 * time.Second
 )

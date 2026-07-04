@@ -53,7 +53,7 @@ group of steps that share captured variables.
       "field": "file",                    // form field name, default "file"
       "filename": "test.txt",
       "contentType": "text/plain",        // the *part* Content-Type; omitted if empty
-      "source": "test.txt",               // read from test-files/ (a committed fixture)
+      "source": "test.txt",               // read from contract/test-files/ (a committed fixture)
       "text": "inline content",           // OR inline literal content
       "sizeBytes": 1100000                // OR synthesize N bytes (oversized-payload cases)
     }
@@ -116,7 +116,7 @@ Used for CRUD lifecycles (reset → create → read → update → delete → ve
 
 ## Fixtures
 
-Upload fixtures live in the top-level `test-files/`:
+Upload fixtures live in `contract/test-files/`:
 
 - `test.txt`, `multi.txt` — valid small text uploads.
 - `binary.bin` — a ~100-byte binary blob (contains null bytes) for the anti-sniffing
