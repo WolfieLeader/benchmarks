@@ -50,7 +50,8 @@ function checks(s: Server): Record<CheckKind, Step | null> {
       };
     case "go":
       return {
-        typecheck: st("typecheck", `go build -o bin/${s.goBin ?? "server"} ./cmd/main.go`),
+        // Library modules (shared/go) have no ./cmd/main.go — build every package.
+        typecheck: st("typecheck", s.lib ? "go build ./..." : `go build -o bin/${s.goBin ?? "server"} ./cmd/main.go`),
         format: st("format", "golangci-lint fmt --diff ./..."),
         // --allow-parallel-runners: `run` (unlike `fmt`) takes a machine-wide
         // lock ($TMPDIR/golangci-lint.lock, ~5s grace) and then dies with

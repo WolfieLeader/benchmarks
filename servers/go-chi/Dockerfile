@@ -2,10 +2,17 @@ FROM golang:1.27rc1-alpine AS builder
 
 WORKDIR /app
 
-COPY servers/go-chi/go.mod servers/go-chi/go.sum ./
+# Shared Go module is the `replace shared => ../../shared/go` target; copy it
+# first (and preserve the repo-relative layout) so the module graph resolves.
+COPY shared/go ./shared/go
+
+COPY servers/go-chi/go.mod servers/go-chi/go.sum ./servers/go-chi/
+WORKDIR /app/servers/go-chi
 RUN go mod download
 
-COPY servers/go-chi ./
+WORKDIR /app
+COPY servers/go-chi ./servers/go-chi
+WORKDIR /app/servers/go-chi
 
 ENV CGO_ENABLED=0 \
     GOOS=linux
@@ -27,7 +34,7 @@ ENV ENV=prod \
     CASSANDRA_KEYSPACE=benchmarks \
     CASSANDRA_LOCAL_DATACENTER=datacenter1
 
-COPY --from=builder /app/bin/server .
+COPY --from=builder /app/servers/go-chi/bin/server .
 
 RUN addgroup -g 1001 -S app-group && \
     adduser -S app-runner -u 1001 -G app-group

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 
-	"fiber-server/internal/config"
+	"shared/config"
 )
 
 type UserRepository interface {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json/v2"
 	"net/http"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
 
-	"chi-server/internal/config"
-	"chi-server/internal/consts"
-	"chi-server/internal/database"
 	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"

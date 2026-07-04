@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os/signal"
+	"shared/database"
 	"syscall"
 	"time"
-
-	"fiber-server/internal/database"
 )
 
 func (app *App) Start() error {

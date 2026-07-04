@@ -8,12 +8,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"shared/consts"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	"chi-server/internal/consts"
 	"chi-server/internal/utils"
 
 	"github.com/go-chi/chi/v5"

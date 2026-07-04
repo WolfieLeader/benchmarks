@@ -5,8 +5,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"net/http"
-
-	"gin-server/internal/consts"
+	"shared/consts"
 
 	"github.com/gin-gonic/gin"
 )

@@ -2,10 +2,10 @@ package routes
 
 import (
 	"net/http"
+	"shared/config"
+	"shared/consts"
+	"shared/database"
 
-	"gin-server/internal/config"
-	"gin-server/internal/consts"
-	"gin-server/internal/database"
 	"gin-server/internal/utils"
 
 	"github.com/gin-gonic/gin"

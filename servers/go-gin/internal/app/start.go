@@ -7,10 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"shared/database"
 	"syscall"
 	"time"
-
-	"gin-server/internal/database"
 )
 
 func (app *App) Start() error {

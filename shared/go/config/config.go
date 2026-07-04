@@ -26,7 +26,6 @@ type Env struct {
 const (
 	defaultEnv                    = "dev"
 	defaultHost                   = "0.0.0.0"
-	defaultPort                   = 5002
 	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:5432/benchmarks" //nolint:gosec // G101: local dev default connection string, not a real credential
 	defaultMongoDbUrl             = "mongodb://localhost:27017"
 	defaultMongoDbDatabase        = "benchmarks"
@@ -36,7 +35,11 @@ const (
 	defaultCassandraKeyspace      = "benchmarks"
 )
 
-func LoadEnv() *Env {
+// LoadEnv builds the server Env from process environment, falling back to
+// shared dev defaults. defaultPort is supplied by the caller because it is the
+// one setting that differs per server (each framework's dev port); everything
+// else is identical infrastructure config across servers.
+func LoadEnv(defaultPort uint16) *Env {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
