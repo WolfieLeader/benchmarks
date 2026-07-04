@@ -43,14 +43,19 @@ struct ContactPointTranslator {
 
 #[async_trait]
 impl AddressTranslator for ContactPointTranslator {
-    async fn translate_address(&self, _peer: &UntranslatedPeer) -> Result<SocketAddr, TranslationError> {
+    async fn translate_address(
+        &self,
+        _peer: &UntranslatedPeer,
+    ) -> Result<SocketAddr, TranslationError> {
         Ok(self.target)
     }
 }
 
 impl CassandraRepo {
     pub async fn connect(contact_points: &[String], keyspace: &str) -> Result<Self, DbError> {
-        let first = contact_points.first().ok_or_else(|| DbError::Cassandra("no cassandra contact points".to_string()))?;
+        let first = contact_points
+            .first()
+            .ok_or_else(|| DbError::Cassandra("no cassandra contact points".to_string()))?;
         let target = resolve_addr(first).await?;
         let session = SessionBuilder::new()
             .known_nodes(contact_points)
@@ -179,7 +184,11 @@ impl CassandraRepo {
 /// Resolve a contact point (`host` or `host:port`, default port 9042) to a
 /// concrete socket address for the translator target.
 async fn resolve_addr(host: &str) -> Result<SocketAddr, DbError> {
-    let host_port = if host.contains(':') { host.to_string() } else { format!("{host}:{CASSANDRA_PORT}") };
+    let host_port = if host.contains(':') {
+        host.to_string()
+    } else {
+        format!("{host}:{CASSANDRA_PORT}")
+    };
     tokio::net::lookup_host(&host_port)
         .await
         .map_err(cass)?
