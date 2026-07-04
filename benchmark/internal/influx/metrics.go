@@ -194,16 +194,25 @@ func (c *Client) WriteEndpointStats(runId, server string, results []client.Endpo
 		if ep.Database != "" {
 			tags[tagDatabase] = ep.Database
 		}
-		c.WritePoint("endpoint_stats", tags, map[string]any{
+		fields := map[string]any{
 			"count":        int64(ep.Stats.Count),
+			"rps":          ep.Stats.Rps,
 			"avg_ns":       ep.Stats.Avg.Nanoseconds(),
 			"p50_ns":       ep.Stats.P50.Nanoseconds(),
 			"p95_ns":       ep.Stats.P95.Nanoseconds(),
 			"p99_ns":       ep.Stats.P99.Nanoseconds(),
+			"p999_ns":      ep.Stats.P999.Nanoseconds(),
 			"min_ns":       ep.Stats.Low.Nanoseconds(),
 			"max_ns":       ep.Stats.High.Nanoseconds(),
 			"success_rate": ep.Stats.SuccessRate,
-		}, baseTime.Add(time.Duration(i)*time.Microsecond))
+		}
+		if ep.Open != nil {
+			fields["target_rate"] = ep.Open.TargetRate
+			fields["offered_rate"] = ep.Open.OfferedRate
+			fields["dropped_iterations"] = int64(ep.Open.DroppedIterations)
+			fields["schedule_lag_p99"] = ep.Open.ScheduleLagP99.Nanoseconds()
+		}
+		c.WritePoint("endpoint_stats", tags, fields, baseTime.Add(time.Duration(i)*time.Microsecond))
 	}
 }
 

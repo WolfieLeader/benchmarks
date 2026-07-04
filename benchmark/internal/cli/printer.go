@@ -185,6 +185,19 @@ func FormatReqs(count int) string {
 	return fmt.Sprintf("%.2fM", float64(count)/1_000_000)
 }
 
+func FormatRps(rps float64) string {
+	if rps <= 0 {
+		return "-"
+	}
+	if rps < 1000 {
+		return fmt.Sprintf("%.0f", rps)
+	}
+	if rps < 1_000_000 {
+		return fmt.Sprintf("%.1fk", rps/1000)
+	}
+	return fmt.Sprintf("%.2fM", rps/1_000_000)
+}
+
 func FormatRate(rate float64) string {
 	pct := rate * 100
 	if pct >= 99.95 {

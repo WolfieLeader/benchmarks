@@ -31,11 +31,13 @@ func TestExportServerResultMarshalsDurations(t *testing.T) {
 				Count: 1, TotalCount: 1, Rps: 10,
 				Avg: 5 * time.Millisecond, Low: time.Millisecond, High: 9 * time.Millisecond,
 				P50: 5 * time.Millisecond, P95: 8 * time.Millisecond, P99: 9 * time.Millisecond,
+				P999:        9 * time.Millisecond,
 				SuccessRate: 1,
 			},
 			Open: &client.OpenStats{
-				TargetRate: 100, ScheduleLagP99: 2 * time.Millisecond,
-				Response: &client.Stats{Avg: 7 * time.Millisecond},
+				TargetRate: 100, OfferedRate: 98, Attempted: 500, DroppedIterations: 3, MaxBacklog: 12,
+				ScheduleLagP50: time.Millisecond, ScheduleLagP99: 2 * time.Millisecond, ScheduleLagMax: 4 * time.Millisecond,
+				Response: &client.Stats{Avg: 7 * time.Millisecond, P99: 8 * time.Millisecond},
 			},
 		}},
 		Sequences: []client.SequenceStats{{
@@ -67,11 +69,19 @@ func TestExportServerResultMarshalsDurations(t *testing.T) {
 
 	// Sequence durations are the raw client structs in the export — they must
 	// serialize as int64 nanoseconds (v1-compatible), not error or render as
-	// strings. (EndpointResult stats are converted to StatsSummary *_ns fields;
-	// rps/open plumbing into summaries is the follow-up reporting slice.)
+	// strings. The reporting slice adds RPS + p99.9 to StatsSummary and the
+	// open-model block (schedule lag as *_ns, nested response stats).
 	for _, want := range []string{
-		`"avg_duration": 25000000`,
-		`"avg": 5000000`,
+		`"avg_duration": 25000000`, // raw client.SequenceStats duration (custom marshaler)
+		`"avg": 5000000`,           // raw client.SequenceStepStats duration
+		`"rps": 10`,                // new: throughput plumbed into StatsSummary
+		`"p999_ns": 9000000`,       // new: p99.9 percentile
+		`"target_rate": 100`,       // new: open-model block
+		`"offered_rate": 98`,
+		`"dropped_iterations": 3`,
+		`"max_backlog": 12`,
+		`"schedule_lag_p99_ns": 2000000`, // schedule lag stored as *_ns int64
+		`"schedule_lag_max_ns": 4000000`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("exported JSON missing %s\n%s", want, out)
@@ -85,5 +95,24 @@ func TestExportServerResultMarshalsDurations(t *testing.T) {
 	}
 	if len(back.Sequences) != 1 || back.Sequences[0].AvgDuration != 25*time.Millisecond {
 		t.Errorf("round-trip lost sequence durations: %+v", back.Sequences)
+	}
+	if len(back.Results) != 1 {
+		t.Fatalf("round-trip lost endpoint results: %+v", back.Results)
+	}
+	ep := back.Results[0]
+	if ep.Stats == nil || ep.Stats.Rps != 10 || ep.Stats.P999Ns != int64(9*time.Millisecond) {
+		t.Errorf("round-trip lost stats rps/p999: %+v", ep.Stats)
+	}
+	if ep.Open == nil {
+		t.Fatalf("round-trip lost open summary")
+	}
+	if ep.Open.TargetRate != 100 || ep.Open.OfferedRate != 98 ||
+		ep.Open.DroppedIterations != 3 || ep.Open.MaxBacklog != 12 ||
+		ep.Open.ScheduleLagP99Ns != int64(2*time.Millisecond) ||
+		ep.Open.ScheduleLagMaxNs != int64(4*time.Millisecond) {
+		t.Errorf("round-trip lost open fields: %+v", ep.Open)
+	}
+	if ep.Open.Response == nil || ep.Open.Response.AvgNs != int64(7*time.Millisecond) {
+		t.Errorf("round-trip lost nested open response stats: %+v", ep.Open.Response)
 	}
 }

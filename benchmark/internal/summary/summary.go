@@ -36,9 +36,9 @@ func PrintServerSummary(result *ServerResult) {
 	}
 
 	cli.Linef("Endpoints")
-	fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
-	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s\n",
-		"Method", "Path", "Reqs", "Avg", "P50", "P95", "Rate", "Status")
+	fmt.Println("  ─────────────────────────────────────────────────────────────────────────────────────────────────")
+	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %8s  %5s  %s\n",
+		"Method", "Path", "Reqs", "RPS", "Avg", "P50", "P95", "Rate", "Status")
 
 	var totalReqs, totalSuccesses int
 	for _, i := range endpointIdx {
@@ -57,7 +57,7 @@ func PrintServerSummary(result *ServerResult) {
 	if len(result.Sequences) > 0 {
 		cli.Blank()
 		cli.Linef("Sequences")
-		fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
+		fmt.Println("  ─────────────────────────────────────────────────────────────────────────────────────────────────")
 		fmt.Printf("  %-18s  %8s  %10s  %10s  %10s  %5s  %s\n",
 			"Name", "Runs", "Avg", "P50", "P95", "Rate", "Status")
 
@@ -102,7 +102,7 @@ func PrintServerSummary(result *ServerResult) {
 	}
 
 	cli.Blank()
-	fmt.Println("  ───────────────────────────────────────────────────────────────────────────────────────")
+	fmt.Println("  ─────────────────────────────────────────────────────────────────────────────────────────────────")
 
 	var successRate float64
 	if totalReqs > 0 {
@@ -125,6 +125,7 @@ func PrintServerSummary(result *ServerResult) {
 func printResultRow(ep *client.EndpointResult, totalReqs, totalSuccesses int) (updatedReqs, updatedSuccesses int) {
 	path := cli.TruncatePath(ep.Path, 27)
 	reqs := "-"
+	rps := "-"
 	avg := "-"
 	p50 := "-"
 	p95 := "-"
@@ -140,6 +141,7 @@ func printResultRow(ep *client.EndpointResult, totalReqs, totalSuccesses int) (u
 		totalReqs += totalCount
 		totalSuccesses += ep.Stats.Count
 		reqs = cli.FormatReqs(totalCount)
+		rps = cli.FormatRps(ep.Stats.Rps)
 		avg = cli.FormatLatency(ep.Stats.Avg)
 		p50 = cli.FormatLatency(ep.Stats.P50)
 		p95 = cli.FormatLatency(ep.Stats.P95)
@@ -154,8 +156,15 @@ func printResultRow(ep *client.EndpointResult, totalReqs, totalSuccesses int) (u
 		}
 	}
 
-	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %5s  %s %s\n",
-		ep.Method, path, reqs, avg, p50, p95, rate, statusSymbol, status)
+	fmt.Printf("  %-6s  %-27s  %8s  %8s  %8s  %8s  %8s  %5s  %s %s\n",
+		ep.Method, path, reqs, rps, avg, p50, p95, rate, statusSymbol, status)
+
+	if ep.Open != nil {
+		o := ep.Open
+		fmt.Printf("    └─ open: target %s → offered %s req/s │ drops %d │ backlog %d │ lag p99 %s\n",
+			cli.FormatRps(o.TargetRate), cli.FormatRps(o.OfferedRate),
+			o.DroppedIterations, o.MaxBacklog, cli.FormatLatency(o.ScheduleLagP99))
+	}
 
 	if ep.Error != "" {
 		fmt.Printf("    └─ %s\n", cli.Truncate(ep.Error, 75))

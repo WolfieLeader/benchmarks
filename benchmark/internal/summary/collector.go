@@ -100,6 +100,7 @@ type EndpointSummary struct {
 	SequenceId    string        `json:"sequence_id,omitempty"`
 	Error         string        `json:"error,omitempty"`
 	Stats         *StatsSummary `json:"stats,omitempty"`
+	Open          *OpenSummary  `json:"open,omitempty"` // open-model mode only
 	FailureCount  int           `json:"failure_count,omitempty"`
 	CanceledCount int           `json:"canceled_count,omitempty"`
 	LastError     string        `json:"last_error,omitempty"`
@@ -108,13 +109,31 @@ type EndpointSummary struct {
 type StatsSummary struct {
 	Count       int     `json:"count"`
 	TotalCount  int     `json:"total_count"`
+	Rps         float64 `json:"rps"`
 	AvgNs       int64   `json:"avg_ns"`
 	P50Ns       int64   `json:"p50_ns,omitempty"`
 	P95Ns       int64   `json:"p95_ns,omitempty"`
 	P99Ns       int64   `json:"p99_ns,omitempty"`
+	P999Ns      int64   `json:"p999_ns,omitempty"`
 	MinNs       int64   `json:"min_ns"`
 	MaxNs       int64   `json:"max_ns"`
 	SuccessRate float64 `json:"success_rate"`
+}
+
+// OpenSummary is the export shape of client.OpenStats: open-model backpressure
+// accounting plus the coordinated-omission-corrected response distribution.
+// Schedule-lag durations are stored as *_ns int64 (like StatsSummary) rather
+// than raw time.Duration so they need no custom marshaler.
+type OpenSummary struct {
+	TargetRate        float64       `json:"target_rate"`
+	OfferedRate       float64       `json:"offered_rate"`
+	Attempted         int           `json:"attempted"`
+	DroppedIterations int           `json:"dropped_iterations"`
+	MaxBacklog        int           `json:"max_backlog"`
+	ScheduleLagP50Ns  int64         `json:"schedule_lag_p50_ns"`
+	ScheduleLagP99Ns  int64         `json:"schedule_lag_p99_ns"`
+	ScheduleLagMaxNs  int64         `json:"schedule_lag_max_ns"`
+	Response          *StatsSummary `json:"response,omitempty"`
 }
 
 type Writer struct {
@@ -271,6 +290,7 @@ func serverSummaryFromResult(result *ServerResult) ServerSummary {
 			SequenceId:    ep.SequenceId,
 			Error:         ep.Error,
 			Stats:         statsFromClient(ep.Stats),
+			Open:          openFromClient(ep.Open),
 			FailureCount:  ep.FailureCount,
 			CanceledCount: ep.CanceledCount,
 			LastError:     ep.LastError,
@@ -336,6 +356,13 @@ func aggregateStats(results []client.EndpointResult) *StatsSummary {
 		successRate = float64(totalSuccesses) / float64(totalRequests)
 	}
 
+	// Deliberately no server-level Rps rollup (left zero). Endpoints run
+	// sequentially, so summing per-endpoint RPS overcounts (they never overlap)
+	// and totalRequests / wall-duration undercounts (wall time includes warmup,
+	// gaps, and container settle). Neither is a correct aggregate throughput, so
+	// per-server RPS ranking is deferred to the metrics DB (PLAN §9.2 / #7),
+	// which has the real per-endpoint windows. Per-endpoint Rps is exact and is
+	// reported on each EndpointSummary.
 	return &StatsSummary{
 		Count:       totalSuccesses,
 		TotalCount:  totalRequests,
@@ -354,12 +381,32 @@ func statsFromClient(stats *client.Stats) *StatsSummary {
 	return &StatsSummary{
 		Count:       stats.Count,
 		TotalCount:  stats.TotalCount,
+		Rps:         stats.Rps,
 		AvgNs:       stats.Avg.Nanoseconds(),
 		P50Ns:       stats.P50.Nanoseconds(),
 		P95Ns:       stats.P95.Nanoseconds(),
 		P99Ns:       stats.P99.Nanoseconds(),
+		P999Ns:      stats.P999.Nanoseconds(),
 		MinNs:       stats.Low.Nanoseconds(),
 		MaxNs:       stats.High.Nanoseconds(),
 		SuccessRate: stats.SuccessRate,
+	}
+}
+
+func openFromClient(open *client.OpenStats) *OpenSummary {
+	if open == nil {
+		return nil
+	}
+
+	return &OpenSummary{
+		TargetRate:        open.TargetRate,
+		OfferedRate:       open.OfferedRate,
+		Attempted:         open.Attempted,
+		DroppedIterations: open.DroppedIterations,
+		MaxBacklog:        open.MaxBacklog,
+		ScheduleLagP50Ns:  open.ScheduleLagP50.Nanoseconds(),
+		ScheduleLagP99Ns:  open.ScheduleLagP99.Nanoseconds(),
+		ScheduleLagMaxNs:  open.ScheduleLagMax.Nanoseconds(),
+		Response:          statsFromClient(open.Response),
 	}
 }
