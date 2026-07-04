@@ -19,7 +19,8 @@
         "sample_rate": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%$", "default": "10%" },
         "server_cooldown": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
         "warmup_duration": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
-        "warmup_pause": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" }
+        "warmup_pause": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" },
+        "load": { "$ref": "#/$defs/load" }
       }
     },
     "container": {
@@ -42,6 +43,39 @@
     }
   },
   "$defs": {
+    "load": {
+      "description": "Load model (PLAN §7.1). Default mode \"closed\": concurrency workers issue requests back-to-back. Mode \"open\": requests are scheduled at a constant/staged arrival rate and the headline latency is measured from the intended send time (coordinated-omission correction); saturation surfaces as schedule lag, backlog, and dropped iterations. rate/stages/max_in_flight are only valid in open mode. Sequences always run the closed loop.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["closed", "open"] },
+        "rate": {
+          "description": "Arrival rate in requests/sec: constant for duration_per_endpoint when no stages, otherwise the starting rate of the first stage.",
+          "type": "number",
+          "minimum": 0
+        },
+        "stages": {
+          "description": "k6-style ramping: each stage ramps the arrival rate linearly from the previous rate to its target over its duration. When present, the endpoint window is the stages' total duration.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["target", "duration"],
+            "additionalProperties": false,
+            "properties": {
+              "target": { "type": "number", "minimum": 0 },
+              "duration": { "type": "string", "pattern": "^[0-9]+(ms|s|m|h)$" }
+            }
+          }
+        },
+        "max_in_flight": {
+          "description": "Cap on concurrent in-flight requests (default 512); an equal-sized backlog queue absorbs bursts. Arrivals beyond both count as dropped iterations — the arrival clock never blocks.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    },
     "endpoint": {
       "type": "object",
       "required": ["expect"],

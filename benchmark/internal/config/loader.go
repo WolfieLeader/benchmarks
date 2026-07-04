@@ -36,6 +36,14 @@ const (
 	DefaultConfigFile = "../config/config.json"
 	DefaultMethod     = "GET"
 	DefaultStatus     = 200
+
+	LoadModeClosed = "closed"
+	LoadModeOpen   = "open"
+
+	DefaultMaxInFlight = 512
+	// MaxInFlightCeiling mirrors the JSON schema's maximum — the schema is
+	// editor-only until runtime validation lands, so the loader enforces it.
+	MaxInFlightCeiling = 100000
 )
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -197,6 +205,11 @@ func applyDefaults(cfg *Config) error {
 		return err
 	}
 
+	err = applyLoadDefaults(&cfg.Benchmark.Load)
+	if err != nil {
+		return err
+	}
+
 	if cfg.Container.CpuLimit <= 0 {
 		cfg.Container.CpuLimit = DefaultConfig.Container.CpuLimit
 	}
@@ -220,6 +233,60 @@ func applyDefaults(cfg *Config) error {
 			return fmt.Errorf("endpoint %q: %w", name, err)
 		}
 		cfg.Endpoints[name] = endpoint
+	}
+
+	return nil
+}
+
+// applyLoadDefaults validates the load model selection. Closed mode must not
+// carry open-mode knobs — a rate set under closed mode is an operator mistake
+// we surface, not a silent no-op.
+func applyLoadDefaults(load *LoadConfig) error {
+	if strings.TrimSpace(load.Mode) == "" {
+		load.Mode = LoadModeClosed
+	}
+
+	switch load.Mode {
+	case LoadModeClosed:
+		if load.Rate != 0 || len(load.Stages) != 0 || load.MaxInFlight != 0 {
+			return errors.New(`benchmark load: rate, stages, and max_in_flight require mode "open"`)
+		}
+	case LoadModeOpen:
+		if load.Rate < 0 {
+			return errors.New("benchmark load rate must be >= 0")
+		}
+		if len(load.Stages) == 0 && load.Rate == 0 {
+			return errors.New("benchmark load: open mode requires a rate or stages")
+		}
+		if load.MaxInFlight == 0 {
+			load.MaxInFlight = DefaultMaxInFlight
+		}
+		if load.MaxInFlight < 1 || load.MaxInFlight > MaxInFlightCeiling {
+			return fmt.Errorf("benchmark load max_in_flight must be between 1 and %d", MaxInFlightCeiling)
+		}
+		ratePositive := load.Rate > 0
+		for i := range load.Stages {
+			stage := &load.Stages[i]
+			d, err := parseDuration(stage.DurationRaw, "")
+			if err != nil {
+				return fmt.Errorf("benchmark load stage %d duration: %w", i+1, err)
+			}
+			if d <= 0 {
+				return fmt.Errorf("benchmark load stage %d duration must be > 0", i+1)
+			}
+			if stage.Target < 0 {
+				return fmt.Errorf("benchmark load stage %d target must be >= 0", i+1)
+			}
+			if stage.Target > 0 {
+				ratePositive = true
+			}
+			stage.Duration = d
+		}
+		if !ratePositive {
+			return errors.New("benchmark load: open mode requires a positive rate or stage target")
+		}
+	default:
+		return fmt.Errorf("benchmark load mode must be %q or %q, got %q", LoadModeClosed, LoadModeOpen, load.Mode)
 	}
 
 	return nil

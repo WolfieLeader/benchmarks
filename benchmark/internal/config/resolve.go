@@ -56,6 +56,7 @@ func resolve(cfg *Config, entries []roster.Entry) ([]*ResolvedServer, error) {
 			CpuLimit:            cfg.Container.CpuLimit,
 			MemoryLimit:         cfg.Container.MemoryLimit,
 			Concurrency:         cfg.Benchmark.Concurrency,
+			Load:                cfg.Benchmark.Load,
 			DurationPerEndpoint: cfg.Benchmark.DurationPerEndpoint,
 			Testcases:           allTestcases,
 			EndpointOrder:       order,
