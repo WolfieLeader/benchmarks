@@ -19,6 +19,9 @@ func BuildRequest(ctx context.Context, baseURL string, tc *config.Testcase) (*ht
 	var contentType string
 
 	switch tc.RequestType {
+	case config.RequestTypeNone:
+		// No request body — bodyReader stays nil and no Content-Type is set.
+
 	case config.RequestTypeJSON:
 		if tc.Body != "" {
 			bodyReader = strings.NewReader(tc.Body)
