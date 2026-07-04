@@ -15,8 +15,8 @@ import (
 // the json/v2 migration: ServerSummary embeds raw client.SequenceStats, whose
 // time.Duration fields have no default json/v2 representation — Marshal
 // errored with "cannot marshal from Go time.Duration" and the whole server
-// result was silently lost. The `format:nano` tags keep the v1 int64-ns
-// encoding.
+// result was silently lost. The custom durationOpts marshalers (collector.go)
+// keep the v1 int64-ns encoding — go1.27rc1 rejects `format:nano` tags.
 func TestExportServerResultMarshalsDurations(t *testing.T) {
 	t.Parallel()
 

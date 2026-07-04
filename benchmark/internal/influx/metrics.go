@@ -195,7 +195,9 @@ func (c *Client) WriteEndpointStats(runId, server string, results []client.Endpo
 			tags[tagDatabase] = ep.Database
 		}
 		fields := map[string]any{
-			"count":        int64(ep.Stats.Count),
+			"count": int64(ep.Stats.Count),
+			// rps counts completed requests (success + failure) per second of
+			// wall time — pair with success_rate when dashboarding.
 			"rps":          ep.Stats.Rps,
 			"avg_ns":       ep.Stats.Avg.Nanoseconds(),
 			"p50_ns":       ep.Stats.P50.Nanoseconds(),
@@ -209,8 +211,12 @@ func (c *Client) WriteEndpointStats(runId, server string, results []client.Endpo
 		if ep.Open != nil {
 			fields["target_rate"] = ep.Open.TargetRate
 			fields["offered_rate"] = ep.Open.OfferedRate
+			fields["attempted"] = int64(ep.Open.Attempted)
 			fields["dropped_iterations"] = int64(ep.Open.DroppedIterations)
-			fields["schedule_lag_p99"] = ep.Open.ScheduleLagP99.Nanoseconds()
+			fields["max_backlog"] = int64(ep.Open.MaxBacklog)
+			fields["schedule_lag_p50_ns"] = ep.Open.ScheduleLagP50.Nanoseconds()
+			fields["schedule_lag_p99_ns"] = ep.Open.ScheduleLagP99.Nanoseconds()
+			fields["schedule_lag_max_ns"] = ep.Open.ScheduleLagMax.Nanoseconds()
 		}
 		c.WritePoint("endpoint_stats", tags, fields, baseTime.Add(time.Duration(i)*time.Microsecond))
 	}
