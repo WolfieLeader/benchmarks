@@ -26,11 +26,11 @@ type EntryResult = { name: string; passed: number; failed: number; ok: boolean; 
 
 const benchmarkDir = join(repoRoot, "benchmark");
 const contractDir = join(repoRoot, "contract");
-const testFilesDir = join(repoRoot, "test-files");
+const testFilesDir = join(repoRoot, "contract", "test-files");
 
 // The compose file our databases stack is defined in — used to pick OUR stack
 // when other compose projects on this host also run a postgres service.
-const dbComposeFile = join(repoRoot, "infra", "compose", "databases.yml");
+const dbComposeFile = join(repoRoot, "infra", "docker", "databases.yml");
 
 const HEALTH_TIMEOUT_MS = 45_000;
 const HEALTH_INTERVAL_MS = 300;
@@ -68,7 +68,7 @@ const mainRepoRoot = (() => {
 
 function isOurComposeFile(path: string): boolean {
   const p = resolve(path).toLowerCase();
-  const suffix = join("infra", "compose", "databases.yml").toLowerCase();
+  const suffix = join("infra", "docker", "databases.yml").toLowerCase();
   return p.startsWith(resolve(mainRepoRoot).toLowerCase()) && p.endsWith(suffix);
 }
 
@@ -79,7 +79,7 @@ type DbStack = { project: string; network: string };
 // Other compose projects on this host may also run a postgres service (other
 // repos, the Phase 2 metrics-postgres), so "first postgres container" is not
 // safe: match on the com.docker.compose.project.config_files label pointing at
-// our infra/compose/databases.yml, and fail loud on zero or ambiguous matches.
+// our infra/docker/databases.yml, and fail loud on zero or ambiguous matches.
 function detectDbStack(): DbStack {
   const ps = spawnSync(
     "docker",

@@ -2,8 +2,8 @@
   "name": "benchmarks-root",
   "private": true,
   "scripts": {
-    "format": "prettier --write \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
-    "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
+    "format": "prettier --write \"**/*.md\" \"config/**/*.json\" \"infra/grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
+    "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"infra/grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
   },
   "dependencies": {
     "path-to-regexp": "^6.3.0"

@@ -1,4 +1,4 @@
-# infra/compose/databases.yml
+# infra/docker/databases.yml
 services:
   postgres:
     image: postgres:18.4-alpine3.23

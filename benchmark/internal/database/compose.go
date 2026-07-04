@@ -27,8 +27,8 @@ type ComposeManager struct {
 
 func NewComposeManager(repoRoot string) *ComposeManager {
 	return &ComposeManager{
-		databasesPath: filepath.Join(repoRoot, "infra", "compose", "databases.yml"),
-		grafanaPath:   filepath.Join(repoRoot, "infra", "compose", "grafana.yml"),
+		databasesPath: filepath.Join(repoRoot, "infra", "docker", "databases.yml"),
+		grafanaPath:   filepath.Join(repoRoot, "infra", "docker", "grafana.yml"),
 	}
 }
 

@@ -21,11 +21,10 @@
 
 # Repo areas no image builds from
 .claude/
-grafana/
 infra/
 results/
 assets/
-test-files/
+contract/test-files/
 
 # Env / secrets
 **/.env
