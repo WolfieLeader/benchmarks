@@ -299,6 +299,9 @@ importers:
       '@types/node':
         specifier: ^26.1.0
         version: 26.1.0
+      tsdown:
+        specifier: 0.22.3
+        version: 0.22.3(oxc-resolver@11.21.3)(tsx@4.23.0)(typescript@7.0.1-rc)
       typescript:
         specifier: 7.0.1-rc
         version: 7.0.1-rc
