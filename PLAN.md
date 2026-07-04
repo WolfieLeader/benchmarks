@@ -166,6 +166,8 @@ Shared folders force build context above the app dir. Convention: **build from r
 | Kotlin     | ktlint                            | detekt                                                                                                |
 | Zig        | `zig fmt --check`                 | (compiler is the linter)                                                                              |
 
+**Per-language best-practices guides live in `docs/languages/` (go, typescript, python, rust, kotlin, zig) — required reading before writing or reviewing code in that language.** Each guide distills production idioms, pitfalls, and concurrency rules against this repo's exact toolchain (sources cited inline; audited 2026-07-03). Implementer and reviewer briefs must point at the relevant guide. The guides are documentation, not canon — where a guide and the contract or a locked decision disagree, the contract/PLAN wins and the guide gets fixed.
+
 ### TypeScript — `@bench/shared`
 
 - **DB clients + repositories**: single implementation. Extract first with the existing behavior/driver under the contract gate; switch `pg` → `postgres` (postgres.js) through `drizzle-orm/postgres-js` in a separate PR so a driver swap is not hidden inside a move-only refactor. Mongo (`mongodb`), Redis (`ioredis`), Cassandra (`cassandra-driver`).
