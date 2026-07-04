@@ -21,7 +21,10 @@ if (targets.some((s) => s.eco === "pnpm" || s.eco === "bun" || s.eco === "deno" 
     name: "workspace",
     steps: [
       { label: "install", cmd: "pnpm install", cwd: repoRoot },
-      { label: "build-shared", cmd: "pnpm --filter @bench/shared run build", cwd: repoRoot }
+      { label: "build-shared", cmd: "pnpm --filter @bench/shared run build", cwd: repoRoot },
+      // The hono servers typecheck against @bench/hono-app's dist, so a fresh
+      // install must build it too (it consumes @bench/shared — keep this after).
+      { label: "build-hono-app", cmd: "pnpm --filter @bench/hono-app run build", cwd: repoRoot }
     ]
   });
 }
