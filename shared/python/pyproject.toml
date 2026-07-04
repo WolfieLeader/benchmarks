@@ -1,0 +1,24 @@
+[project]
+name = "bench-shared"
+version = "0.0.1"
+description = "Shared infrastructure (env, consts, error strings, pydantic schemas) for the Python benchmark servers"
+requires-python = ">=3.14.3"
+dependencies = [
+    "email-validator>=2.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bench_shared"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.format]
+quote-style = "double"
