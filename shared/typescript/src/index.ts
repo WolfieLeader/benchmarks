@@ -58,7 +58,6 @@ export function makeError(error: string, detail?: unknown): ErrorResponse {
 }
 
 // ── config/env ──────────────────────────────────────────────────────────────
-// biome-ignore lint/style/noProcessEnv: env parsing is the one place process.env is read
 const zEnv = z.object({
   ENV: z.enum(["dev", "prod"]).default("dev"),
   HOST: z
@@ -84,6 +83,7 @@ const zEnv = z.object({
   CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1")
 });
 
+// biome-ignore lint/style/noProcessEnv: env parsing is the one sanctioned place process.env is read; every other module must import `env` from @bench/shared
 export const env = zEnv.parse(process.env);
 
 // ── database/id ─────────────────────────────────────────────────────────────
