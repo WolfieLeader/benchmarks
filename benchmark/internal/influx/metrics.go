@@ -166,7 +166,11 @@ func (c *Client) WriteSequenceLatencies(runId, server string, results []client.T
 }
 
 func (c *Client) shouldSkipSample() bool {
-	return c.sampleRate > 0 && c.sampleRate < 1 && rand.Float64() >= c.sampleRate //nolint:gosec // statistical sampling, not security
+	if c.sampleRate > 0 && c.sampleRate < 1 && rand.Float64() >= c.sampleRate { //nolint:gosec // statistical sampling, not security
+		c.pointsSampled.Add(1)
+		return true
+	}
+	return false
 }
 
 func (c *Client) WriteEndpointStats(runId, server string, results []client.EndpointResult) {
@@ -240,22 +244,6 @@ func (c *Client) WriteResourceStats(runId, server string, stats *container.Resou
 			"cpu_avg_percent":  stats.Cpu.AvgPercent,
 			"cpu_max_percent":  stats.Cpu.MaxPercent,
 			"samples":          stats.Samples,
-		},
-		time.Now(),
-	)
-}
-
-func (c *Client) WriteRunMeta(runId string, sampleRate float64) {
-	if c == nil {
-		return
-	}
-
-	c.WritePoint("run_meta",
-		map[string]string{
-			tagRunId: runId,
-		},
-		map[string]any{
-			"sample_rate": sampleRate,
 		},
 		time.Now(),
 	)
