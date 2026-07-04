@@ -1,0 +1,57 @@
+[project]
+name = "django-server"
+version = "0.0.1"
+description = "Django benchmark server (batteries-included: ORM + first-party Redis cache)"
+readme = "README.md"
+requires-python = ">=3.14.3"
+dependencies = [
+    "bench-shared",
+    "django>=6.0",
+    "psycopg[binary,pool]>=3.2.0",
+    "pymongo>=4.9.0",
+    "redis[hiredis]>=6.0.0",
+    "scylla-driver>=3.26.6",
+    "uvicorn>=0.40.0",
+    "uvloop>=0.21.0",
+]
+
+[dependency-groups]
+dev = [
+    "django-types>=0.22.0",
+    "pyright>=1.1.400",
+    "ruff>=0.14.14",
+]
+
+[tool.uv.sources]
+bench-shared = { path = "../../shared/python" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+# Strictest bug-catching floor, subtracted BY NAME. Curated families beyond the
+# E/F default: B (bugbear), UP (pyupgrade), SIM (simplify), C4 (comprehensions),
+# RET (return), PERF (perflint), RUF (ruff-native), S (bandit security),
+# ASYNC (async correctness — Django runs under ASGI with async views). Same
+# family selection as every Python server's pyproject (full-copy floor).
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM", "C4", "RET", "PERF", "RUF", "S", "ASYNC"]
+
+# NOTE: the fastapi-DI `flake8-bugbear.extend-immutable-calls` whitelist that
+# py-fastapi carries is intentionally omitted here — Django has no
+# default-argument factory idiom (`x: T = Depends(...)`) that would trip B008,
+# so there is nothing to whitelist. Not a rule-wide disable; B008 stays active.
+
+# No test overrides yet — no tests exist. When a tests/ tree lands, add a
+# per-file-ignores entry relaxing S101 (assert) / S105-6 (hardcoded test creds)
+# there, scoped to "tests/**".
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+# Strictest floor with zero subtractions: Django ships no inline types, so the
+# `django-types` PEP 561 stub package (dev dep) supplies pyright-consumable
+# stubs. Managers are declared explicitly on models (django-types idiom) so the
+# ORM seam is typed rather than Unknown.
+typeCheckingMode = "strict"
