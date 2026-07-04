@@ -170,6 +170,9 @@ const EXTRA_TARGETS: Server[] = [
   // servers, so its own code must be gated too — not just its config (which the
   // biome-sync check covers).
   { name: "shared-typescript", dir: join(repoRoot, "shared", "typescript"), eco: "pnpm" },
+  // The Hono app package (one app, three runtime entries) carries the same
+  // ladder; gate its source directly, not just via its three consumers.
+  { name: "shared-typescript-hono", dir: join(repoRoot, "shared", "typescript-hono"), eco: "pnpm" },
   // Its Python twin: bench-shared carries the same strict pyright + ruff ladder as
   // py-fastapi (its only consumer today), so its own code must be gated too — the
   // uv eco steps (pyright · ruff format --check · ruff check) run standalone here
