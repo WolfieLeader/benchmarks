@@ -12,8 +12,14 @@ const server = app.listen(env.PORT, env.HOST, () => {
 async function shutdown() {
   console.log("Shutting down...");
   // Stop accepting new connections and wait for in-flight requests to finish
-  // before tearing down the databases they depend on.
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  // before tearing down the databases they depend on. closeIdleConnections
+  // drops idle keep-alive sockets so close() can resolve promptly (Node >=19
+  // already does this inside close(); the explicit call keeps the intent
+  // visible and covers older runtimes).
+  await new Promise<void>((resolve) => {
+    server.close(() => resolve());
+    server.closeIdleConnections();
+  });
   await disconnectDatabases();
   process.exit(0);
 }
