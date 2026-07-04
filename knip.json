@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreWorkspaces": ["servers/ts-deno-oak"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mts"],
+      "project": ["scripts/**/*.mts"]
+    }
+  },
+  "ignoreBinaries": ["oha", "go"],
+  "ignoreDependencies": ["@biomejs/biome", "path-to-regexp"]
+}
