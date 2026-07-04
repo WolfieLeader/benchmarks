@@ -6,12 +6,20 @@
 //! fixed-arity (no dynamic `SET` list) while matching the Go/TS per-field update
 //! semantics exactly.
 
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use scylla::client::session::Session;
 use scylla::client::session_builder::SessionBuilder;
+use scylla::errors::TranslationError;
+use scylla::policies::address_translator::{AddressTranslator, UntranslatedPeer};
 use uuid::Uuid;
 
 use crate::error::DbError;
 use crate::model::{CreateUser, UpdateUser, User};
+
+const CASSANDRA_PORT: u16 = 9042;
 
 pub struct CassandraRepo {
     session: Session,
@@ -23,11 +31,31 @@ fn cass(err: impl std::fmt::Display) -> DbError {
     DbError::Cassandra(err.to_string())
 }
 
+/// Redirect every peer address the node advertises to the reachable contact
+/// point. The benchmark cluster is single-node and its compose config sets
+/// `broadcast_rpc_address = 127.0.0.1`, so the driver would otherwise open its
+/// per-node connection pool to 127.0.0.1 — which, from another container, is the
+/// client itself. The known-node (contact point) address is never translated, so
+/// this only rewrites the discovered rpc_address back to a reachable host.
+struct ContactPointTranslator {
+    target: SocketAddr,
+}
+
+#[async_trait]
+impl AddressTranslator for ContactPointTranslator {
+    async fn translate_address(&self, _peer: &UntranslatedPeer) -> Result<SocketAddr, TranslationError> {
+        Ok(self.target)
+    }
+}
+
 impl CassandraRepo {
     pub async fn connect(contact_points: &[String], keyspace: &str) -> Result<Self, DbError> {
+        let first = contact_points.first().ok_or_else(|| DbError::Cassandra("no cassandra contact points".to_string()))?;
+        let target = resolve_addr(first).await?;
         let session = SessionBuilder::new()
             .known_nodes(contact_points)
             .use_keyspace(keyspace, false)
+            .address_translator(Arc::new(ContactPointTranslator { target }))
             .build()
             .await
             .map_err(cass)?;
@@ -146,4 +174,15 @@ impl CassandraRepo {
             .map_err(cass)?;
         Ok(true)
     }
+}
+
+/// Resolve a contact point (`host` or `host:port`, default port 9042) to a
+/// concrete socket address for the translator target.
+async fn resolve_addr(host: &str) -> Result<SocketAddr, DbError> {
+    let host_port = if host.contains(':') { host.to_string() } else { format!("{host}:{CASSANDRA_PORT}") };
+    tokio::net::lookup_host(&host_port)
+        .await
+        .map_err(cass)?
+        .next()
+        .ok_or_else(|| DbError::Cassandra(format!("cannot resolve cassandra contact point {host}")))
 }

@@ -8,12 +8,14 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = "0.1.89"
 mongodb = "3.7.0"
 redis = { version = "1.3.0", default-features = false, features = ["tokio-comp", "connection-manager"] }
 scylla = "1.7.0"
 serde = { version = "1.0.228", features = ["derive"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "macros"] }
 thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["net"] }
 uuid = { version = "1.23.4", features = ["v7"] }
 validator = { version = "0.20.0", features = ["derive"] }
 
