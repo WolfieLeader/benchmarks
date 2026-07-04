@@ -32,6 +32,7 @@ just benchmark              # the actual benchmark TUI/run
 - Correctness over speed: parallel lanes only when DAG-independent + worktree-isolated; global-state slices (deps, toolchain, layout, contract, scripts/) go serial. Never skip a review or gate re-run for wall-clock.
 - Implementer subagents run Opus @ medium effort; reviewer subagents Opus @ high effort, fresh context, correctness over style.
 - Verification is primary-source: re-run the suite, check exit codes, read the handler. Reproduce bugs before fixing; prove fixes with the same repro.
+- Before writing or reviewing code in a language, read its guide in `docs/languages/<lang>.md` (idioms, pitfalls, concurrency, repo-specific gotchas); implementer and reviewer briefs cite it.
 
 ## Conventions
 
