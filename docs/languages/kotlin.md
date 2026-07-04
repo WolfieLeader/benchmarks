@@ -240,9 +240,12 @@ framework — don't blur them (item 20).
 
 24. **ContentNegotiation: `kotlinx.serialization`, not Jackson** — JetBrains'
     own library, the idiomatic pure-Kotlin choice (Jackson exists mainly for
-    Java/Spring interop). `install(ContentNegotiation) { json() }`.
-    UNVERIFIED: exact paired version with Kotlin 2.3.21/Ktor 3.5.1 — check
-    `./gradlew dependencies` rather than guessing. — ktor.io/docs/server-create-restful-apis.html
+    Java/Spring interop). `install(ContentNegotiation) { json() }`. Version:
+    Ktor 3.5.1 pins **kotlinx.serialization 1.11.0** (confirmed in Ktor's own
+    `gradle/libs.versions.toml` at tag 3.5.1). Its JSON decoder already yields
+    **last-wins on duplicate keys by default** (no `ignoreDuplicateKeys` or other
+    config needed), which matches the contract's duplicate-key rule — so don't add
+    config for it. — ktor.io/docs/server-create-restful-apis.html
 
 25. **Body limits: `RequestBodyLimit`, installed twice** — global 10MiB, then
     a 1MiB override scoped to `/params/file`. Confirmed via source read: it
@@ -266,7 +269,12 @@ framework — don't blur them (item 20).
     Pick one lane per status code: throw typed exceptions and let
     `exception<T>{}` build every error body, or build JSON at the call site
     and reserve `status{}` only for codes never `call.respond()`'d explicitly
-    (engine-generated 404/405). — github.com/ktorio/ktor `ktor-server-status-pages/.../StatusPages.kt` (read directly)
+    (engine-generated 404/405). For the `/params/body` contract cases (malformed /
+    non-object / array / string / number / bool / null top-level body → `400` with
+    `{"error":"invalid JSON body","details":...}`), catch kotlinx.serialization's
+    `SerializationException`/`MissingFieldException` in an `exception<…>{}` handler
+    and emit exactly that shape — the plugin's default error body won't match the
+    contract. — github.com/ktorio/ktor `ktor-server-status-pages/.../StatusPages.kt` (read directly)
 
 ---
 
@@ -318,9 +326,9 @@ framework — don't blur them (item 20).
 31. **Virtual threads: `spring.threads.virtual.enabled=true`.** Switches
     Tomcat's request executor to virtual threads and `@Async`/`@Scheduled` to
     `SimpleAsyncTaskExecutor`/`Scheduler` — does **not** touch Hikari pool
-    sizing (independent, item 33). UNVERIFIED at the exact-class level (the
-    specific Tomcat customizer class is only secondary-sourced) — confirm
-    against autoconfigure source if it matters for a specific bug. —
+    sizing (independent, item 33). The customizer is
+    `org.springframework.boot.tomcat.autoconfigure.TomcatVirtualThreadsWebServerFactoryCustomizer`
+    (confirmed in spring-boot source). —
     docs.spring.io/spring-boot/reference/features/task-execution-and-scheduling.html
 
 32. **Drop actuator entirely for benchmark fairness.** It auto-registers
@@ -418,11 +426,12 @@ fun`, not a wrapped reactive stream). **KMongo is a dead end** — its own
 44. **ktlint + detekt, both merge-gating via `just verify`.** ktlint has no
     first-party Gradle plugin — use `org.jlleitschuh.gradle.ktlint:14.2.0`;
     rules configure via `.editorconfig` (`ktlint_*` keys — ktlint migrated off
-    its own config file). UNVERIFIED whether the ktlint-gradle plugin
-    auto-attaches to `check` — confirm with `./gradlew check --dry-run`, add
-    `tasks.named("check") { dependsOn("ktlintCheck") }` if not. detekt
-    (`io.gitlab.arturbosch.detekt`, stable 1.23.8) **does** doc-confirm
-    auto-wiring into `check`; stay off the `dev.detekt` 2.0 alpha. `detekt { config.setFrom("$rootDir/config/detekt/detekt.yml"); buildUponDefaultConfig = true }`
+    its own config file). The ktlint-gradle plugin **auto-attaches `ktlintCheck`
+    to `check`** (confirmed: its `TaskCreation` wires `check` to `dependsOn` the
+    generated-reports task whenever the base `check` task exists) — no manual
+    `dependsOn` wiring needed. detekt (`io.gitlab.arturbosch.detekt`, stable
+    1.23.8) **also** doc-confirms auto-wiring into `check`; stay off the
+    `dev.detekt` 2.0 alpha. `detekt { config.setFrom("$rootDir/config/detekt/detekt.yml"); buildUponDefaultConfig = true }`
     — github.com/pinterest/ktlint, github.com/jlleitschuh/ktlint-gradle, github.com/detekt/detekt
 
 ---
@@ -504,6 +513,51 @@ RANDOM_PORT`). Spring reuses a cached context only when the full cache key
 
 ---
 
+## 9. The `web` suite (Phase 3 contract → Phase 4 build) — library choices
+
+Phase 3 adds a `web` suite to the contract — `GET /html` (server-rendered
+template), `GET /jwt/sign` + `GET /jwt/verify` (HS256), `POST /validate` (deep
+nested validation, ~4 levels), `GET /compute?n=` (iterative SHA-256 CPU chain)
+(`PLAN.md:221-231`) — and the server-track DAG lands P3 (web endpoints) _before_
+P4 (new servers) (`PLAN.md:543,560-561`), so both Kotlin lanes must satisfy these
+from day one. CLAUDE.md's JWT/UUID library table names Go/TS/Python but not
+Kotlin; the picks below fill that gap.
+
+55. **JWT (HS256): a maintained JOSE library, not hand-rolled HMAC.** Prefer
+    `com.nimbusds:nimbus-jose-jwt` (full JOSE/JWK surface, actively maintained)
+    or, if only classic JWT is needed, `com.auth0:java-jwt`. Spring Security's
+    OAuth2 resource-server JWT support already wraps Nimbus, so Nimbus keeps
+    kt-spring-boot consistent with Spring's own stack. Match the HS256 algorithm
+    and the exact claim set the contract asserts — don't invent a header/claim
+    shape. — connect2id.com/products/nimbus-jose-jwt
+56. **HTML templating: framework-native, not a third engine.** kt-ktor → the
+    FreeMarker or Thymeleaf Ktor plugin (`io.ktor:ktor-server-freemarker` /
+    `ktor-server-thymeleaf`, `install(FreeMarker|Thymeleaf)` then
+    `call.respondTemplate(...)`). kt-spring-boot → Spring Boot's first-party
+    Thymeleaf starter (`spring-boot-starter-thymeleaf`, auto-configured). Pick
+    one engine per lane and keep the rendered output matching the contract's
+    expected HTML exactly. —
+    ktor.io/docs/server-freemarker.html, docs.spring.io/spring-boot/reference/web/servlet.html
+57. **Validation (`POST /validate`, deep nested): Spring has
+    `jakarta.validation`; Ktor has no official deep-validation library.**
+    kt-spring-boot → `spring-boot-starter-validation` (Hibernate Validator) with
+    `@Valid` + JSR-380 constraint annotations on nested data classes, mapped to
+    the repo error shape via `@ExceptionHandler` (item 30). kt-ktor → there is
+    **no first-party nested-validation plugin**; either hand-write the nested
+    checks (throwing typed exceptions that `StatusPages` maps, item 26) or use
+    Ktor's basic `RequestValidation` plugin for shallow cases and hand-roll the
+    nested ones. Don't drag a Spring-only annotation model into the Ktor lane. —
+    jakarta.ee/specifications/bean-validation/, ktor.io/docs/server-request-validation.html
+58. **`GET /compute` (CPU chain): dispatch onto `Dispatchers.Default`, don't
+    block the request thread.** In kt-ktor run the CPU work inside
+    `withContext(Dispatchers.Default)` (item 11) so it doesn't hog an I/O
+    dispatcher thread; in kt-spring-boot the blocking compute runs on its
+    (virtual) request thread, which parks cheaply — no offload needed, but keep
+    the algorithm byte-for-byte identical across both lanes for fairness. —
+    item 11.
+
+---
+
 ## In this repo
 
 - **16-route contract + `{"error", "details"?}` error shape**: kt-ktor via
@@ -518,16 +572,21 @@ RANDOM_PORT`). Spring reuses a cached context only when the full cache key
   rather than leaving engine defaults.
 - **10MiB global body cap + 1MiB file-route 413/415**: Ktor via two
   `RequestBodyLimit` installs plus a hand-rolled byte-sniff for 415 (item 25 —
-  no built-in sniffing exists). Spring Boot's equivalent likely lives in
-  Tomcat's `server.tomcat.max-swallow-size`/multipart properties plus the same
-  hand-rolled content check — verify exact property names when the lane
-  starts; not covered in this research pass.
+  no built-in sniffing exists). Spring Boot has **no built-in property that caps
+  an arbitrary JSON POST body**: `server.tomcat.max-http-form-post-size` only
+  bounds `application/x-www-form-urlencoded` bodies, and `max-swallow-size` is
+  not a size cap at all (it only limits how many bytes Tomcat drains from an
+  _already-rejected_ upload). kt-spring-boot must therefore **hand-roll a
+  `Filter`** (e.g. `ContentCachingRequestWrapper` / a `Content-Length` +
+  streaming check) to enforce the 10MiB/1MiB caps, mirroring Ktor's approach —
+  plus the same hand-rolled content-type byte-check for the 415.
 - **Graceful drain then DB teardown order**: Ktor — `ApplicationStopped` after
   `EngineMain`'s automatic SIGINT/SIGTERM (item 22). Spring Boot — Tomcat's
-  graceful shutdown (`server.shutdown=graceful`) completing in-flight requests
+  graceful shutdown (`server.shutdown=graceful`) completes in-flight requests
   before `@PreDestroy`/`DisposableBean` hooks close Hikari/Mongo/Redis/
-  Cassandra — confirm the exact ordering guarantee against current docs before
-  relying on it; not independently verified here.
+  Cassandra. This ordering is **confirmed**: Spring's `SmartLifecycle` runs the
+  graceful web-server stop in the earliest shutdown phase, ahead of other beans'
+  `@PreDestroy`/`DisposableBean` callbacks — so the pools outlive the drain by design.
 - **Non-root multi-stage Dockerfile from repo root**: mirror
   `servers/go-chi/Dockerfile`'s pattern (builder stage compiles, runtime stage
   adds a dedicated non-root `app-runner`/`app-group` before `USER

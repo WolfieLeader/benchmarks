@@ -25,12 +25,12 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
    // caller: if errors.Is(err, pgx.ErrNoRows) { ... }
    ```
 
-   Source: Go Code Review Comments (Errors); 100 Go Mistakes #48–#49 (error wrapping/`Is`/`As`).
+   Source: Go Code Review Comments (Errors); 100 Go Mistakes #49 (error wrapping), #50/#51 (`Is`/`As`).
 
 2. **Wrap once, at the boundary where context is added; don't double-wrap the same fact.**
    Repeated wrapping produces noise like `connect: connect: dial: ...`. Add context the
    caller lacks (operation, key, id), not the callee's own words. Source: 100 Go
-   Mistakes #48; Uber Go Style Guide (Error Wrapping).
+   Mistakes #49; Uber Go Style Guide (Error Wrapping).
 
 3. **Sentinel errors are `var ErrX = errors.New(...)`; dynamic errors are custom types
    matched with `errors.As`.** Sentinels for "is this THE condition", typed errors when
@@ -106,8 +106,9 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
 
 15. **Understand data race vs. race condition; the memory model gives you no ordering
     without synchronization.** A program can be race-free yet still logically wrong
-    (race condition). Unsynchronized reads/writes are UB — there is no "benign" data race
-    in Go. Source: 100 Go Mistakes #58 ("Not understanding race problems"); The Go Memory
+    (race condition). Unsynchronized access is a bug with unbounded, torn outcomes — the
+    memory model constrains race behavior but never blesses it; there is no "benign" data
+    race in Go. Source: 100 Go Mistakes #58 ("Not understanding race problems"); The Go Memory
     Model (go.dev/ref/mem).
 
 16. **Run the race detector as a CI gate, not an afterthought: `go test -race ./...`.** It
@@ -123,7 +124,7 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
 
     ```go
     g, ctx := errgroup.WithContext(ctx); g.SetLimit(8)
-    for _, s := range servers { s := s; g.Go(func() error { return probe(ctx, s) }) }
+    for _, s := range servers { g.Go(func() error { return probe(ctx, s) }) }
     err := g.Wait()
     ```
 
@@ -160,8 +161,12 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
 23. **Know the scheduler realities: `GOMAXPROCS` defaults to the CPU count (Go 1.25+ is
     container-cgroup-aware), goroutines are M:N-multiplexed, and blocking syscalls park an
     OS thread.** Don't hand-set `GOMAXPROCS` in servers unless a benchmark proves it; the
-    container CPU limit already shapes it here. Source: Go runtime docs; Go 1.25 release
-    notes (container-aware `GOMAXPROCS`).
+    container CPU limit already shapes it here. Set `GOMEMLIMIT` to the container's memory
+    cap so the GC paces against real memory pressure instead of getting OOM-killed under the
+    repo's 512 MB-per-container limit — it's a soft target (trades CPU to stay under the
+    ceiling), not a hard cap, so leave a little headroom below the cgroup limit. Source: Go
+    runtime docs; Go 1.25 release notes (container-aware `GOMAXPROCS`); 100 Go Mistakes #100
+    ("Running Go in Docker and Kubernetes").
 
 24. **Avoid false sharing in hot parallel counters: pad or shard per-CPU state so
     independent variables don't share a cache line.** Two goroutines writing adjacent fields
@@ -212,35 +217,42 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
     connection setup, not the server. Tune `Transport.MaxIdleConnsPerHost` for the load
     generator. Source: 100 Go Mistakes #81; net/http `Transport` docs.
 
+32. **Always `return` after writing an error or response — Go won't return for you, and a
+    fall-through double-writes.** Once you've called `http.Error`, `WriteError`, or written
+    a body, the handler must stop; a second write logs a superfluous `WriteHeader` and
+    corrupts the response. Every handler in `internal/routes/params.go` relies on the
+    `return` after `WriteError`. Source: 100 Go Mistakes #80 ("Forgetting the `return`
+    statement after replying to an HTTP request").
+
 ---
 
 ## 4. Performance
 
-32. **Know the escape-analysis basics: values that outlive their stack frame (returned
+33. **Know the escape-analysis basics: values that outlive their stack frame (returned
     pointers, interface boxing, closures capturing by reference) escape to the heap.**
     Check with `go build -gcflags='-m'`. Reducing escapes reduces GC pressure. Don't guess —
     measure. Source: 100 Go Mistakes #95–#96; Go compiler docs.
 
-33. **Pre-size slices and maps when the length is known: `make([]T, 0, n)` / `make(map[K]V, n)`.**
+34. **Pre-size slices and maps when the length is known: `make([]T, 0, n)` / `make(map[K]V, n)`.**
     Growth reallocates and rehashes; pre-sizing is often the cheapest win. Source: 100 Go
     Mistakes #21 ("Inefficient slice initialization"), #27 (map allocation).
 
-34. **`sync.Pool` only pays off for large, frequently-allocated, short-lived objects with a
+35. **`sync.Pool` only pays off for large, frequently-allocated, short-lived objects with a
     clear reset — and it is a cache, not a guarantee.** Pooled objects can be GC'd at any
     time; pooling tiny objects loses to the allocator. Always reset before `Put`. Source:
     100 Go Mistakes #96 ("Not knowing how to reduce allocations"); sync.Pool docs.
 
-35. **Avoid needless `string`↔`[]byte` conversions in hot paths; each copies.** The `bytes`
+36. **Avoid needless `string`↔`[]byte` conversions in hot paths; each copies.** The `bytes`
     package mirrors `strings`, so operate on the type you already have. Go 1.27's json/v2
     `MarshalWrite`/`jsontext.Encoder` lets you skip the intermediate `[]byte` entirely (the
     repo's gin `WriteResponse` marshals straight to the `ResponseWriter`). Source: 100 Go
     Mistakes #40 ("Useless string conversions").
 
-36. **pprof-first: profile before optimizing, always.** Wire `net/http/pprof` (guarded, not
+37. **pprof-first: profile before optimizing, always.** Wire `net/http/pprof` (guarded, not
     on the benchmarked port) or use `runtime/pprof` in the client. Optimize what the CPU/heap
     profile shows, not what you suspect. Source: Go blog (Profiling Go Programs); Go Proverbs.
 
-37. **Benchmark hygiene: use `testing.B`, call `b.ReportAllocs()`, keep the result escaping
+38. **Benchmark hygiene: use `testing.B`, call `b.ReportAllocs()`, keep the result escaping
     a package-level sink to defeat dead-code elimination, and prefer `b.Loop()` (Go 1.24+)
     over `for i := 0; i < b.N; i++`.** `b.Loop()` correctly scopes setup/teardown and keeps
     args alive. Source: testing package docs; Go 1.24 release notes (`B.Loop`).
@@ -255,13 +267,13 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
 
 ## 5. encoding/json/v2 (Go 1.27 — NEW, verify, don't trust stale memory)
 
-38. **In Go 1.27, `encoding/json/v2` and `encoding/json/jsontext` are real stdlib packages
+39. **In Go 1.27, `encoding/json/v2` and `encoding/json/jsontext` are real stdlib packages
     and the v2 engine backs `encoding/json` v1 by default — no `GOEXPERIMENT=jsonv2`
     needed.** The opt-out is `GOEXPERIMENT=nojsonv2` (expected to be removed later). This
     repo imports `encoding/json/v2` and `encoding/json/jsontext` directly. Source: Go 1.27
     release notes (go.dev/doc/go1.27); go.dev/blog/jsonv2-exp.
 
-39. **v2 defaults differ from v1 — internalize these five, they change behavior:**
+40. **v2 defaults differ from v1 — internalize these five, they change behavior:**
 
     | Behavior                                                     | v1                   | v2 (default)                                 |
     | ------------------------------------------------------------ | -------------------- | -------------------------------------------- |
@@ -272,7 +284,7 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
     | Invalid UTF-8 / `time.Duration`                              | lenient              | **error** (opt back in via options)          |
     | Source: go.dev/blog/jsonv2-exp; pkg.go.dev/encoding/json/v2. |
 
-40. **To accept v1-style duplicate keys (last-wins), pass `jsontext.AllowDuplicateNames(true)`
+41. **To accept v1-style duplicate keys (last-wins), pass `jsontext.AllowDuplicateNames(true)`
     at the decode site.** In this suite that matches JS/Python `JSON.parse` semantics and is
     **contract canon** for request/response decoding. It's an explicit per-call option, not
     a global. Source: pkg.go.dev/encoding/json/jsontext; repo `internal/routes/params.go`.
@@ -282,89 +294,103 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
     err := json.Unmarshal(body, &out, decodeOpts)      // or json.UnmarshalRead(r.Body, &out, decodeOpts)
     ```
 
-41. **To re-enable v1 case-insensitive matching, use `json.MatchCaseInsensitiveNames(true)`
+42. **To re-enable v1 case-insensitive matching, use `json.MatchCaseInsensitiveNames(true)`
     — but prefer exact `json:"name"` tags and leave the strict default on.** Case-sensitive
     matching is faster and closes a real class of security bug. Source: pkg.go.dev/encoding/json/v2.
 
-42. **Stream with `jsontext.Encoder`/`Decoder` for large or incremental payloads; use
+43. **Stream with `jsontext.Encoder`/`Decoder` for large or incremental payloads; use
     `MarshalWrite`/`UnmarshalRead` to avoid a `[]byte` round-trip.** `jsontext` is the
     syntactic layer (tokens/values, no reflection); `json/v2` is the semantic layer. The
-    repo reads docker-stats streams token-by-token off a `jsontext.NewDecoder`. Source:
-    go.dev/blog/jsonv2-exp; repo `internal/container/stats.go`.
+    repo reads config token-by-token — `ReadToken`/`PeekKind`/`SkipValue` off a
+    `jsontext.Decoder` (`config/loader.go`) — and decodes the docker-stats stream
+    value-by-value via `json.UnmarshalDecode` (`container/stats.go`). Source:
+    go.dev/blog/jsonv2-exp; repo `benchmark/internal/config/loader.go`,
+    `benchmark/internal/container/stats.go`.
 
-43. **For custom marshaling in hot paths, implement the streaming `MarshalerTo` /
+44. **For custom marshaling in hot paths, implement the streaming `MarshalerTo` /
     `UnmarshalerFrom` (`MarshalJSONTo(*jsontext.Encoder)` / `UnmarshalJSONFrom(*jsontext.Decoder)`)
     rather than the allocation-heavy v1 `MarshalJSON`/`UnmarshalJSON`.** v1 interfaces still
     work but force a buffer round-trip. Source: pkg.go.dev/encoding/json/v2.
 
-44. **Unmarshal is markedly faster under v2; Marshal is ~parity.** Don't cite a fixed
-    multiplier as gospel — benchmark your payloads. Source: go.dev/blog/jsonv2-exp
-    (measured on Go's suites; UNVERIFIED for this repo's exact shapes).
+45. **Unmarshal is markedly faster under v2; Marshal is ~parity.** Don't cite a fixed
+    multiplier as gospel — benchmark your payloads. The direction (faster unmarshal, ~parity
+    marshal) is confirmed by the Go 1.27 release notes; the exact multiplier stays UNVERIFIED
+    for this repo's payload shapes. Source: go.dev/blog/jsonv2-exp; Go 1.27 release notes
+    (measured on Go's own suites).
 
 ---
 
 ## 6. Common mistakes catalogue (server-relevant, non-concurrency)
 
-45. **Variable shadowing with `:=` inside a block silently creates a new variable — the
+46. **Variable shadowing with `:=` inside a block silently creates a new variable — the
     outer one keeps its old value.** Classic with `err` re-declared in an `if`. `go vet`
     and golangci-lint's `govet`/`shadow` catch many; watch nested scopes. Source: 100 Go
     Mistakes #1 ("Unintended variable shadowing").
 
-46. **Know nil slice vs. empty slice vs. `null` in JSON.** `var s []T` is nil; `[]T{}` is
+47. **Know nil slice vs. empty slice vs. `null` in JSON.** `var s []T` is nil; `[]T{}` is
     empty-non-nil. Both `len==0`. Under json/v2 a **nil slice now marshals as `[]`, not
-    `null`** (rule 39) — this is a behavior change reviewers must check against contract
+    `null`** (rule 40) — this is a behavior change reviewers must check against contract
     cases that assert `[]` vs `null`. Source: 100 Go Mistakes #22 ("nil vs. empty slice");
     json/v2 blog.
 
-47. **Don't `defer` inside a loop when the resource must be released each iteration —
+48. **Don't `defer` inside a loop when the resource must be released each iteration —
     defers stack until function return.** Wrap the body in a closure/function, or release
     explicitly. A per-iteration `defer rows.Close()` holds every connection until the
     function exits. Source: 100 Go Mistakes #35 ("Using defer inside a loop").
 
-48. **Handle time correctly: compare with `time.Since`, store UTC, use monotonic-clock-aware
+49. **Handle time correctly: compare with `time.Since`, store UTC, use monotonic-clock-aware
     `time.Time` for durations, and never `==`-compare `time.Time` (use `.Equal`).** Wall-clock
     equality breaks across locations/monotonic readings. Source: 100 Go Mistakes (Time
     section); time package docs.
 
-49. **Avoid `init()` for anything non-trivial — it's implicit, unordered across files, and
+50. **Avoid `init()` for anything non-trivial — it's implicit, unordered across files, and
     untestable.** Prefer explicit constructors called from `main`. Reserve `init` for
     registering with a required global (rare). Source: 100 Go Mistakes #3 ("Misusing init
     functions"); Google Go Style Guide.
 
-50. **Don't over-abstract with interfaces (interface pollution, rule 6 restated for the
+51. **Don't over-abstract with interfaces (interface pollution, rule 6 restated for the
     catalogue).** Also avoid empty-`interface{}`/`any` where a concrete type or generic
     would do. Source: 100 Go Mistakes #5.
 
-51. **Check every error; blank-assigning `_ = f()` on a call that can fail is a review
+52. **Check every error; blank-assigning `_ = f()` on a call that can fail is a review
     red flag unless justified with a comment** (the repo does this deliberately for
     best-effort `Terminate` on an already-failing path — and comments why). Source: Go Code
     Review Comments (Handle Errors).
+
+53. **A nil pointer returned as an interface value is not `nil`.** A nil `*T` stored in an
+    `error`/`any` interface carries a non-nil type word, so `if err != nil` fires even
+    though the pointer is nil — return a bare `nil` on the success path, never a typed-nil
+    variable. Source: 100 Go Mistakes #45 ("Returning a nil receiver").
+
+54. **Don't handle an error twice — log-and-return duplicates it.** Either log it (once, at
+    the top) or return it wrapped, not both, or the same failure surfaces N times up the
+    stack. Source: 100 Go Mistakes #52 ("Handling an error twice").
 
 ---
 
 ## 7. Testing
 
-52. **Table-driven tests with subtests: `for _, tc := range cases { t.Run(tc.name, ...) }`.**
+55. **Table-driven tests with subtests: `for _, tc := range cases { t.Run(tc.name, ...) }`.**
     One readable case list, isolated failures, targeted `-run`. Source: Go blog (Using
     Subtests and Sub-benchmarks); Go wiki (TableDrivenTests).
 
-53. **`t.Parallel()` for independent tests, and gate CI with `-race`.** Parallel + race is
+56. **`t.Parallel()` for independent tests, and gate CI with `-race`.** Parallel + race is
     where data races surface. Capture the range variable (`tc := tc`) before `t.Parallel`
     on Go <1.22; 1.22+ per-iteration loop vars make this unnecessary but harmless. Source:
     testing docs; 100 Go Mistakes (Testing chapter).
 
-54. **Use `net/http/httptest` for handler tests: `httptest.NewRecorder()` for unit-level,
+57. **Use `net/http/httptest` for handler tests: `httptest.NewRecorder()` for unit-level,
     `httptest.NewServer()` for full round-trips.** No real ports, deterministic, fast — the
     right layer for routing/handler assertions. Source: net/http/httptest docs.
 
-55. **testcontainers-go for integration against real Postgres/Mongo/Redis/Cassandra;
+58. **testcontainers-go for integration against real Postgres/Mongo/Redis/Cassandra;
     always pass a `context.Context`, wait on a readiness `wait.Strategy`, and terminate in
     cleanup.** The repo's `container.Start` composes `wait.ForHTTP` strategies via
     `wait.ForAll(...).WithStartupTimeoutDefault(...)` and terminates partial containers so
     nothing leaks; Ryuk is the backstop, not the primary teardown. Source:
     golang.testcontainers.org; repo `internal/container/lifecycle.go`.
 
-56. **Reproduce a bug with a failing test first, then fix, then prove green with the same
+59. **Reproduce a bug with a failing test first, then fix, then prove green with the same
     test (repo CLAUDE.md mandate).** Applies to conformance drift too — a contract case is
     the reproduction. Source: repo CLAUDE.md / PLAN §11.2.
 
@@ -397,8 +423,9 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
   **buffered** `errCh` (size 1, so it can't block after the select) → on `ctx.Done()` call
   `Shutdown`/`ShutdownWithContext` with a 15s timeout. chi/gin filter
   `http.ErrServerClosed`; fiber's `Listen` returns nil on clean close.
-- **Reviewer note — `http.Server` timeouts:** chi/gin/stdlib set Read/Write=15s, Idle=60s
-  but **not `ReadHeaderTimeout`** (rule 26). Flag if a slow-header defense is wanted; keep
+- **Reviewer note — `http.Server` timeouts:** chi/gin set Read/Write=15s, Idle=60s
+  but **not `ReadHeaderTimeout`** (rule 26); go-stdlib isn't in the tree yet (scope says
+  "soon"), so confirm it matches when it lands. Flag if a slow-header defense is wanted; keep
   it identical across frameworks for fairness (repo CLAUDE.md: never give one framework an
   advantage the others can't have idiomatically).
 - **Pools are pinned equal for fairness:** pgxpool `MaxConns=50 / MinConns=10`, built once

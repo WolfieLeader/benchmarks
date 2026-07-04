@@ -83,7 +83,7 @@ allocate response bodies there and never call `free` on them; the arena reset do
 1.7. **Use sentinel-terminated slices (`[:0]const u8` / `[*:0]const u8`) at the C
 boundary.** C wants NUL-terminated `char*`; Zig slices carry a length and are _not_
 NUL-terminated. Use `allocator.dupeZ(u8, s)` to get a `[:0]u8`, or `std.mem.span` to
-turn a C `[*:0]` back into a slice. This repo does both: `cluster.dupeZ` for contact
+turn a C `[*:0]` back into a slice. This repo does both: `allocator.dupeZ` for contact
 points (`src/db/cassandra.zig:27`) and a fixed `[37]u8` NUL-terminated stamp for a
 36-char UUID (`zterm`, `src/db/cassandra.zig:215`). Passing a plain `[]const u8`
 `.ptr` to a C function that expects termination reads past the end.
@@ -245,8 +245,9 @@ redis pool is guarded; lazy connect is behind a mutex (`ensureConnected`). Match
 rigor: if you add shared state, say in a comment _why_ it's safe.
 
 3.10. **http.zig dispatch model: handlers run on a thread pool; your `App` is shared
-concurrently.** Worker threads accept + parse; a separate `thread_pool` (default 32)
-runs your handler functions. The `*App` you pass to `Server(*App).init` is **one
+concurrently.** Worker threads accept + parse; a separate `thread_pool` (whose size is
+a `Config` knob — spot-check http.zig's current default against your version rather than
+trusting a fixed number) runs your handler functions. The `*App` you pass to `Server(*App).init` is **one
 instance shared across all concurrent requests** — karlseguin's docs say so
 explicitly. Implication: everything reachable from `*App` (the four DB clients here)
 must be thread-safe or pooled. Per-request mutable state belongs in `req.arena` /
@@ -284,8 +285,13 @@ value at comptime, you can't call it; that's the point.
 5.1. **Keep one `@cImport` per C library, near the code that uses it, and let Zig
 translate the header.** `cassandra.zig` and `mongo.zig` each do a focused
 `@cImport({ @cInclude("cassandra.h"); })`. Zig translate-c turns the header into a
-Zig module (`c.cass_*`). Don't hand-transcribe C signatures.
-Source: [langref — @cImport / Import from C](https://ziglang.org/documentation/0.16.0/#cImport).
+Zig module (`c.cass_*`). Don't hand-transcribe C signatures. **Caveat: in-source
+`@cImport` is deprecated in 0.16** (now backed by arocc, not libclang; issue
+[ziglang/zig#20630](https://github.com/ziglang/zig/issues/20630)) — the repo still uses
+it and it compiles, but for _new_ C modules prefer wiring `b.addTranslateC` in `build.zig`
+and `@import("c")`.
+Source: [langref — @cImport / Import from C](https://ziglang.org/documentation/0.16.0/#cImport);
+[0.16 release notes — translate-c / @cImport deprecation](https://ziglang.org/download/0.16.0/release-notes.html).
 
 5.2. **C returns error _codes_, not error unions — translate at the boundary.** Check
 the code and convert to a Zig error immediately, so the rest of your code speaks Zig
@@ -370,9 +376,11 @@ resource _after_ the bytes are on the wire (e.g. a refcounted cache entry).
 
 7.3. **Configure body/form limits explicitly; enforce your real cap in the handler.**
 This server sets `max_body_size` and `max_form_count`/`max_multiform_count` in
-`Server.init` (`main.zig:45-51`). Note the deliberate design: it accepts slightly
-over the limit so the _handler_ can return a clean `413` rather than http.zig
-dropping the connection. **Current code caps at 2 MiB** (`2 * 1024 * 1024`); the
+`Server.init` (`main.zig:45-51`). Note the deliberate design in the file-upload param
+handler (`src/routes_params.zig:122`): it accepts slightly over the limit so the
+_handler_ can return a clean `413` rather than http.zig dropping the connection (this
+413-on-slight-overage behavior is the upload path, not general DB-body sizing).
+**Current code caps at 2 MiB** (`2 * 1024 * 1024`); the
 suite is unifying body caps across servers, so treat the exact number as in-flux and
 check `config/` + PLAN before assuming a value.
 Source: repo `src/main.zig:43-52`; [http.zig — Configuration](https://github.com/karlseguin/http.zig).
@@ -380,8 +388,9 @@ Source: repo `src/main.zig:43-52`; [http.zig — Configuration](https://github.c
 7.4. **Use the `res.writer()` → `.interface` bridge for streaming writers (0.15+ API).**
 `res.writer()` returns a wrapper whose `.interface` field is the `*std.Io.Writer`;
 pass an empty buffer (`&.{}`) unless a std API forces one, since http.zig buffers
-itself. Same shape as the redis client's `writer.interface`
-(`src/db/redis.zig:104`).
+itself. The only shared idiom with the redis client is the `.interface` field access —
+note its writer is a _different_ shape: `redis.zig:104` passes a real 64-byte buffer
+(`&wbuf`) to a raw `conn.stream.writer`, not `&.{}` to `res.writer()`.
 Source: [http.zig — io.Writer / Memory and Arenas](https://github.com/karlseguin/http.zig).
 
 7.5. **http.zig's multipart parser drops the per-part Content-Type; hand-parse if you
@@ -422,11 +431,11 @@ offers `expectStatus` / `expectJson` / `expectBody` — no socket needed. Ideal 
 route handlers here.
 Source: [http.zig — Testing](https://github.com/karlseguin/http.zig).
 
-8.5. **Fuzzing (`std.testing.fuzz`) exists but is early — treat as opportunistic.** Basic
-shape: a test calls `std.testing.fuzz(context, oneInput, .{})` where `oneInput` takes
-an input `[]const u8`; run under `zig build test --fuzz`. Great fit for the
-hand-parsers here (multipart, RESP, URL parse). Exact API/flags are **UNVERIFIED on
-0.16** — confirm against your compiler before wiring into CI.
+8.5. **Fuzzing (`std.testing.fuzz`) exists but is early — treat as opportunistic.** The
+signature is confirmed on 0.16: `fuzz(context: anytype, comptime testOne: fn(@TypeOf(context), []const u8) anyerror!void, options)` — a test calls
+`std.testing.fuzz(context, oneInput, .{})` where `oneInput` takes the context plus an
+input `[]const u8`; run under `zig build test --fuzz`. Great fit for the hand-parsers
+here (multipart, RESP, URL parse).
 Source: [langref — fuzzing](https://ziglang.org/documentation/0.16.0/#Fuzzing) (evolving).
 
 ---

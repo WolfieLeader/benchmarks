@@ -88,9 +88,10 @@ as session:` (SQLAlchemy) closes the session/connection deterministically even o
       wrap `execute_async()` in an `asyncio.Future` via `loop.create_future()`, then in the driver's
       `add_callbacks` handlers do `loop.call_soon_threadsafe(future.set_result, rows)` /
       `loop.call_soon_threadsafe(future.set_exception, exc)` — never call `future.set_result` directly from the
-      callback thread. UNVERIFIED whether `AsyncioConnection` has matured past "experimental" as of the
-      cassandra-driver / scylla-driver version pinned here (`scylla-driver>=3.26.6` in `pyproject.toml`) —
-      spot-check before relying on it if a future Python cassandra lane considers switching.
+      callback thread. Note the docs diverge here: DataStax's upstream `python-driver` docs (3.29) still label
+      `AsyncioConnection` "experimental," but the driver actually pinned here — `scylla-driver>=3.26.6`
+      (`pyproject.toml`) — has **dropped** the word "experimental" for the same class in its own docs. Check the
+      pinned driver's docs, not DataStax's, before relying on it if a future Python cassandra lane considers switching.
 12. **Prefer `asyncio.TaskGroup` (3.11+) over `asyncio.gather` for new concurrent-fan-out code.** `TaskGroup` is
     structured concurrency: the `async with` block doesn't exit until every child task is done or cancelled, and
     if one task raises, the group cancels its siblings and raises an `ExceptionGroup` — no silent partial
@@ -130,7 +131,10 @@ as session:` (SQLAlchemy) closes the session/connection deterministically even o
 N` forks N independent processes each running their own event loop and — critically — their own DB
     connection pool; "pool size 50" only means 50 _per process_. This repo's locked target is **exactly one
     uvicorn worker** (see §9), which is what makes "pool size 50" a single, comparable number across the whole
-    benchmark matrix instead of `50 × workers`.
+    benchmark matrix instead of `50 × workers`. Separately, the repo runs uvicorn with `--loop uvloop`
+    (`Dockerfile:38`) — a deliberate C-accelerated event-loop replacement (`uvloop>=0.21.0` is a pinned
+    dependency), load-bearing rather than incidental; preserve the `--loop uvloop` flag through any
+    uvicorn-invocation edit.
 17. **Lifespan is the only correct place to open/close pools — not module import time, not first-request lazy
     init (mostly).** FastAPI's `lifespan` context manager (`src/main.py:27-31`) runs startup code before the
     app accepts traffic and shutdown code after uvicorn stops accepting new connections but before process exit
@@ -145,7 +149,10 @@ N` forks N independent processes each running their own event loop and — criti
     canon (`PLAN.md:192`) is **pool size exactly 50** for every Python server, single process — matching the
     "50 elsewhere" convention used across the other language servers. Don't retune a pool size to make one
     server look faster; if a framework needs a different real-world default, that's a drift to report, not to
-    silently work around.
+    silently work around. Footnote on scope: the "pool 50" canon is currently enforced for Postgres
+    (`pool_size`/`max_overflow`) and Cassandra (`ThreadPoolExecutor(max_workers=50)`), but the motor (Mongo) and
+    `redis.asyncio` (Redis) repositories set **no explicit pool size at all** — they run on their drivers'
+    defaults. Treat that as a fairness-audit follow-up to normalize, not a silent exception to the rule.
 
 ---
 
@@ -202,8 +209,10 @@ N` forks N independent processes each running their own event loop and — criti
     for non-`BaseModel` types.** `model_validate(data)` runs the compiled Rust `pydantic-core` validator directly;
     manually validating field-by-field in Python and only using pydantic for the "shape" defeats the point.
     For validating a bare `list[int]` or other non-model type, `TypeAdapter(list[int]).validate_python(...)` gets
-    the same compiled-validator speed without wrapping it in a throwaway `BaseModel`. (pydantic docs,
-    `docs/why.md`, `docs/concepts/strict_mode.md`)
+    the same compiled-validator speed without wrapping it in a throwaway `BaseModel`. A `TypeAdapter` must be
+    **built once at module scope and reused** — constructing it compiles the validator, so rebuilding it per call
+    inside a hot path throws away exactly the speed you reached for it to get. (pydantic docs, `docs/why.md`,
+    `docs/concepts/strict_mode.md`)
 26. **Strict mode is opt-in per-field, per-call, or per-model — pick the narrowest scope that solves the actual
     problem.** Default ("lax") mode coerces `"123"` → `123` for an `int` field; `strict=True` (via
     `model_validate(..., strict=True)`, `Field(strict=True)`, or `ConfigDict(strict=True)`) rejects the coercion.
@@ -219,8 +228,12 @@ N` forks N independent processes each running their own event loop and — criti
     and set the response class/annotation explicitly, or accept the cost as the "runtime-checked serialization
     contract" you're buying. This repo's routes call `user.model_dump(exclude_none=True)` and return plain dicts
     (`src/routes/db.py:40,54,66`) rather than declaring a `response_model` — that sidesteps the second validation
-    pass entirely at the cost of losing FastAPI's auto-generated response schema in OpenAPI docs; a deliberate
-    trade worth knowing about if a future route needs accurate OpenAPI output.
+    pass, but it is **not free on the serialization side**: a returned plain dict goes through FastAPI's
+    `jsonable_encoder` (the slow path), whereas a declared `response_model` lets `pydantic-core` serialize the
+    object directly via its Rust core "without intermediate steps." So the dict-return trades away both the
+    auto-generated OpenAPI schema _and_ the fast serialization path — a real, measurable choice in a benchmarking
+    repo, not just an OpenAPI-docs cosmetic. (FastAPI docs, `custom-response.md`: "you are probably better off
+    using a Response Model.")
 28. **Exception handlers must produce this repo's exact `{"error": string, "details"?: string}` shape — no
     default FastAPI error body survives contact with the contract.** `src/handlers.py` overrides all four
     relevant handlers (`RequestValidationError`, Starlette's 404 `HTTPException`, FastAPI's `HTTPException`,
@@ -384,9 +397,12 @@ ASGITransport(app=app), base_url="http://test")` calls the ASGI app directly wit
 
 - **Single-process, pool-of-50 is the fairness canon — not yet fully applied.** `PLAN.md:192` locks "Normalize
   FastAPI: 1 worker, pg pool 50" as still-pending work; today py-fastapi runs uvicorn with `--workers 4` and
-  Postgres uses `pool_size=20, max_overflow=40` (`src/database/postgres.py:37`) — both flagged as the repo's
-  "biggest fairness asymmetry" (`PLAN.md:72`). Any change to `main.py`'s uvicorn invocation or `postgres.py`'s
-  engine construction should move toward that canon, not away from it.
+  Postgres uses `pool_size=20, max_overflow=40` (`src/database/postgres.py:37`) — the `--workers 4` is called out
+  as the single "biggest asymmetry" (`PLAN.md:18`), and `PLAN.md:72`'s "Fairness asymmetries" list catalogues it
+  alongside the pg-pool gap. Any change to `main.py`'s uvicorn invocation or `postgres.py`'s engine construction
+  should move toward that canon, not away from it — and must **preserve `--loop uvloop`** (`Dockerfile:38`; see
+  §2.16). The pending `audit/production-fairness` branch already stages this flip (1 worker, pool 50), so re-check
+  this bullet once that lands — it goes from true to stale.
 - **Async repos deliberately live inside py-fastapi, not in a shared package — until a second async consumer
   exists.** `PLAN.md:184-190` locks a "multi-consumer rule": shared holds only what has ≥2 real consumers.
   asyncpg/SQLAlchemy-async, motor, redis.asyncio, and the cassandra bridge stay in `src/database/*.py` because

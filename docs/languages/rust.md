@@ -10,7 +10,7 @@ confirm them in the contract container before relying on them.
 
 Version facts verified July 2026: async fn in traits stabilized Rust 1.75; axum current line 0.8
 (`axum::serve` + `.with_graceful_shutdown`, `DefaultBodyLimit` default 2 MB); actix-web workers
-default to `available_parallelism()`; `scylla` crate 1.7.0 speaks CQL protocol **v4**;
+default to `available_parallelism()`; `scylla` crate 1.7.0 (CQL protocol version unstated in driver docs);
 mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is multiplexed, not pooled.
 
 ---
@@ -51,8 +51,10 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
    can parse. Readability is the tie-breaker. Source: Rust Book ch.6/ch.9; Effective Rust Item 3.
 
 8. **Use `?` for propagation; reserve `unwrap`/`expect` for truly-impossible states, and then `expect`
-   with a reason, never bare `unwrap`.** In a server binary a panic in a handler aborts that task
-   (tokio catches it) but signals a bug. See rule 41. Source: Rust Book ch.9; API Guidelines C-DEBUG.
+   with a reason, never bare `unwrap`.** In a server binary tokio isolates a handler panic to just
+   that task (it `catch_unwind`s per task) — but only under the default unwinding `panic` strategy;
+   see rule 50 on why we must not set `panic = "abort"`. Either way, a panic signals a bug. Source:
+   Rust Book ch.9; API Guidelines C-DEBUG.
 
 ---
 
@@ -89,37 +91,54 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
 12. **No stringly-typed errors as an interface.** `Err("bad input".to_string())` cannot be matched,
     mapped to a status, or tested. Use enum variants. Source: Effective Rust Item 4; API Guidelines C-GOOD-ERR.
 
+13. **Wire serde attributes to the contract's strict-body rules — conformance turns on them.** Request
+    DTOs need `#[serde(deny_unknown_fields)]` (unknown-field rejection), object-only bodies (a top-level
+    array/string/number/bool/null must **400**, not deserialize), case-sensitive field names, and a
+    typed `favoriteNumber` (a string where a number is required must fail, not coerce). Duplicate keys
+    are last-wins by `serde_json` default — that matches the contract, so no extra config. The contract's
+    strict-body cases (#14) assert exactly these. Source: serde `container-attrs` docs; `serde_json`
+    (duplicate-key last-wins); repo `contract/` strict-body cases.
+
+14. **Remap extractor rejections to the `{"error","details"}` shape — the framework defaults don't
+    match.** axum's `JsonRejection`/`PathRejection`/multipart rejections and actix's default extractor
+    errors emit their own body + status, so the contract's "invalid JSON / non-object → 400", bad-form,
+    and 415 cases fail unless you intercept them. In axum, wrap extractors (custom `FromRequest`, or
+    `axum_extra`'s `WithRejection`) to render `ApiError`; in actix, set `.error_handler(...)` on
+    `JsonConfig`/`PathConfig`/`PayloadConfig`. Rules 10–11 only cover handler-returned `ApiError`; the
+    extractor layer is separate. Source: axum `rejection` docs; actix `JsonConfig::error_handler` docs;
+    repo contract.
+
 ---
 
 ## 3. Concurrency & async — the deep section
 
 ### 3.1 Send/Sync mental model
 
-13. **Internalize the two auto-traits before touching tokio.** `Send` = safe to _move_ to another
+15. **Internalize the two auto-traits before touching tokio.** `Send` = safe to _move_ to another
     thread; `Sync` = `&T` is `Send`, i.e. safe to _share_ a reference across threads. `Arc<T>` is
     `Send + Sync` only if `T: Send + Sync`. `Rc`, `RefCell`, and raw pointers are `!Send`/`!Sync`.
     Source: Rustonomicon "Send and Sync"; Rust Book ch.16.
 
-14. **A future is `Send` only if everything held _across an await point_ is `Send`.** This is the single
+16. **A future is `Send` only if everything held _across an await point_ is `Send`.** This is the single
     rule behind "future is not Send" errors on the multithreaded runtime: hold a `!Send` guard (e.g.
     `MutexGuard` from `std::sync`, or an `Rc`) across `.await` and the whole task stops being spawnable.
     Source: tokio tutorial "Shared state"; async-book.
 
 ### 3.2 Choosing a sharing primitive
 
-15. **Default to `Arc<T>` with no lock for immutable shared state** (pools, config, prepared handles).
+17. **Default to `Arc<T>` with no lock for immutable shared state** (pools, config, prepared handles).
     Clients here (`sqlx::Pool`, `mongodb::Client`, redis `ConnectionManager`) are already internally
     synchronized and cheaply `Clone` — wrap once in your `AppState`, clone freely. Don't wrap a pool in
     a `Mutex`. Source: mongodb Rust `Client` docs (Arc internally); sqlx `Pool` docs.
 
-16. **`Arc<Mutex<T>>` for short critical sections that mutate; `Arc<RwLock<T>>` only when reads vastly
+18. **`Arc<Mutex<T>>` for short critical sections that mutate; `Arc<RwLock<T>>` only when reads vastly
     dominate writes and the guard is held long enough to matter.** `RwLock` has higher overhead and
     writer-starvation risk; for a `HashMap` touched briefly, a `Mutex` is usually faster and simpler.
-    Use **`tokio::sync::Mutex`/`RwLock` only if you must hold the guard across an await** (see rule 18);
+    Use **`tokio::sync::Mutex`/`RwLock` only if you must hold the guard across an await** (see rule 20);
     otherwise prefer `std::sync` / `parking_lot` — they're faster and don't need `.await` to lock.
     Source: tokio `sync` docs ("which kind of mutex"); tokio tutorial.
 
-17. **For producer/consumer or fan-out work, prefer channels (`tokio::sync::mpsc`, `oneshot`,
+19. **For producer/consumer or fan-out work, prefer channels (`tokio::sync::mpsc`, `oneshot`,
     `broadcast`, `watch`) over shared mutable state.** Message passing sidesteps lock-ordering and
     held-guard bugs. An "actor" (a task owning state behind an `mpsc` receiver) is the idiomatic way to
     serialize access without a lock. Note: our 16 routes are stateless request/response — you likely
@@ -128,7 +147,7 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
 
 ### 3.3 The lock-across-await footgun
 
-18. **Never hold a `std::sync::Mutex`/`RwLock` guard across `.await`.** The guard is `!Send`, so the task
+20. **Never hold a `std::sync::Mutex`/`RwLock` guard across `.await`.** The guard is `!Send`, so the task
     won't spawn on the multithreaded runtime; worse, even single-threaded it can deadlock the reactor.
     Fix by scoping the lock to drop before the await, or clone the needed value out:
 
@@ -147,68 +166,70 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
 
 ### 3.4 tokio runtime & task placement
 
-19. **Use the multithreaded runtime via `#[tokio::main]` (default `flavor = "multi_thread"`), and let it
+21. **Use the multithreaded runtime via `#[tokio::main]` (default `flavor = "multi_thread"`), and let it
     size its worker threads to the machine.** These are async _reactor_ threads, not per-request threads
-    — this does not violate our single-process fairness canon (see rule 31). Source: tokio `runtime`
+    — this does not violate our single-process fairness canon (see rule 33). Source: tokio `runtime`
     docs; `#[tokio::main]` docs.
 
-20. **CPU-bound work and blocking/synchronous DB drivers MUST NOT run on the async reactor — move them
+22. **CPU-bound work and blocking/synchronous DB drivers MUST NOT run on the async reactor — move them
     to `spawn_blocking`.** A blocking call on a reactor thread stalls every other task that thread was
     driving (tail-latency collapse). Our chosen drivers (sqlx, mongodb, redis-rs, scylla) are all
     _async_ and belong directly on the reactor — do **not** wrap their calls in `spawn_blocking`. Reserve
     `spawn_blocking` for genuinely synchronous work (e.g. a CPU-heavy hash, a sync crate). Source: tokio
     `spawn_blocking` docs; tokio blog "Reducing tail latencies with cooperative yielding."
 
-21. **Know cooperative scheduling / the task budget.** Each task gets an operation budget; tokio
+23. **Know cooperative scheduling / the task budget.** Each task gets an operation budget; tokio
     resources (sockets, channels, timers) return `Pending` when it's exhausted so the task yields and
     others progress. This is automatic — but a tight `loop` doing only in-memory work (no `.await` on a
     budgeted resource) can still starve peers; insert `tokio::task::yield_now().await` in such loops.
     We have none of those in 16 CRUD routes, but reviewers should flag any unbounded compute loop.
     Source: tokio blog "Reducing tail latencies with automatic cooperative task yielding" (2020-04).
 
-22. **`spawn_blocking` tasks cannot be cancelled once started** — `abort()` only helps if the task
+24. **`spawn_blocking` tasks cannot be cancelled once started** — `abort()` only helps if the task
     hasn't begun. Don't rely on aborting blocking work during shutdown; bound it with your own timeout
     or let the drain deadline cover it. Source: tokio `spawn_blocking` / `JoinHandle::abort` docs.
 
 ### 3.5 Cancellation & structured concurrency
 
-23. **Understand cancel-safety before using `select!`.** When one `select!` branch completes, the others'
+25. **Understand cancel-safety before using `select!`.** When one `select!` branch completes, the others'
     futures are **dropped mid-flight**. A branch is _cancel-safe_ only if being dropped at an await
     point loses no data. `mpsc::Receiver::recv`, `tokio::time::sleep`, and `Notify::notified` are
     cancel-safe; a multi-step read that has buffered half a message is **not**. Put not-cancel-safe work
     behind a `tokio::spawn` (or hold its state outside the `select!`) rather than inlining it as a
     branch. Source: tokio `select!` docs ("cancellation safety"); tokio tutorial "Select."
 
-24. **For "run N tasks, collect results," use `JoinSet`, not a `Vec<JoinHandle>` + `select!`.** `JoinSet`
+26. **For "run N tasks, collect results," use `JoinSet`, not a `Vec<JoinHandle>` + `select!`.** `JoinSet`
     yields tasks as they finish and cancels all remaining on drop (structured concurrency). `select!` is
     for watching a _small fixed_ set of distinct events. Source: tokio `JoinSet` docs.
 
-25. **`tokio::spawn`'d tasks are detached and outlive their spawner unless you join them.** A spawned
+27. **`tokio::spawn`'d tasks are detached and outlive their spawner unless you join them.** A spawned
     task's future must be `'static + Send`. Don't spawn per-request background work that must finish
     before the response — just `.await` it. Source: tokio `spawn` docs.
 
 ### 3.6 async fn in traits — current status (verified)
 
-26. **Native `async fn` in traits is stable since Rust 1.75 — use it for private/internal traits.** You
+28. **Native `async fn` in traits is stable since Rust 1.75 — use it for private/internal traits.** You
     can write `trait Repo { async fn get(&self, id: Uuid) -> Result<Row>; }` with no `async-trait` crate.
     Source: Rust Blog "Announcing async fn and RPIT in traits" (2023-12-21).
 
-27. **The Send-bound problem still bites public traits used on the multithreaded runtime.** Native AFIT
+29. **The Send-bound problem still bites public traits used on the multithreaded runtime.** Native AFIT
     gives you no way to say "the returned future is `Send`" at the _use_ site, so a generic bound like
     `where R: Repo, R::…: Send` isn't expressible directly. If you need a `Send`-bounded async trait,
     add `#[trait_variant::make(Repo: Send)]` (the maintained escape hatch) or fall back to the
-    `async-trait` macro (boxes the future; tiny alloc per call). Return-Type-Notation (RFC 3654) is the
-    long-term fix and is landing but treat broad availability as **UNVERIFIED** on 1.96 — confirm before
-    depending on it. Source: Rust Blog (above); `trait_variant` crate; rust-lang/rust #103854.
+    `async-trait` macro (boxes the future; tiny alloc per call). Return-Type-Notation (RFC 3654) was the
+    intended long-term fix, but its stabilization PR (rust-lang/rust#138424) was **closed unmerged on
+    2025-12-27** — RTN is on **no** stable Rust, including 1.96, so don't plan around it; the
+    `trait_variant`/`async-trait` recommendation stands. Source: Rust Blog (above); `trait_variant`
+    crate; rust-lang/rust #103854; rust-lang/rust#138424 (closed 2025-12-27).
 
-28. **You almost certainly don't need an async trait at all here.** axum handlers are plain `async fn`s;
+30. **You almost certainly don't need an async trait at all here.** axum handlers are plain `async fn`s;
     actix handlers are plain `async fn`s. Concrete repo structs with inherent `async fn` methods avoid
     the whole Send-bound question. Prefer concrete types; reach for a trait only if you're abstracting
     over multiple implementations (we aren't). Source: axum/actix handler docs; Effective Rust Item 8.
 
 ### 3.7 Graceful shutdown & pool sizing
 
-29. **Implement graceful shutdown: catch SIGINT _and_ SIGTERM, stop accepting, drain in-flight, then
+31. **Implement graceful shutdown: catch SIGINT _and_ SIGTERM, stop accepting, drain in-flight, then
     tear down DB pools — in that order.** Containers send SIGTERM; a Ctrl-C-only handler ignores it.
 
     ```rust
@@ -225,40 +246,51 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
 
     Source: tokio `signal` docs; axum `graceful-shutdown` example.
 
-30. **Drain before DB teardown, not after.** Await the server's graceful-shutdown completion (in-flight
+32. **Drain before DB teardown, not after.** Await the server's graceful-shutdown completion (in-flight
     requests finish), _then_ close pools (`pool.close().await`, `client` drop). Closing pools first
     fails the requests you were trying to drain. Source: axum `with_graceful_shutdown` docs; repo canon.
 
-31. **Pin every pool to exactly 50 connections — max = min = 50 — to match the cross-language fairness
+33. **Pin every pool to exactly 50 connections — max = min = 50 — to match the cross-language fairness
     canon; never leave driver defaults.** Defaults differ wildly (sqlx max 10, mongodb `max_pool_size`
     10, redis `ConnectionManager` = one multiplexed connection). Set both max and min so the pool is
     pre-warmed and identical to peers. **Escalation point:** "50 connections" is unambiguous for
     Postgres, but redis-rs's recommended path is a _single multiplexed_ connection (no pool), and
     Cassandra/Mongo pool _per node_. The lane MUST escalate how "pool = 50" maps onto multiplexed/
-    per-node drivers rather than silently choosing (see rules 34–37). Source: repo CLAUDE.md fairness
+    per-node drivers rather than silently choosing (see rules 37–40). Source: repo CLAUDE.md fairness
     canon; sqlx `PoolOptions`, mongodb `ClientOptions`, redis docs.
+
+34. **Gate logging on `ENV=prod` — structured `tracing`, off in prod.** Initialize `tracing-subscriber`
+    with an `EnvFilter` and add request logging via tower-http's `TraceLayer` (axum) or
+    `tracing-actix-web` / `middleware::Logger` (actix). The repo mandate is **logger off when
+    `ENV=prod`** — set the filter to `OFF` (or omit the layer) in that mode so prod runs carry no log
+    overhead. Source: `tracing-subscriber` `EnvFilter` docs; tower-http `TraceLayer` docs; repo CLAUDE.md
+    (logger off when `ENV=prod`).
 
 ---
 
 ## 4. axum-specific (rs-axum, axum 0.8)
 
-32. **Compose the app from typed extractors and share state with `State`, not globals.** `State(pool):
+35. **Compose the app from typed extractors and share state with `State`, not globals.** `State(pool):
 State<AppState>` is the idiomatic injection; derive `FromRef` if you split state into sub-states.
     Body/JSON/Path/Query all come from extractors — order matters (body-consuming extractor last).
     Source: axum `extract` docs; axum `State` docs.
 
-33. **Cross-cutting concerns are tower `Layer`s via `.layer(...)`; per-route error handling is
+36. **Cross-cutting concerns are tower `Layer`s via `.layer(...)`; per-route error handling is
     `impl IntoResponse` on your error type.** Reuse `tower_http` (`TraceLayer`, `TimeoutLayer`,
     `RequestBodyLimitLayer`) instead of hand-rolling middleware. Return `Result<Json<T>, ApiError>`
     from handlers and let `IntoResponse` render both arms. Source: axum middleware docs; tower-http docs.
 
-34. **Set the body limit explicitly — axum's `DefaultBodyLimit` default is 2 MB, not our 10 MB.**
+37. **Set the body limit explicitly — axum's `DefaultBodyLimit` default is 2 MB, not our 10 MB.**
     Apply `DefaultBodyLimit::max(10 * 1024 * 1024)` globally, and enforce the 1 MB file-route cap with a
     tighter limit on that route (`RequestBodyLimitLayer::new(1 MiB)` or a route-scoped `DefaultBodyLimit`).
     Over-limit must surface as **413 Payload Too Large** (and the contract's 415 for wrong content-type).
-    Source: axum `DefaultBodyLimit` docs (default 2 MB); repo contract.
+    Sourcing to keep straight: only the 1 MiB file-route cap (413) and the 415 are **contract** canon;
+    the **10 MiB global cap is a pending fairness slice** (`audit/production-fairness`, commit `fad60b1`
+    "unified 10 MiB global request-body cap"), not yet on main — it's about-to-be-canon, so build to it.
+    Source: axum `DefaultBodyLimit` docs (default 2 MB); repo contract (1 MiB file cap / 415); fairness
+    slice `fad60b1` (10 MiB global).
 
-35. **Serve with `axum::serve(listener, app).with_graceful_shutdown(shutdown_signal())` — the old
+38. **Serve with `axum::serve(listener, app).with_graceful_shutdown(shutdown_signal())` — the old
     `axum::Server::bind(...).serve(...)` builder was removed in 0.7.** Bind a `tokio::net::TcpListener`
     yourself and hand it to `axum::serve`. (Web snippets showing `axum::Server::bind` are stale ≤0.6 —
     do not copy them.)
@@ -274,7 +306,7 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
 
 ## 5. actix-web-specific (rs-actix)
 
-36. **Set `.workers(1)` — actix defaults to `available_parallelism()` (one Arbiter/worker per logical
+39. **Set `.workers(1)` — actix defaults to `available_parallelism()` (one Arbiter/worker per logical
     CPU), which breaks our single-process fairness canon.** Each worker is a separate thread with its own
     App instance and its own copy of any non-`Arc` state; N workers ≈ N event loops. To stay parity with
     the other single-process servers, either force one worker **or** escalate a documented parity
@@ -288,19 +320,20 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
         .bind(addr)?.run().await
     ```
 
-37. **The `App` factory is a closure run _per worker_ — share state as `web::Data<T>` (an `Arc`) built
+40. **The `App` factory is a closure run _per worker_ — share state as `web::Data<T>` (an `Arc`) built
     once outside and `.clone()`d in.** Build the pool/clients before `HttpServer::new` and move a clone
     into the factory; never construct a pool inside the factory (that would create one pool _per worker_).
     Extract with `data: web::Data<AppState>`. Source: actix-web `web::Data` / application-state docs.
 
-38. **Configure body limits with `PayloadConfig` / `JsonConfig::limit`, and map errors via
-    `ResponseError`.** actix's default payload limits are small (256 KB for `web::Payload`, 2 MB for
-    `web::Json` — **UNVERIFIED exact defaults on current release, confirm**); set the 10 MB global cap
+41. **Configure body limits with `PayloadConfig` / `JsonConfig::limit`, and map errors via
+    `ResponseError`.** actix's default payload limits are small — 2 MB for `web::Json` (`JsonConfig`,
+    verified on docs.rs) and 256 KB for `web::Payload` (`PayloadConfig`, still **UNVERIFIED** against a
+    primary source — confirm); set the 10 MB global cap
     and the 1 MB file-route cap explicitly, returning 413/415 to match the contract. Implement
     `impl actix_web::ResponseError for ApiError` so `?` renders the uniform error body. Source:
     actix-web `PayloadConfig`/`JsonConfig` docs; actix-web error-handling docs.
 
-39. **actix runs on `actix-rt`/`actix_web::main` (a tokio-based single-threaded runtime per worker), not
+42. **actix runs on `actix-rt`/`actix_web::main` (a tokio-based single-threaded runtime per worker), not
     `#[tokio::main]`.** Use `#[actix_web::main]`. If you pull in a tokio-multithread-only crate, be aware
     of the runtime mismatch. Graceful shutdown is built in (`HttpServer` handles SIGINT/SIGTERM and
     drains within a shutdown timeout — set it with `.shutdown_timeout(secs)`). Source: actix-web
@@ -310,7 +343,7 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
 
 ## 6. Database clients
 
-40. **Recommendation: use `sqlx` for Postgres (compile-time-checked queries), not deadpool-postgres —
+43. **Recommendation: use `sqlx` for Postgres (compile-time-checked queries), not deadpool-postgres —
     unless the lane wants raw `tokio-postgres` control.** `sqlx::query!`/`query_as!` verify SQL against a
     live/offline schema at compile time (catches typos, type mismatches) and ship their own async pool;
     that safety is worth more here than deadpool's manager flexibility. deadpool-postgres wraps
@@ -320,62 +353,65 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
     commit `.sqlx/` (`cargo sqlx prepare`) so builds don't need a live DB — the contract container won't
     have the dev DB at compile time. Source: sqlx README/`Pool` docs; deadpool-postgres docs.
 
-41. **mongodb: one `Client`, `max_pool_size(50)` + `min_pool_size(50)`, cloned into state.** The driver's
+44. **mongodb: one `Client`, `max_pool_size(50)` + `min_pool_size(50)`, cloned into state.** The driver's
     `Client` is `Arc` internally (cheap clone, shared pool) and defaults to `max_pool_size = 10` — set it
     to 50 explicitly. Clone the `Client`; do not create one per handler/worker. Source: mongodb Rust
     driver `Client` / `ClientOptions` docs (performance page).
 
-42. **redis-rs: `ConnectionManager` (multiplexed, auto-reconnect) is the idiomatic high-perf async path —
+45. **redis-rs: `ConnectionManager` (multiplexed, auto-reconnect) is the idiomatic high-perf async path —
     but it is ONE multiplexed connection, not a pool of 50.** For non-blocking commands a multiplexed
     connection saturates throughput without a pool. To honor the "pool = 50" mandate literally you'd use
     `deadpool-redis` (an actual pool of 50 `MultiplexedConnection`s). **Escalate** which model the fair-
     ness canon requires for Redis — multiplexed-single vs deadpool-50 — rather than choosing unilaterally
-    (ties to rule 31). Do **not** use blocking commands (`BLPOP` etc.) on a multiplexed connection.
+    (ties to rule 33). Do **not** use blocking commands (`BLPOP` etc.) on a multiplexed connection.
     Source: redis-rs docs ("pooling isn't necessary unless blocking commands are used"); deadpool-redis.
 
-43. **cassandra: use the `scylla` crate (1.7.0) — it is a generic CQL driver that is compatible with
-    Apache Cassandra, not Scylla-only.** It speaks **CQL binary protocol v4**. Cassandra 5.0 accepts v4
-    connections (it also offers v5), so the driver connects — but the README does not _explicitly_ list
+46. **cassandra: use the `scylla` crate (1.7.0) — it is a generic CQL driver that is compatible with
+    Apache Cassandra, not Scylla-only.** The exact CQL binary protocol version the driver negotiates is
+    **UNVERIFIED** (the driver README/docs don't state it); Cassandra 5.0 still accepts the older CQL
+    binary protocols, so the driver connects — but the README does not _explicitly_ list
     Cassandra 5.0, so treat "works against plain Cassandra 5.0" as **UNVERIFIED until the contract
     container proves the handshake**. Smoke-test connect + a round-trip against the repo's Cassandra 5
     container before building handlers. Configure the session's per-host connection pool to the mandated
-    50 (per-shard/host semantics differ from Postgres — another rule-31 escalation). Source:
-    scylladb/scylla-rust-driver README (protocol v4, "compatible with Apache Cassandra"); crate 1.7.0.
+    50 (per-shard/host semantics differ from Postgres — another rule-33 escalation). Source:
+    scylladb/scylla-rust-driver README ("compatible with Apache Cassandra"); crate 1.7.0 (CQL protocol
+    version unstated in driver docs).
 
 ---
 
 ## 7. Performance
 
-44. **Don't allocate to satisfy the borrow checker — treat a `.clone()` added "to make it compile" as a
+47. **Don't allocate to satisfy the borrow checker — treat a `.clone()` added "to make it compile" as a
     smell to investigate, not a fix.** Often the real fix is borrowing longer, restructuring, or moving.
     A clone of an `Arc`/pool handle is fine (it's a refcount bump); a clone of a `String`/`Vec` on the
     hot path is the thing to question. Source: Effective Rust Item 15; clippy `redundant_clone`.
 
-45. **Use `Cow<str>` when a function _usually_ returns its input unchanged but _sometimes_ must own a
+48. **Use `Cow<str>` when a function _usually_ returns its input unchanged but _sometimes_ must own a
     modified copy** (e.g. escaping). Avoids allocating in the common pass-through case. Don't reach for
     `Cow` when you always own or always borrow — it just adds noise. Source: std `Cow` docs; API
     Guidelines.
 
-46. **Prefer iterator adapters over manual index loops.** `iter().filter().map().collect()` is bounds-
+49. **Prefer iterator adapters over manual index loops.** `iter().filter().map().collect()` is bounds-
     check-friendly (LLVM elides checks), expresses intent, and avoids off-by-one/`clone` traps that index
     loops invite. Source: Rust Book ch.13; Rust Performance Book "Iterators."
 
-47. **Set a release profile tuned for throughput** in the binary's `Cargo.toml`. Fat LTO + one codegen
+50. **Set a release profile tuned for throughput** in the binary's `Cargo.toml`. Fat LTO + one codegen
     unit trade compile time for runtime speed — appropriate for a benchmark artifact:
 
     ```toml
     [profile.release]
     lto = "fat"
     codegen-units = 1
-    panic = "abort"     # smaller/faster; ensure this is acceptable for your shutdown model
     # opt-level = 3 is already the release default
+    # Do NOT set `panic = "abort"`: it removes unwinding, so tokio's per-task
+    # catch_unwind can no longer isolate a handler panic — one panicking request
+    # would abort the whole server process mid-run. Keep the default `unwind`.
     ```
 
     Keep the setting identical across rs-axum and rs-actix for fairness. Source: Cargo profile docs;
-    Rust Performance Book "Build Configuration." (`panic = "abort"` — confirm it doesn't interfere with
-    any panic-catch you rely on; UNVERIFIED against our shutdown path.)
+    Rust Performance Book "Build Configuration"; tokio per-task panic isolation (rule 8).
 
-48. **`unsafe` is not a performance tool here.** Nothing in 16 CRUD routes justifies `unsafe`; the safe
+51. **`unsafe` is not a performance tool here.** Nothing in 16 CRUD routes justifies `unsafe`; the safe
     async drivers and `serde` are already zero-copy where it matters. Reaching for `unsafe` to shave an
     allocation is a review red flag — the answer is a better safe abstraction. clippy `-D warnings` plus
     `#![forbid(unsafe_code)]` at the crate root enforces this. Source: Rustonomicon intro ("don't");
@@ -385,41 +421,41 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
 
 ## 8. Common mistakes (reviewer checklist)
 
-49. **`unwrap()`/`expect()` culture in handler/DB paths.** Any `unwrap` on a `Result` that can fail at
+52. **`unwrap()`/`expect()` culture in handler/DB paths.** Any `unwrap` on a `Result` that can fail at
     runtime (DB call, parse, header) is a latent 500-via-panic. Propagate with `?` into `ApiError`.
     Grep the diff for `.unwrap()`/`.expect()` outside `main`/tests/const-init. Source: rules 8–12.
 
-50. **Blocking in async.** Synchronous file I/O, `std::thread::sleep`, sync DB clients, or a long CPU
+53. **Blocking in async.** Synchronous file I/O, `std::thread::sleep`, sync DB clients, or a long CPU
     loop on a reactor thread. Use tokio's async equivalents or `spawn_blocking`. clippy has
-    `await_holding_lock`; there is no lint for all blocking — read the handler. Source: rules 18, 20–21.
+    `await_holding_lock`; there is no lint for all blocking — read the handler. Source: rules 20, 22–23.
 
-51. **`.clone()` scattered to appease borrowck.** See rule 44 — distinguish cheap `Arc` clones from
+54. **`.clone()` scattered to appease borrowck.** See rule 47 — distinguish cheap `Arc` clones from
     hot-path deep clones.
 
-52. **Over-generic public APIs** (`impl Into<String> + AsRef<str> + …`) and premature trait abstraction.
-    See rules 3, 28. Concrete types until a second implementation actually exists.
+55. **Over-generic public APIs** (`impl Into<String> + AsRef<str> + …`) and premature trait abstraction.
+    See rules 3, 30. Concrete types until a second implementation actually exists.
 
-53. **Stringly-typed errors / stringly-typed ids.** Enum errors (rule 12) and newtype ids (rule 4).
+56. **Stringly-typed errors / stringly-typed ids.** Enum errors (rule 12) and newtype ids (rule 4).
 
-54. **Constructing pools/clients inside the actix App factory or per request.** Build once, share via
-    `Arc`/`web::Data`/`State`. See rules 15, 37, 40–43.
+57. **Constructing pools/clients inside the actix App factory or per request.** Build once, share via
+    `Arc`/`web::Data`/`State`. See rules 17, 40, 43–46.
 
 ---
 
 ## 9. Testing
 
-55. **Unit-test async code with `#[tokio::test]`.** It spins a runtime per test; use
+58. **Unit-test async code with `#[tokio::test]`.** It spins a runtime per test; use
     `#[tokio::test(flavor = "multi_thread")]` if the test needs real parallelism. Source: tokio
     `#[tokio::test]` docs.
 
-56. **Put black-box HTTP tests in `tests/` (integration test crate), driving the real router/app.** For
+59. **Put black-box HTTP tests in `tests/` (integration test crate), driving the real router/app.** For
     axum, exercise the `Router` via `tower::ServiceExt::oneshot` (no socket needed) or bind an ephemeral
     port; for actix use `actix_web::test`. Keep DB-touching tests behind the same compose stack the
     contract runner uses. Note: the repo's authoritative correctness gate is `just contract` (full
     conformance in a container) — in-crate tests supplement, they don't replace it. Source: axum
     testing docs; actix-web `test` module docs; repo CLAUDE.md.
 
-57. **Reach for `proptest` only where input space is large and rules are invariant-shaped** (e.g. a
+60. **Reach for `proptest` only where input space is large and rules are invariant-shaped** (e.g. a
     validation/parse function in the shared crate: "any valid email round-trips"). Don't property-test
     handler wiring. Source: proptest book.
 
@@ -433,18 +469,19 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
   impl per server produces it; internal error strings never leak into `details` (rules 10–11).
 - **UUIDv7 via the `uuid` crate** (`uuid = { features = ["v7"] }`, `Uuid::now_v7()`) — the repo mandates
   the popular `uuid` crate, not a hand-rolled generator. Wrap ids in newtypes (rule 4).
-- **Single process, pool pinned to exactly 50** — tokio multi-thread reactor is fine (rule 19); actix
-  MUST run `.workers(1)` or escalate a documented parity decision (rule 36). Pin max=min=50 on every
-  pool; escalate the redis multiplexed / Cassandra per-host mapping (rules 31, 42, 43).
+- **Single process, pool pinned to exactly 50** — tokio multi-thread reactor is fine (rule 21); actix
+  MUST run `.workers(1)` or escalate a documented parity decision (rule 39). Pin max=min=50 on every
+  pool; escalate the redis multiplexed / Cassandra per-host mapping (rules 33, 45, 46).
 - **Body limits: 10 MiB global cap, 1 MiB on the file route**, over-limit → **413**, wrong media type →
-  **415**. axum default is 2 MiB — override it (rules 34, 38).
-- **Graceful drain then DB teardown** on SIGINT _and_ SIGTERM; logger off when `ENV=prod` (rules 29–30).
+  **415**. axum default is 2 MiB — override it (rules 37, 41).
+- **Graceful drain then DB teardown** on SIGINT _and_ SIGTERM (rules 31–32); logger off when
+  `ENV=prod` (rule 34).
 - **Non-root, multi-stage Dockerfile built from the repo root context**, canonical container port, same
   env-var contract as every other server.
 - **Shared crate holds infrastructure only** (DB clients, schemas, validation rules, consts, env, the
   `thiserror` error type) — routing/handlers/app structure stay per-framework in each framework's
   canonical production style (repo CLAUDE.md §3 "sharing stops where idiom starts").
-- **`clippy -D warnings` is a hard gate**; add `#![forbid(unsafe_code)]` (rule 48). `just verify`
+- **`clippy -D warnings` is a hard gate**; add `#![forbid(unsafe_code)]` (rule 51). `just verify`
   (typecheck → format-check → lint) and `just contract` must both be green for every touched server
   before review.
 
