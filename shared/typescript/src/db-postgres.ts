@@ -1,10 +1,12 @@
-// database/postgres: drizzle-over-pg repository. The Postgres pool is pinned at
-// max: 50 — the cross-language fairness canon (typescript.md; PLAN.md audit).
+// database/postgres: drizzle-over-postgres.js repository. The connection pool is
+// pinned at max: 50 — the cross-language fairness canon (typescript.md; PLAN.md
+// audit) — via postgres.js's `max` option; `idle_timeout` (seconds) mirrors the
+// former pg `idleTimeoutMillis: 30000`.
 
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { integer, pgTable, uuid, varchar } from "drizzle-orm/pg-core";
-import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import type { UserRepository } from "./db-types.ts";
 import { generateId } from "./id.ts";
 import { type CreateUser, normalizeUser, type UpdateUser, type User } from "./schemas.ts";
@@ -17,12 +19,14 @@ const users = pgTable("users", {
 });
 
 export class PostgresUserRepository implements UserRepository {
-  private pool: Pool;
+  private sql: ReturnType<typeof postgres>;
   private db: ReturnType<typeof drizzle>;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString, max: 50, idleTimeoutMillis: 30000 });
-    this.db = drizzle({ client: this.pool });
+    // onnotice: postgres.js prints server NOTICEs to stdout by default,
+    // violating the logger-off-in-prod convention — silence them.
+    this.sql = postgres(connectionString, { max: 50, idle_timeout: 30, onnotice: () => {} });
+    this.db = drizzle({ client: this.sql });
   }
 
   async create(data: CreateUser): Promise<User> {
@@ -73,6 +77,6 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async disconnect(): Promise<void> {
-    await this.pool.end();
+    await this.sql.end();
   }
 }

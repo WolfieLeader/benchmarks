@@ -179,12 +179,11 @@
           "dependencies": [
             "npm:@biomejs/biome@^2.5.2",
             "npm:@types/node@^26.1.0",
-            "npm:@types/pg@^8.20.0",
             "npm:cassandra-driver@^4.9.0",
             "npm:drizzle-orm@1.0.0-rc.4",
             "npm:ioredis@^5.11.1",
             "npm:mongodb@^7.4.0",
-            "npm:pg@^8.22.0",
+            "npm:postgres@^3.4.9",
             "npm:tsdown@0.22.3",
             "npm:typescript@7.0.1-rc",
             "npm:uuid@^14.0.1",
