@@ -12,6 +12,7 @@ FILE_SIZE_EXCEEDS = "file size exceeds limit"
 ONLY_TEXT_PLAIN = "only text/plain files are allowed"
 FILE_NOT_TEXT = "file does not look like plain text"
 INTERNAL_ERROR = "internal error"
+REQUEST_TOO_LARGE = "request body too large"
 
 
 class ErrorResponse(TypedDict, total=False):

@@ -19,7 +19,7 @@ await initializeDatabases();
 
 const app = createApp();
 
-Bun.serve({
+const server = Bun.serve({
   port: env.PORT,
   hostname: env.HOST,
   fetch: app.fetch,
@@ -30,6 +30,9 @@ console.log(`Server running at http://${env.HOST}:${env.PORT}/`);
 
 async function shutdown() {
   console.log("Shutting down...");
+  // Stop accepting new connections and drain in-flight requests before
+  // disconnecting the databases they depend on.
+  await server.stop();
   await disconnectDatabases();
   process.exit(0);
 }

@@ -18,6 +18,16 @@ type App struct {
 	router *chi.Mux
 }
 
+// maxBodyBytes caps every request body at consts.MaxRequestBytes so no route can
+// read an unbounded body. The file route enforces its own smaller 1MB limit; a
+// body under the global cap still reaches that check and returns its own 413.
+func maxBodyBytes(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, consts.MaxRequestBytes)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func New() *App {
 	r := chi.NewRouter()
 
@@ -29,6 +39,7 @@ func New() *App {
 		r.Use(middleware.Logger)
 	}
 	r.Use(middleware.Recoverer)
+	r.Use(maxBodyBytes)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

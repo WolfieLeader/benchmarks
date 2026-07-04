@@ -3,6 +3,10 @@ package utils
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
+	"net/http"
+
+	"gin-server/internal/consts"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,4 +53,17 @@ func WriteError(c *gin.Context, status int, message string, detail ...any) {
 		}
 	}
 	WriteResponse(c, status, resp)
+}
+
+// WriteBodyError renders a JSON request-body decode failure. A body over the
+// global cap surfaces as *http.MaxBytesError from the MaxBytesReader-wrapped
+// body and becomes 413 "request body too large"; everything else is a plain
+// 400 "invalid JSON body".
+func WriteBodyError(c *gin.Context, err error) {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		WriteError(c, http.StatusRequestEntityTooLarge, consts.ErrRequestTooLarge)
+		return
+	}
+	WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
 }

@@ -34,7 +34,7 @@ class UserModel(Base):
 class PostgresUserRepository:
     def __init__(self, connection_string: str):
         url = connection_string.replace("postgres://", "postgresql+asyncpg://", 1)
-        self._engine: AsyncEngine = create_async_engine(url, pool_size=20, max_overflow=40)
+        self._engine: AsyncEngine = create_async_engine(url, pool_size=50, max_overflow=0)
         self._session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
 
     def _parse_uuid(self, id: str) -> UUID | None:

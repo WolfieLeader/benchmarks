@@ -3,11 +3,13 @@ package app
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 
 	"fiber-server/internal/config"
 	"fiber-server/internal/consts"
 	"fiber-server/internal/database"
 	"fiber-server/internal/routes"
+	"fiber-server/internal/utils"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
@@ -31,6 +33,20 @@ func New() *App {
 	// server. Setting one would make Bind() auto-validate and change the
 	// status/shape of error responses on the body routes.
 	r := fiber.New(fiber.Config{
+		// Global request-body cap so no route can read an unbounded body. The file
+		// route enforces its own smaller 1MB limit; a body under this global cap
+		// still reaches that check and returns its own 413.
+		BodyLimit: consts.MaxRequestBytes,
+		// fasthttp rejects an over-BodyLimit body before any handler runs and
+		// fiber surfaces it here as ErrRequestEntityTooLarge; render it in the
+		// suite's error shape instead of fiber's default text/plain response.
+		// Everything else keeps the default behavior.
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			if errors.Is(err, fiber.ErrRequestEntityTooLarge) {
+				return utils.WriteError(c, fiber.StatusRequestEntityTooLarge, consts.ErrRequestTooLarge)
+			}
+			return fiber.DefaultErrorHandler(c, err)
+		},
 		JSONEncoder: func(v any) ([]byte, error) { return json.Marshal(v) },
 		JSONDecoder: func(data []byte, v any) error {
 			return json.Unmarshal(data, v, jsontext.AllowDuplicateNames(true))

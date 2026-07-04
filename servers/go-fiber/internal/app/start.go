@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"fiber-server/internal/database"
 )
 
 func (app *App) Start() error {
@@ -34,9 +36,13 @@ func (app *App) Start() error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
-	if err := app.router.ShutdownWithContext(shutdownCtx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
-		return err
+	// Close the DB pools on both paths — a Shutdown timeout must not leak them —
+	// but always after Shutdown returns, so in-flight requests keep their database.
+	shutdownErr := app.router.ShutdownWithContext(shutdownCtx)
+	database.DisconnectConnections()
+	if shutdownErr != nil {
+		log.Printf("Server shutdown error: %v", shutdownErr)
+		return shutdownErr
 	}
 
 	log.Println("Server stopped.")

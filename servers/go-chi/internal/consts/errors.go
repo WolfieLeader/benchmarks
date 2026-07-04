@@ -2,6 +2,7 @@ package consts
 
 const (
 	ErrInvalidJSON                  = "invalid JSON body"
+	ErrRequestTooLarge              = "request body too large"
 	ErrInvalidForm                  = "invalid form data"
 	ErrExpectedFormContentType      = "expected content-type: application/x-www-form-urlencoded or multipart/form-data"
 	ErrInvalidMultipart             = "invalid multipart form data"

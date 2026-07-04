@@ -79,7 +79,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	var data database.CreateUser
 	if err := json.UnmarshalRead(r.Body, &data, decodeOpts); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(w, err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	var data database.UpdateUser
 	if err := json.UnmarshalRead(r.Body, &data, decodeOpts); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(w, err)
 		return
 	}
 

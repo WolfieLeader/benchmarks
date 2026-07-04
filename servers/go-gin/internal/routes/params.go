@@ -54,7 +54,7 @@ func handleHeaderParams(c *gin.Context) {
 func handleBodyParams(c *gin.Context) {
 	var body map[string]any
 	if err := utils.BindJSON(c, &body); err != nil {
-		utils.WriteError(c, http.StatusBadRequest, consts.ErrInvalidJSON, err.Error())
+		utils.WriteBodyError(c, err)
 		return
 	}
 	if body == nil {
