@@ -114,10 +114,15 @@ func (s *arrivalSchedule) arrivalTime(n int) (time.Duration, bool) {
 }
 
 // OpenStats reports the open-model measurement extras for one endpoint run.
-// Response carries the coordinated-omission-corrected percentiles (latency
-// measured from the intended send time = schedule lag + service latency); the
-// endpoint's main Stats keep the service-latency boundary (Do + body read +
-// close) identical to closed mode so numbers stay comparable across modes.
+// Response carries the coordinated-omission-corrected percentiles: schedule
+// lag (worker pickup − intended send) + service latency. The endpoint's main
+// Stats keep the service-latency boundary (Do + body read + close) identical
+// to closed mode so numbers stay comparable across modes. Two documented
+// boundaries: BuildRequest runs between pickup and the service timer and is
+// counted in neither (in-memory, and excluded identically in closed mode);
+// requests canceled by the run window before completing have no response
+// latency — they are reported via CanceledCount and their schedule lag IS
+// included in the lag percentiles, so saturation's worst tail stays visible.
 type OpenStats struct {
 	TargetRate        float64       `json:"target_rate"`  // scheduled average arrivals/sec
 	OfferedRate       float64       `json:"offered_rate"` // arrivals the generator actually produced/sec
@@ -242,7 +247,11 @@ func (s *Suite) runOpenTestcases(testcases []*config.Testcase) *runOutcome {
 	for r := range resultsCh {
 		if r.err != nil {
 			if isBenchmarkContextCancellation(ctx, r.err) {
+				// The pickup happened, so the schedule lag is real — window-
+				// canceled requests are the longest-waiting tail and dropping
+				// their lag would reintroduce coordinated omission.
 				outcome.canceledCount++
+				lags = append(lags, r.scheduleLag)
 				continue
 			}
 			outcome.failureCount++

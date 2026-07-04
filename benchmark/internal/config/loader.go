@@ -41,6 +41,9 @@ const (
 	LoadModeOpen   = "open"
 
 	DefaultMaxInFlight = 512
+	// MaxInFlightCeiling mirrors the JSON schema's maximum — the schema is
+	// editor-only until runtime validation lands, so the loader enforces it.
+	MaxInFlightCeiling = 100000
 )
 
 var validMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -258,8 +261,8 @@ func applyLoadDefaults(load *LoadConfig) error {
 		if load.MaxInFlight == 0 {
 			load.MaxInFlight = DefaultMaxInFlight
 		}
-		if load.MaxInFlight < 1 {
-			return errors.New("benchmark load max_in_flight must be >= 1")
+		if load.MaxInFlight < 1 || load.MaxInFlight > MaxInFlightCeiling {
+			return fmt.Errorf("benchmark load max_in_flight must be between 1 and %d", MaxInFlightCeiling)
 		}
 		ratePositive := load.Rate > 0
 		for i := range load.Stages {

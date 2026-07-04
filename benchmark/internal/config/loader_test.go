@@ -49,6 +49,11 @@ func TestApplyLoadDefaults(t *testing.T) {
 			wantErr: "rate must be >= 0",
 		},
 		{
+			name:    "open rejects max_in_flight above schema ceiling",
+			load:    LoadConfig{Mode: LoadModeOpen, Rate: 100, MaxInFlight: MaxInFlightCeiling + 1},
+			wantErr: "between 1 and 100000",
+		},
+		{
 			name: "stages parse durations",
 			load: LoadConfig{Mode: LoadModeOpen, Stages: []StageConfig{
 				{Target: 100, DurationRaw: "30s"},

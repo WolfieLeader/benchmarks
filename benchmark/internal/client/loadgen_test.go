@@ -212,6 +212,37 @@ func TestOpenLoopCountsDropsWhenSaturated(t *testing.T) {
 	}
 }
 
+func TestOpenLoopCanceledPickupsKeepScheduleLag(t *testing.T) {
+	t.Parallel()
+	slow := func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(400 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}
+	// Window 100ms + RequestTimeout 500ms grace = hard stop at 600ms. One
+	// worker: request A runs 0→400ms; B (queued since ~20ms) is picked up at
+	// ~400ms with ~380ms schedule lag and needs 400ms more — the 600ms window
+	// deadline cancels it mid-flight. Its lag must still reach the lag stats.
+	suite, testcases := newTestSuite(t, slow,
+		config.LoadConfig{Mode: config.LoadModeOpen, Rate: 50, MaxInFlight: 1},
+		100*time.Millisecond)
+	suite.server.RequestTimeout = 500 * time.Millisecond
+
+	outcome := suite.runTestcases(testcases)
+
+	if outcome.open == nil {
+		t.Fatal("open stats missing in open mode")
+	}
+	if outcome.canceledCount == 0 {
+		t.Fatalf("expected a window-canceled request (count=%d failures=%d last=%q)",
+			outcome.stats.Count, outcome.failureCount, outcome.lastError)
+	}
+	// B's ~380ms queue wait dwarfs any completed request's lag — if canceled
+	// pickups were dropped, ScheduleLagMax would be near zero.
+	if outcome.open.ScheduleLagMax < 200*time.Millisecond {
+		t.Errorf("canceled pickup's schedule lag missing from lag stats: max=%v", outcome.open.ScheduleLagMax)
+	}
+}
+
 func TestClosedLoopUnchanged(t *testing.T) {
 	t.Parallel()
 	suite, testcases := newTestSuite(t, okHandler, config.LoadConfig{Mode: config.LoadModeClosed}, 200*time.Millisecond)
