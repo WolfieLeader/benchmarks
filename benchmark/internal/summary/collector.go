@@ -14,6 +14,35 @@ import (
 	"benchmark-client/internal/container"
 )
 
+// durationOpts: json/v2 has no default time.Duration representation (Marshal
+// errors with a SemanticError), and the exported summaries embed raw
+// client.SequenceStats/Stats with duration fields. These explicit v2
+// marshalers keep the v1-compatible int64-nanosecond encoding on both write
+// and read-back — pure json/v2 (repo canon), no v1-options shim.
+// NB: pkg.go.dev's json/v2 page documents `format:nano` field tags for
+// time.Duration, but go1.27rc1 rejects them ("unsupported `format` tag
+// option"). Revisit when the Go pin moves (PLAN §10).
+var durationOpts = json.JoinOptions(
+	json.WithMarshalers(json.MarshalToFunc(func(enc *jsontext.Encoder, d time.Duration) error {
+		return enc.WriteToken(jsontext.Int(int64(d)))
+	})),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, d *time.Duration) error {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind() != '0' {
+			return fmt.Errorf("duration: expected JSON number, got %v", tok.Kind())
+		}
+		n, err := tok.Int()
+		if err != nil {
+			return fmt.Errorf("duration: %w", err)
+		}
+		*d = time.Duration(n)
+		return nil
+	})),
+)
+
 type ServerResult struct {
 	Name        string                   `json:"name"`
 	ContainerId string                   `json:"-"`
@@ -105,7 +134,7 @@ func NewWriter(cfg *config.BenchmarkConfig, resultsDir string) *Writer {
 func (w *Writer) ExportServerResult(result *ServerResult) (string, error) {
 	summary := serverSummaryFromResult(result)
 
-	data, err := json.Marshal(summary, jsontext.WithIndent("  "))
+	data, err := json.Marshal(summary, jsontext.WithIndent("  "), durationOpts)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal server results: %w", err)
 	}
@@ -158,7 +187,7 @@ func (w *Writer) ExportMetaResults() (*MetaResults, []ServerSummary, string, err
 		Servers: serverSummaries,
 	}
 
-	data, err := json.Marshal(metaResults, jsontext.WithIndent("  "))
+	data, err := json.Marshal(metaResults, jsontext.WithIndent("  "), durationOpts)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to marshal meta results: %w", err)
 	}
@@ -216,7 +245,7 @@ func readServerSummaries(dir string) (servers []ServerSummary, successCount, fai
 			return nil, 0, 0, fmt.Errorf("failed to read %s: %w", path, err)
 		}
 		var server ServerSummary
-		if err = json.Unmarshal(data, &server); err != nil {
+		if err = json.Unmarshal(data, &server, durationOpts); err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to parse %s: %w", path, err)
 		}
 		servers = append(servers, server)
