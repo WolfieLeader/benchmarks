@@ -8,6 +8,7 @@ import (
 type Stats struct {
 	Count       int           `json:"count"`
 	TotalCount  int           `json:"total_count"`
+	Rps         float64       `json:"rps"` // completed requests (success + failure) per second of wall time
 	Avg         time.Duration `json:"avg"`
 	High        time.Duration `json:"high"`
 	Low         time.Duration `json:"low"`
@@ -17,9 +18,24 @@ type Stats struct {
 	SuccessRate float64       `json:"success_rate"`
 }
 
-func CalculateStats(latencies []time.Duration, successCount, totalCount int) *Stats {
+// CalculateStats computes latency stats over the run's successful requests.
+// elapsed is the run's wall-clock window (endpoint start to drain end) and
+// drives throughput; latency fields stay zero when nothing succeeded, but
+// counts, success rate, and RPS are still reported.
+func CalculateStats(latencies []time.Duration, successCount, totalCount int, elapsed time.Duration) *Stats {
+	stats := &Stats{
+		Count:      successCount,
+		TotalCount: totalCount,
+	}
+	if totalCount > 0 {
+		stats.SuccessRate = float64(successCount) / float64(totalCount)
+	}
+	if sec := elapsed.Seconds(); sec > 0 {
+		stats.Rps = float64(totalCount) / sec
+	}
+
 	if len(latencies) == 0 {
-		return &Stats{}
+		return stats
 	}
 
 	var total time.Duration
@@ -38,22 +54,13 @@ func CalculateStats(latencies []time.Duration, successCount, totalCount int) *St
 
 	slices.Sort(latencies)
 
-	var successRate float64
-	if totalCount > 0 {
-		successRate = float64(successCount) / float64(totalCount)
-	}
-
-	return &Stats{
-		Count:       successCount,
-		TotalCount:  totalCount,
-		Avg:         total / time.Duration(len(latencies)),
-		Low:         low,
-		High:        high,
-		P50:         Percentile(latencies, 50),
-		P95:         Percentile(latencies, 95),
-		P99:         Percentile(latencies, 99),
-		SuccessRate: successRate,
-	}
+	stats.Avg = total / time.Duration(len(latencies))
+	stats.Low = low
+	stats.High = high
+	stats.P50 = Percentile(latencies, 50)
+	stats.P95 = Percentile(latencies, 95)
+	stats.P99 = Percentile(latencies, 99)
+	return stats
 }
 
 func Percentile(sorted []time.Duration, p int) time.Duration {

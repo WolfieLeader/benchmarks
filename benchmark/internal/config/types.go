@@ -13,14 +13,15 @@ type Config struct {
 }
 
 type BenchmarkConfig struct {
-	BaseUrl                string `json:"base_url"`
-	Concurrency            int    `json:"concurrency"`
-	DurationPerEndpointRaw string `json:"duration_per_endpoint"`
-	RequestTimeoutRaw      string `json:"request_timeout"`
-	SampleRateRaw          string `json:"sample_rate,omitempty"`
-	ServerCooldownRaw      string `json:"server_cooldown,omitempty"`
-	WarmupDurationRaw      string `json:"warmup_duration,omitempty"`
-	WarmupPauseRaw         string `json:"warmup_pause,omitempty"`
+	BaseUrl                string     `json:"base_url"`
+	Concurrency            int        `json:"concurrency"`
+	DurationPerEndpointRaw string     `json:"duration_per_endpoint"`
+	RequestTimeoutRaw      string     `json:"request_timeout"`
+	SampleRateRaw          string     `json:"sample_rate,omitempty"`
+	ServerCooldownRaw      string     `json:"server_cooldown,omitempty"`
+	WarmupDurationRaw      string     `json:"warmup_duration,omitempty"`
+	WarmupPauseRaw         string     `json:"warmup_pause,omitempty"`
+	Load                   LoadConfig `json:"load,omitzero"`
 
 	DurationPerEndpoint time.Duration `json:"-"`
 	RequestTimeout      time.Duration `json:"-"`
@@ -28,6 +29,36 @@ type BenchmarkConfig struct {
 	ServerCooldown      time.Duration `json:"-"`
 	WarmupDuration      time.Duration `json:"-"`
 	WarmupPause         time.Duration `json:"-"`
+}
+
+// LoadConfig selects the load model (PLAN §7.1). "closed" (default) is the
+// existing worker loop where Concurrency workers issue requests back-to-back.
+// "open" schedules requests on a constant-arrival-rate timetable so a slow
+// server cannot suppress the samples that would record its stalls
+// (coordinated omission); saturation surfaces as schedule lag, backlog, and
+// dropped iterations instead of silently degrading into a closed loop.
+// Sequences always run the closed loop; open mode applies to endpoint runs.
+type LoadConfig struct {
+	Mode string `json:"mode,omitempty"` // "closed" (default) or "open"
+	// Rate is the arrival rate in requests/sec. Without stages it is constant
+	// for duration_per_endpoint; with stages it is the starting rate.
+	Rate float64 `json:"rate,omitempty"`
+	// Stages ramp the arrival rate linearly from the previous rate (initially
+	// Rate) to each stage's target over its duration (k6 ramping-arrival-rate
+	// semantics). When present, the endpoint window is the stages' total
+	// duration, not duration_per_endpoint.
+	Stages []StageConfig `json:"stages,omitempty"`
+	// MaxInFlight caps concurrent in-flight requests (default 512); an
+	// equal-sized backlog queue absorbs bursts, and arrivals beyond both are
+	// counted as dropped iterations — the arrival clock never blocks.
+	MaxInFlight int `json:"max_in_flight,omitempty"`
+}
+
+type StageConfig struct {
+	Target      float64 `json:"target"`   // arrival rate at the end of the stage (req/sec)
+	DurationRaw string  `json:"duration"` // stage length, e.g. "30s"
+
+	Duration time.Duration `json:"-"`
 }
 
 type ContainerConfig struct {

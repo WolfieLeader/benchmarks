@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -57,6 +58,7 @@ type ResolvedServer struct {
 	CpuLimit            float64
 	MemoryLimit         string
 	Concurrency         int
+	Load                LoadConfig
 	DurationPerEndpoint time.Duration
 	Testcases           []*Testcase
 	EndpointOrder       []string
@@ -92,6 +94,17 @@ func (cfg *Config) Print(serverCount int) {
 		"Duration/Endpoint", cfg.Benchmark.DurationPerEndpoint.String(),
 		"Request Timeout", cfg.Benchmark.RequestTimeout.String(),
 	)
+	if cfg.Benchmark.Load.Mode == LoadModeOpen {
+		rateStr := strconv.FormatFloat(cfg.Benchmark.Load.Rate, 'f', -1, 64) + " req/s"
+		if len(cfg.Benchmark.Load.Stages) > 0 {
+			rateStr += fmt.Sprintf(" + %d stages", len(cfg.Benchmark.Load.Stages))
+		}
+		cli.KeyValuePairs(
+			"Load Mode", cfg.Benchmark.Load.Mode,
+			"Arrival Rate", rateStr,
+			"Max In-Flight", strconv.Itoa(cfg.Benchmark.Load.MaxInFlight),
+		)
+	}
 	cli.KeyValuePairs(
 		"CPU Limit", strconv.FormatFloat(cfg.Container.CpuLimit, 'f', -1, 64),
 		"Memory Limit", cfg.Container.MemoryLimit,

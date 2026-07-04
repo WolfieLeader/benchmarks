@@ -34,7 +34,14 @@ type Suite struct {
 // NewSuite builds a suite that sends requests to baseURL (the server's actual,
 // dynamically mapped, base URL — e.g. "http://localhost:54123").
 func NewSuite(ctx context.Context, server *config.ResolvedServer, baseURL string, progress *ProgressCallbacks) *Suite {
-	transport := NewHTTPTransport(server.Concurrency)
+	// The connection pool must match the mode's real parallelism: in open mode
+	// up to MaxInFlight requests run at once, and an undersized idle pool would
+	// measure connection churn instead of the server (go.md rule 31).
+	parallelism := server.Concurrency
+	if server.Load.Mode == config.LoadModeOpen {
+		parallelism = server.Load.MaxInFlight
+	}
+	transport := NewHTTPTransport(parallelism)
 
 	return &Suite{
 		ctx:        ctx,
@@ -47,16 +54,27 @@ func NewSuite(ctx context.Context, server *config.ResolvedServer, baseURL string
 }
 
 type EndpointResult struct {
-	Name          string `json:"name"`
-	Path          string `json:"path"`
-	Method        string `json:"method"`
-	Database      string `json:"database,omitempty"`
-	SequenceId    string `json:"sequence_id,omitempty"`
-	Stats         *Stats `json:"stats"`
-	Error         string `json:"error,omitempty"`
-	FailureCount  int    `json:"failure_count,omitempty"`
-	CanceledCount int    `json:"canceled_count,omitempty"`
-	LastError     string `json:"last_error,omitempty"`
+	Name          string     `json:"name"`
+	Path          string     `json:"path"`
+	Method        string     `json:"method"`
+	Database      string     `json:"database,omitempty"`
+	SequenceId    string     `json:"sequence_id,omitempty"`
+	Stats         *Stats     `json:"stats"`
+	Open          *OpenStats `json:"open,omitempty"` // open mode only
+	Error         string     `json:"error,omitempty"`
+	FailureCount  int        `json:"failure_count,omitempty"`
+	CanceledCount int        `json:"canceled_count,omitempty"`
+	LastError     string     `json:"last_error,omitempty"`
+}
+
+// runOutcome is one endpoint run's raw result, shared by both load models.
+type runOutcome struct {
+	stats          *Stats
+	open           *OpenStats // nil in closed mode
+	timedLatencies []TimedLatency
+	failureCount   int
+	canceledCount  int
+	lastError      string
 }
 
 func (s *Suite) Close() {
@@ -149,26 +167,31 @@ func (s *Suite) runEndpoint(name, path, method string, testcases []*config.Testc
 		}
 	}
 
-	stats, timedLatencies, failureCount, canceledCount, lastErr := s.runTestcases(testcases)
+	outcome := s.runTestcases(testcases)
 
 	s.timedResults = append(s.timedResults, TimedResult{
 		Endpoint:  name,
 		Method:    method,
-		Latencies: timedLatencies,
+		Latencies: outcome.timedLatencies,
 	})
 
 	return EndpointResult{
 		Name:          name,
 		Path:          path,
 		Method:        method,
-		Stats:         stats,
-		FailureCount:  failureCount,
-		CanceledCount: canceledCount,
-		LastError:     lastErr,
+		Stats:         outcome.stats,
+		Open:          outcome.open,
+		FailureCount:  outcome.failureCount,
+		CanceledCount: outcome.canceledCount,
+		LastError:     outcome.lastError,
 	}
 }
 
-func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedLatencies []TimedLatency, failureCount, canceledCount int, lastError string) {
+func (s *Suite) runTestcases(testcases []*config.Testcase) *runOutcome {
+	if s.server.Load.Mode == config.LoadModeOpen {
+		return s.runOpenTestcases(testcases)
+	}
+
 	workers := s.server.Concurrency
 	endpointStartTime := time.Now()
 
@@ -222,33 +245,35 @@ func (s *Suite) runTestcases(testcases []*config.Testcase) (stats *Stats, timedL
 		close(resultsCh)
 	}()
 
+	outcome := &runOutcome{}
 	var count int
 	latencies := make([]time.Duration, 0, 10000)
-	timedLatencies = make([]TimedLatency, 0, 10000)
+	outcome.timedLatencies = make([]TimedLatency, 0, 10000)
 
 	for r := range resultsCh {
 		if r.err != nil {
 			if isBenchmarkContextCancellation(ctx, r.err) {
-				canceledCount++
+				outcome.canceledCount++
 				continue
 			}
-			failureCount++
-			lastError = r.err.Error()
+			outcome.failureCount++
+			outcome.lastError = r.err.Error()
 			continue
 		}
 
 		count++
 		latencies = append(latencies, r.latency)
-		timedLatencies = append(timedLatencies, TimedLatency{
+		outcome.timedLatencies = append(outcome.timedLatencies, TimedLatency{
 			ServerOffset:   r.serverOffset,
 			EndpointOffset: r.endpointOffset,
 			Duration:       r.latency,
 		})
 	}
 
-	totalRequests := count + failureCount
-	stats = CalculateStats(latencies, count, totalRequests)
-	return stats, timedLatencies, failureCount, canceledCount, lastError
+	elapsed := time.Since(endpointStartTime)
+	totalRequests := count + outcome.failureCount
+	outcome.stats = CalculateStats(latencies, count, totalRequests, elapsed)
+	return outcome
 }
 
 func (s *Suite) executeTestcase(ctx context.Context, tc *config.Testcase) (time.Duration, error) {
