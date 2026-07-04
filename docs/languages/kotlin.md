@@ -518,8 +518,8 @@ RANDOM_PORT`). Spring reuses a cached context only when the full cache key
 Phase 3 adds a `web` suite to the contract — `GET /html` (server-rendered
 template), `GET /jwt/sign` + `GET /jwt/verify` (HS256), `POST /validate` (deep
 nested validation, ~4 levels), `GET /compute?n=` (iterative SHA-256 CPU chain)
-(`PLAN.md:221-231`) — and the server-track DAG lands P3 (web endpoints) _before_
-P4 (new servers) (`PLAN.md:543,560-561`), so both Kotlin lanes must satisfy these
+(`PLAN.md:223-233`) — and the server-track DAG lands P3 (web endpoints) _before_
+P4 (new servers) (`PLAN.md:545,562-563`), so both Kotlin lanes must satisfy these
 from day one. CLAUDE.md's JWT/UUID library table names Go/TS/Python but not
 Kotlin; the picks below fill that gap.
 

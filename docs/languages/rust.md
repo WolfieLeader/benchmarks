@@ -505,7 +505,7 @@ State<AppState>` is the idiomatic injection; derive `FromRef` if you split state
 - deadpool-postgres / deadpool-redis — https://docs.rs/deadpool-postgres/ , https://docs.rs/deadpool-redis/
 - mongodb Rust driver — `Client`, `ClientOptions`, Performance Considerations — https://docs.rs/mongodb/ , https://www.mongodb.com/docs/drivers/rust/current/fundamentals/performance/
 - redis-rs — README, `aio::ConnectionManager`, `MultiplexedConnection` — https://github.com/redis-rs/redis-rs , https://docs.rs/redis/
-- scylladb/scylla-rust-driver (crate 1.7.0, CQL protocol v4, Cassandra-compatible) — https://github.com/scylladb/scylla-rust-driver , https://rust-driver.docs.scylladb.com/stable/
+- scylladb/scylla-rust-driver (crate 1.7.0, Cassandra-compatible; CQL protocol version unstated in driver docs — UNVERIFIED, see rule 46) — https://github.com/scylladb/scylla-rust-driver , https://rust-driver.docs.scylladb.com/stable/
 - Rust Performance Book — Iterators, Build Configuration — https://nnethercote.github.io/perf-book/
 - Cargo profiles reference — https://doc.rust-lang.org/cargo/reference/profiles.html
 - proptest book — https://proptest-rs.github.io/proptest/

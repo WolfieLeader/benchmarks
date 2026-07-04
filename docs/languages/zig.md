@@ -380,9 +380,10 @@ This server sets `max_body_size` and `max_form_count`/`max_multiform_count` in
 handler (`src/routes_params.zig:122`): it accepts slightly over the limit so the
 _handler_ can return a clean `413` rather than http.zig dropping the connection (this
 413-on-slight-overage behavior is the upload path, not general DB-body sizing).
-**Current code caps at 2 MiB** (`2 * 1024 * 1024`); the
-suite is unifying body caps across servers, so treat the exact number as in-flux and
-check `config/` + PLAN before assuming a value.
+**Current code caps at 10 MiB** (`10 * 1024 * 1024`, `main.zig:49`) — the global
+request-body cap unified across every server 2026-07-04; the file route enforces its
+own smaller 1 MiB limit in the handler, so uploads under the global cap still reach
+that check and return 413.
 Source: repo `src/main.zig:43-52`; [http.zig — Configuration](https://github.com/karlseguin/http.zig).
 
 7.4. **Use the `res.writer()` → `.interface` bridge for streaming writers (0.15+ API).**
@@ -559,12 +560,16 @@ controls — use `orelse ""` / `orelse return` (the repo's `req.param("id") orel
   pkg-config is silent on macOS (`build.zig:26-44`). Keep both paths working.
 - **`link_libc` + `link_libcpp` on the module** (`build.zig:16-18`) — libc for the C
   allocator/mongoc, libcpp for the Cassandra cpp-driver runtime.
-- **JSON decode is strict on purpose:** `parseFromSliceLeaky` into `res.arena`,
-  `duplicate_field_behavior = .use_last`, unknown fields rejected (`user.zig:32`) — this
-  encodes the cross-server contract; don't loosen it to make a payload pass.
-- **Body cap is 2 MiB in code today** (`main.zig:48`), intentionally accepting
-  slightly-over so the handler returns a clean 413; the suite is unifying caps, so
-  confirm the target value in `config/` + PLAN before changing it.
+- **JSON decode options encode the cross-server contract — change them only on a lead
+  canon ruling:** `parseFromSliceLeaky` into `res.arena`,
+  `duplicate_field_behavior = .use_last` (`user.zig:32`). Unknown-field handling was
+  ruled 2026-07-04: **PATCH/update ignores unknown fields** (canon; Slice C flips
+  `ignore_unknown_fields` accordingly) while **create keeps returning 400** — that 400
+  comes from missing-required validation, not unknown-field rejection. Don't loosen
+  anything beyond what a ruling states just to make a payload pass.
+- **Body cap is 10 MiB** (`main.zig:49`, unified across all servers 2026-07-04); the
+  file route's own 1 MiB handler-level limit still returns its clean 413 for uploads
+  under the global cap.
 - **Graceful shutdown deinits DB clients in reverse init order** after `listen()`
   returns (`main.zig:84-88`): cassandra → mongo → redis → postgres, the mirror of the
   init order in the `App` literal.

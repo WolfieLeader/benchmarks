@@ -146,7 +146,7 @@ N` forks N independent processes each running their own event loop and — criti
     which is what a non-root Dockerfile `CMD` without a shell form gives you). (uvicorn docs/GitHub discussions,
     see Sources.)
 18. **Connection pool sizing is a fairness knob here, not a performance-tuning free choice.** The plan's locked
-    canon (`PLAN.md:192`) is **pool size exactly 50** for every Python server, single process — matching the
+    canon (`PLAN.md:194`) is **pool size exactly 50** for every Python server, single process — matching the
     "50 elsewhere" convention used across the other language servers. Don't retune a pool size to make one
     server look faster; if a framework needs a different real-world default, that's a drift to report, not to
     silently work around. Footnote on scope: the "pool 50" canon is currently enforced for Postgres
@@ -262,12 +262,12 @@ N` forks N independent processes each running their own event loop and — criti
     `django.core.cache.backends.redis.RedisCache` has shipped in Django core since 4.0 —
     `CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": "redis://..."}}`.
     This is Django's own cache abstraction (`cache.set`/`get`/`delete` + a `RedisSerializer`), distinct from the
-    popular third-party `django-redis` package, which has more features but isn't first-party — `PLAN.md:191`
+    popular third-party `django-redis` package, which has more features but isn't first-party — `PLAN.md:193`
     locks in the first-party one deliberately ("batteries-included... Django paying for its batteries, same as
     its ORM — representative, not unfair"). Map this repo's CRUD (create/read/update/delete/delete-all) onto
     `cache.set`/`cache.get`/`cache.delete` + read-modify-write for partial updates; if some case genuinely can't
     be expressed through the cache abstraction, that's an escalation (fallback = the shared sync redis-py client),
-    not a silent workaround. (docs.djangoproject.com/en/6.0/topics/cache/; PLAN.md:191)
+    not a silent workaround. (docs.djangoproject.com/en/6.0/topics/cache/; PLAN.md:193)
 32. **N+1 discipline: `select_related`/`prefetch_related` are not optional once more than one route touches
     related objects.** This repo's `User` model is flat (no relations) so N+1 isn't yet a live risk, but any
     future route that joins across models must reach for these eagerly — Django's ORM will silently emit one
@@ -279,7 +279,7 @@ N` forks N independent processes each running their own event loop and — criti
     load time, not scattered `os.getenv()` calls inside views. Keep `DEBUG = env == "dev"` wired to the same
     `ENV` var every other server uses, matching the "logger off when `ENV=prod`" contract clause.
 34. **Run under ASGI (uvicorn), matching the rest of the fleet — not `runserver`/WSGI/gunicorn+sync-workers.**
-    `PLAN.md:191` locks this: "Run under ASGI (uvicorn) with async views where idiomatic." Keep pool sizing and
+    `PLAN.md:193` locks this: "Run under ASGI (uvicorn) with async views where idiomatic." Keep pool sizing and
     single-process discipline (§2.16-18) identical to py-fastapi once this lane lands.
 
 ---
@@ -395,20 +395,18 @@ ASGITransport(app=app), base_url="http://test")` calls the ASGI app directly wit
 
 ## 10. In this repo
 
-- **Single-process, pool-of-50 is the fairness canon — not yet fully applied.** `PLAN.md:192` locks "Normalize
-  FastAPI: 1 worker, pg pool 50" as still-pending work; today py-fastapi runs uvicorn with `--workers 4` and
-  Postgres uses `pool_size=20, max_overflow=40` (`src/database/postgres.py:37`) — the `--workers 4` is called out
-  as the single "biggest asymmetry" (`PLAN.md:18`), and `PLAN.md:72`'s "Fairness asymmetries" list catalogues it
-  alongside the pg-pool gap. Any change to `main.py`'s uvicorn invocation or `postgres.py`'s engine construction
-  should move toward that canon, not away from it — and must **preserve `--loop uvloop`** (`Dockerfile:38`; see
-  §2.16). The pending `audit/production-fairness` branch already stages this flip (1 worker, pool 50), so re-check
-  this bullet once that lands — it goes from true to stale.
+- **Single-process, pool-of-50 is the fairness canon — applied 2026-07-04.** `PLAN.md:194` locks "Normalize
+  FastAPI: 1 worker, pg pool 50"; py-fastapi now runs uvicorn with `--workers 1` (`Dockerfile:38`) and
+  Postgres uses `pool_size=50, max_overflow=0` (`src/database/postgres.py:37`) — the old `--workers 4` was the
+  audit's single "biggest asymmetry" (`PLAN.md:18`, `PLAN.md:72`), fixed by the `audit/production-fairness`
+  merge. Any change to `main.py`'s uvicorn invocation or `postgres.py`'s engine construction must hold that
+  canon — and must **preserve `--loop uvloop`** (`Dockerfile:38`; see §2.16).
 - **Async repos deliberately live inside py-fastapi, not in a shared package — until a second async consumer
-  exists.** `PLAN.md:184-190` locks a "multi-consumer rule": shared holds only what has ≥2 real consumers.
+  exists.** `PLAN.md:186-192` locks a "multi-consumer rule": shared holds only what has ≥2 real consumers.
   asyncpg/SQLAlchemy-async, motor, redis.asyncio, and the cassandra bridge stay in `src/database/*.py` because
   FastAPI is currently the only async Python framework in the roster; extraction happens only if/when a second
   async framework (the plan names Sanic/Tornado as the shortlist trigger) lands. Sync repos (psycopg3, pymongo,
-  redis-py, cassandra-driver) _will_ be shared once Django/Flask both need them (`PLAN.md:189`) — don't
+  redis-py, cassandra-driver) _will_ be shared once Django/Flask both need them (`PLAN.md:191`) — don't
   pre-emptively extract the async ones by analogy.
 - **The Cassandra `AddressTranslator` pattern is load-bearing and must be reused by any future Python Cassandra
   code.** `src/database/cassandra.py:13-26`'s `_ContactPointAddressTranslator` pins every node address the
