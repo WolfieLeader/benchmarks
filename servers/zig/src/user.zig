@@ -29,9 +29,9 @@ pub const UpdateUser = struct {
 pub const ValidationError = error{Invalid};
 
 // Duplicate keys resolve last-wins on every decode (JS `JSON.parse` / Python
-// semantics). CREATE keeps `ignore_unknown_fields = false` (the default): a body
-// with only unknown/PascalCase keys is missing the required `name`/`email` and so
-// fails to parse (400) — strictness that is the create contract.
+// semantics). CREATE keeps `ignore_unknown_fields = false` (the default): the
+// first unknown/PascalCase key fails the parse with `error.UnknownField` (400)
+// before any required-field check runs — strictness that is the create contract.
 const create_opts: std.json.ParseOptions = .{ .duplicate_field_behavior = .use_last };
 // UPDATE ignores unknown fields (cross-server canon): every other server strips
 // them, so a PATCH with a mismatched-case key becomes a no-op returning the
