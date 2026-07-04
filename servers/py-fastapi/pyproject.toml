@@ -30,5 +30,40 @@ bench-shared = { path = "../../shared/python" }
 line-length = 120
 target-version = "py314"
 
+# Strictest bug-catching floor, subtracted BY NAME. Curated families beyond the
+# E/F default: B (bugbear), UP (pyupgrade), SIM (simplify), C4 (comprehensions),
+# RET (return), PERF (perflint), RUF (ruff-native), S (bandit security),
+# ASYNC (async correctness — this is an async server). Full-copy across every
+# Python server's pyproject; keep this block byte-identical (shared/python too).
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM", "C4", "RET", "PERF", "RUF", "S", "ASYNC"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom REQUIRES these markers as default-argument
+# calls (`x: T = Depends(...)`, `Body()`, `File()`, …); B008 would flag every one.
+# Whitelisting the specific fastapi factories is the documented integration — not a
+# rule-wide B008 disable.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+# No test overrides yet — no tests exist. When a tests/ tree lands, add a
+# per-file-ignores entry relaxing S101 (assert) / S105-6 (hardcoded test creds)
+# there, scoped to "tests/**".
+
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pyright]
+# Strictest floor with zero subtractions: untyped third-party boundaries (motor,
+# cassandra-driver) are pinned to explicit `Any` at the seam (§7.42 of the guide),
+# so strict passes clean without weakening any report* rule.
+typeCheckingMode = "strict"

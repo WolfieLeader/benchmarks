@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo import ReturnDocument
@@ -11,9 +13,9 @@ class MongoUserRepository:
     def __init__(self, connection_string: str, db_name: str):
         self._url = connection_string
         self._db_name = db_name
-        self._client: AsyncIOMotorClient | None = None
+        self._client: AsyncIOMotorClient[dict[str, Any]] | None = None
 
-    def _collection(self) -> AsyncIOMotorCollection:
+    def _collection(self) -> AsyncIOMotorCollection[dict[str, Any]]:
         if self._client is None:
             self._client = AsyncIOMotorClient(self._url)
         return self._client[self._db_name]["users"]
@@ -24,7 +26,7 @@ class MongoUserRepository:
         except Exception:
             return None
 
-    def _to_user(self, doc: dict) -> User:
+    def _to_user(self, doc: dict[str, Any]) -> User:
         return User(
             id=str(doc["_id"]),
             name=doc["name"],
@@ -34,7 +36,7 @@ class MongoUserRepository:
 
     async def create(self, data: CreateUser) -> User:
         id = ObjectId()
-        doc = {"_id": id, "name": data.name, "email": data.email}
+        doc: dict[str, Any] = {"_id": id, "name": data.name, "email": data.email}
         if data.favoriteNumber is not None:
             doc["favoriteNumber"] = data.favoriteNumber
 

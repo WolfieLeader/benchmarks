@@ -9,6 +9,12 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pyright>=1.1.400",
+    "ruff>=0.14.14",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -20,5 +26,38 @@ packages = ["src/bench_shared"]
 line-length = 120
 target-version = "py314"
 
+# Strictest bug-catching floor, subtracted BY NAME. Curated families beyond the
+# E/F default: B (bugbear), UP (pyupgrade), SIM (simplify), C4 (comprehensions),
+# RET (return), PERF (perflint), RUF (ruff-native), S (bandit security),
+# ASYNC (async correctness). Full-copy across every Python server's pyproject;
+# keep this block byte-identical (servers/py-fastapi too).
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM", "C4", "RET", "PERF", "RUF", "S", "ASYNC"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom REQUIRES these markers as default-argument
+# calls (`x: T = Depends(...)`, `Body()`, `File()`, …); B008 would flag every one.
+# Whitelisting the specific fastapi factories is the documented integration — not a
+# rule-wide B008 disable.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+# No test overrides yet — no tests exist. When a tests/ tree lands, add a
+# per-file-ignores entry relaxing S101 (assert) / S105-6 (hardcoded test creds)
+# there, scoped to "tests/**".
+
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pyright]
+# Strictest floor with zero subtractions.
+typeCheckingMode = "strict"

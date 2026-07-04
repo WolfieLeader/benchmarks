@@ -7,7 +7,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import RequestResponseEndpoint
 from starlette.requests import Request
+from starlette.responses import Response
 
 from bench_shared.consts import MAX_REQUEST_BYTES
 from bench_shared.env import env
@@ -37,7 +39,7 @@ app = FastAPI(title="FastAPI", lifespan=lifespan)
 
 
 @app.middleware("http")
-async def body_size_limit_middleware(request: Request, call_next):
+async def body_size_limit_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
     # Global request-body cap so no route can read an unbounded body. The file
     # route enforces its own smaller 1MB limit; a body under this global cap
     # still reaches that check and returns its own 413.
@@ -55,7 +57,7 @@ async def body_size_limit_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
-async def logging_middleware(request: Request, call_next):
+async def logging_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
     if env.ENV == "prod":
         return await call_next(request)
 
