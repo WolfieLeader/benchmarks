@@ -1,13 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
-  // Single root config for every TS server + @bench/shared (PLAN §3: shared
-  // infrastructure, one source of truth — replaces the 7 near-identical per-server
-  // copies). ts-deno-oak is excluded below; it lints/formats with Deno's own tools.
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  // Per-project FULL-COPY config, Go-style: every Biome-linted TS project owns a
+  // complete standalone biome.jsonc — exactly like each Go module owns a full
+  // .golangci.json copy. There is NO root/consolidated Biome config and NO
+  // extends chain (PLAN §11.1 law 2: root shared files are lane contention for
+  // parallel worktrees; servers stay standalone reference islands). The identical
+  // ladder is kept in sync by scripts/biome-sync-check.mts, which fails the `root`
+  // verify target on any unexplained drift between copies. ts-deno-oak is not a
+  // Biome target (it uses `deno lint`/`deno fmt`).
   "files": {
-    // Deno server is not a Biome target (uses `deno lint`/`deno fmt`); its .ts uses
-    // literal `.ts` import specifiers that Biome's Node-oriented rules misread.
-    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!servers/ts-deno-oak/**"]
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**"]
   },
   "linter": {
     "enabled": true,
@@ -34,10 +36,11 @@
         // imports (their idiom) and Deno is excluded, so the rule is apt nowhere
         // in this repo. tsc + each runtime's own resolution are the real gates.
         "useImportExtensions": "off",
-        // OFF (subtract-by-name): Biome's module resolver cannot resolve the
-        // `@bench/shared` workspace package (its `exports` map points at built
-        // `dist/` that lint does not build) nor JSR specifiers, so it reports valid
-        // imports as unresolved. tsc / bun / deno resolve them correctly and are
+        // OFF (subtract-by-name): Biome's bundled type definitions for the `bun`
+        // module don't model its named exports `randomUUIDv7` / `RedisClient`
+        // (used by ts-bun-elysia / ts-bun-honojs), so Biome reports those valid
+        // imports as unresolved. `@bench/shared` and JSR specifiers resolve fine.
+        // Each runtime's own type-check (tsc / bunx tsc --noEmit / deno check) is
         // the real resolution gate.
         "noUnresolvedImports": "off"
       },
@@ -117,29 +120,5 @@
   "assist": {
     "enabled": true,
     "actions": { "source": { "organizeImports": "on" } }
-  },
-  "overrides": [
-    {
-      // NestJS relies on parameter decorators (@Param(), @Body(), …); Biome must be
-      // told to parse them. Scoped here so it does not loosen parsing elsewhere.
-      "includes": ["servers/ts-nestjs/**"],
-      "javascript": { "parser": { "unsafeParameterDecoratorsEnabled": true } }
-    },
-    {
-      // Test files: relax type-unsafe / any-class rules where fixtures & mocks make
-      // them noise, but KEEP unused-vars and import hygiene (recommended set stays on).
-      "includes": ["**/*.test.ts", "**/*.spec.ts", "**/*.test.mts", "**/*.spec.mts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noExplicitAny": "off"
-          },
-          "nursery": {
-            "noFloatingPromises": "off",
-            "noMisusedPromises": "off"
-          }
-        }
-      }
-    }
-  ]
+  }
 }
