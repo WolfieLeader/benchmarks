@@ -3,8 +3,10 @@ package orchestrator
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,18 +19,20 @@ import (
 )
 
 type Orchestrator struct {
-	cfg       *config.Config
-	servers   []*config.ResolvedServer
-	compose   *database.ComposeManager
-	writer    *summary.Writer
-	databases []string
-	influx    *influx.Client
-	runId     string
+	cfg            *config.Config
+	servers        []*config.ResolvedServer
+	compose        *database.ComposeManager
+	writer         *summary.Writer
+	databases      []string
+	influx         *influx.Client
+	runId          string
+	noMetrics      bool
+	exportFailures []string
 }
 
 const cleanupTimeout = 30 * time.Second
 
-func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, resultsDir string) *Orchestrator {
+func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, resultsDir string, noMetrics bool) *Orchestrator {
 	return &Orchestrator{
 		cfg:       cfg,
 		servers:   servers,
@@ -36,6 +40,7 @@ func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, results
 		writer:    summary.NewWriter(&cfg.Benchmark, resultsDir),
 		databases: cfg.Databases,
 		runId:     influx.RunId(time.Now()),
+		noMetrics: noMetrics,
 	}
 }
 
@@ -52,13 +57,16 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	}
 	cli.Successf("Grafana stack started")
 
-	o.influx = influx.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
-	if o.influx != nil {
-		defer func() {
-			o.influx.Wait()
-			o.influx.Close()
-		}()
-		o.influx.WriteRunMeta(o.runId, o.cfg.Benchmark.SampleRatePct) //nolint:contextcheck // uses stored context from Client
+	if o.noMetrics {
+		cli.Warnf("Metrics disabled (--no-metrics): results JSON is still written, no metrics exported")
+	} else {
+		client, err := influx.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
+		if err != nil {
+			o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
+			return fmt.Errorf("metrics DB unreachable (pass --no-metrics to run without it): %w", err)
+		}
+		o.influx = client
+		defer o.influx.Close()
 	}
 
 	cli.Infof("Starting database stack...")
@@ -77,9 +85,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 
 	interrupted := o.runBenchmarkLoop(ctx)
 
-	if o.influx != nil {
-		o.influx.Wait()
-	}
+	flushErr := o.finalizeMetrics() //nolint:contextcheck // uses stored context from Client
 
 	o.cleanupDatabases() //nolint:contextcheck // cleanup uses fresh context
 
@@ -97,7 +103,47 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
 	}
 
-	return nil
+	// Surface dropped/failed exports as a non-zero exit AFTER results have printed.
+	return o.runFailure(flushErr)
+}
+
+// finalizeMetrics drains outstanding async writes, records the run_meta row with
+// the accounting counters, prints the accounting, and returns any flush failure.
+func (o *Orchestrator) finalizeMetrics() error {
+	if o.influx == nil {
+		return nil
+	}
+
+	flushErr := o.influx.Wait()
+	// A canceled run_meta write means the run was interrupted, not that metrics
+	// were dropped — cancellation is excluded from the no-silent-drop failure.
+	if err := o.influx.WriteRunMeta(o.runId, o.cfg.Benchmark.SampleRatePct); err != nil && flushErr == nil && !errors.Is(err, context.Canceled) {
+		flushErr = err
+	}
+
+	acct := o.influx.Accounting()
+	cli.Section("Metrics accounting")
+	cli.KeyValue("Points written", strconv.FormatInt(acct.PointsWritten, 10))
+	cli.KeyValue("Points dropped", strconv.FormatInt(acct.PointsDropped, 10))
+	cli.KeyValue("Points sampled out", strconv.FormatInt(acct.PointsSampledOut, 10))
+
+	return flushErr
+}
+
+// runFailure combines the no-silent-drop failure modes into a single run error so
+// the process exits non-zero while the in-memory results still print.
+func (o *Orchestrator) runFailure(flushErr error) error {
+	var msgs []string
+	if len(o.exportFailures) > 0 {
+		msgs = append(msgs, "failed to export results for: "+strings.Join(o.exportFailures, ", "))
+	}
+	if flushErr != nil {
+		msgs = append(msgs, flushErr.Error())
+	}
+	if len(msgs) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(msgs, "; "))
 }
 
 func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) {
@@ -119,6 +165,7 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 			cli.Infof("Exported: %s", path)
 		} else {
 			cli.Failf("Failed to export %s results: %v", server.Name, err)
+			o.exportFailures = append(o.exportFailures, server.Name)
 		}
 
 		if o.influx != nil {

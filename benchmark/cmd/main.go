@@ -67,7 +67,8 @@ func run() int {
 
 	repoRoot := ".."
 	resultsDir := filepath.Join(repoRoot, "results", time.Now().UTC().Format("20060102-150405"))
-	orch := orchestrator.New(cfg, resolvedServers, repoRoot, resultsDir)
+	noMetrics := cliOpts != nil && cliOpts.NoMetrics
+	orch := orchestrator.New(cfg, resolvedServers, repoRoot, resultsDir, noMetrics)
 
 	if err := orch.Run(ctx); err != nil {
 		cli.Failf("Benchmark failed: %v", err)

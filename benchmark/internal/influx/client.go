@@ -3,8 +3,10 @@ package influx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/influxdb3"
@@ -13,12 +15,19 @@ import (
 )
 
 type Client struct {
-	client     *influxdb3.Client
-	database   string
-	ctx        context.Context
-	timeout    time.Duration
-	sampleRate float64
-	wg         sync.WaitGroup
+	client        *influxdb3.Client
+	database      string
+	ctx           context.Context
+	timeout       time.Duration
+	flushDeadline time.Duration
+	sampleRate    float64
+	wg            sync.WaitGroup
+
+	// Run-level accounting (§7.2). Written into run_meta and printed in the
+	// final summary; low-frequency increments, so atomics are cheap here.
+	pointsWritten atomic.Int64 // points confirmed written to the metrics DB
+	pointsDropped atomic.Int64 // points lost to write failures after retries
+	pointsSampled atomic.Int64 // points intentionally skipped by 10% sampling
 }
 
 const (
@@ -27,11 +36,25 @@ const (
 	DefaultToken        = "benchmark-token"
 	DefaultSampleRate   = 0.1
 	defaultWriteTimeout = 15 * time.Second
+
+	// A write is retried on transient failure before its points are counted as
+	// dropped; Wait bounds the final drain so a wedged metrics DB can't hang the run.
+	maxWriteAttempts     = 3
+	writeBackoff         = 200 * time.Millisecond
+	defaultFlushDeadline = 60 * time.Second
 )
 
-func waitToBeReady(ctx context.Context) error {
-	healthUrl := DefaultUrl + "/health"
-	deadline := time.Now().Add(30 * time.Second)
+// Overridable in tests; the health poll must stay slow enough for a real
+// metrics container to come up in production.
+var (
+	healthPollTimeout  = 30 * time.Second
+	healthPollInterval = 2 * time.Second
+)
+
+func waitToBeReady(ctx context.Context, host string) error {
+	healthUrl := host + "/health"
+	deadline := time.Now().Add(healthPollTimeout)
+	var lastErr error
 
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
@@ -42,48 +65,57 @@ func waitToBeReady(ctx context.Context) error {
 		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, healthUrl, http.NoBody)
 		if err != nil {
 			cancel()
-			time.Sleep(2 * time.Second)
-			continue
+			return fmt.Errorf("build metrics health request: %w", err)
 		}
 
 		resp, err := http.DefaultClient.Do(req)
 		cancel()
-
 		if err == nil {
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				break
+				return nil
 			}
+			lastErr = fmt.Errorf("metrics health check returned status %d", resp.StatusCode)
+		} else {
+			lastErr = err
 		}
 
-		if time.Now().Add(2 * time.Second).After(deadline) {
-			cli.Warnf("InfluxDB not available at %s, metrics export disabled", DefaultUrl)
-			return errors.New("influxdb not available, metrics export disabled")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(healthPollInterval):
 		}
-
-		time.Sleep(2 * time.Second)
 	}
-	return nil
+
+	if lastErr == nil {
+		lastErr = errors.New("timed out")
+	}
+	return fmt.Errorf("metrics DB not ready at %s after %s: %w", host, healthPollTimeout, lastErr)
+}
+
+// NewClient connects to the metrics DB, returning an error when it is
+// unreachable so the caller can fail the run (§7.2 — no silent metrics loss).
+func NewClient(ctx context.Context, sampleRate float64) (*Client, error) {
+	return newClient(ctx, DefaultUrl, DefaultToken, DefaultDatabase, sampleRate)
 }
 
 //nolint:contextcheck // context is stored in Client for use in async write operations
-func NewClient(ctx context.Context, sampleRate float64) *Client {
+func newClient(ctx context.Context, host, token, database string, sampleRate float64) (*Client, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	if err := waitToBeReady(ctx); err != nil {
-		return nil
+	if err := waitToBeReady(ctx, host); err != nil {
+		return nil, err
 	}
 
 	client, err := influxdb3.New(influxdb3.ClientConfig{
-		Host:     DefaultUrl,
-		Token:    DefaultToken,
-		Database: DefaultDatabase,
+		Host:     host,
+		Token:    token,
+		Database: database,
 	})
 	if err != nil {
-		cli.Warnf("Failed to create InfluxDB client: %v", err)
-		return nil
+		return nil, fmt.Errorf("create metrics client: %w", err)
 	}
 
 	if sampleRate <= 0 || sampleRate > 1 {
@@ -91,12 +123,13 @@ func NewClient(ctx context.Context, sampleRate float64) *Client {
 	}
 
 	return &Client{
-		client:     client,
-		database:   DefaultDatabase,
-		ctx:        ctx,
-		timeout:    defaultWriteTimeout,
-		sampleRate: sampleRate,
-	}
+		client:        client,
+		database:      database,
+		ctx:           ctx,
+		timeout:       defaultWriteTimeout,
+		flushDeadline: defaultFlushDeadline,
+		sampleRate:    sampleRate,
+	}, nil
 }
 
 func (c *Client) Close() {
@@ -104,7 +137,7 @@ func (c *Client) Close() {
 		return
 	}
 	if err := c.client.Close(); err != nil {
-		cli.Warnf("Failed to close InfluxDB client: %v", err)
+		cli.Warnf("Failed to close metrics client: %v", err)
 	}
 }
 
@@ -114,32 +147,55 @@ func (c *Client) WritePoint(measurement string, tags map[string]string, fields m
 	}
 
 	p := influxdb3.NewPoint(measurement, tags, fields, ts)
-	c.writePoints([]*influxdb3.Point{p})
+	_ = c.writePoints([]*influxdb3.Point{p})
 }
 
-func (c *Client) writePoints(points []*influxdb3.Point) {
+// writePoints writes a batch with bounded retry. Parent-context cancellation is a
+// clean stop (not counted); exhausting the retries counts the batch as dropped and
+// returns an error so the failure is surfaced by the final flush.
+func (c *Client) writePoints(points []*influxdb3.Point) error {
 	if c == nil || len(points) == 0 {
-		return
+		return nil
 	}
 
 	if c.ctx.Err() != nil {
-		return
+		return c.ctx.Err()
 	}
 
-	ctx := c.ctx
-	if c.timeout > 0 {
+	var lastErr error
+	for attempt := 1; attempt <= maxWriteAttempts; attempt++ {
+		writeCtx := c.ctx
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.timeout)
-		defer cancel()
+		if c.timeout > 0 {
+			writeCtx, cancel = context.WithTimeout(c.ctx, c.timeout)
+		}
+		err := c.client.WritePoints(writeCtx, points)
+		if cancel != nil {
+			cancel()
+		}
+		if err == nil {
+			c.pointsWritten.Add(int64(len(points)))
+			return nil
+		}
+
+		// Parent cancellation (interrupt/shutdown) is a clean stop, not a drop.
+		if c.ctx.Err() != nil {
+			return c.ctx.Err()
+		}
+
+		lastErr = err
+		if attempt < maxWriteAttempts {
+			select {
+			case <-c.ctx.Done():
+				return c.ctx.Err()
+			case <-time.After(writeBackoff * time.Duration(attempt)):
+			}
+		}
 	}
 
-	if err := c.client.WritePoints(ctx, points); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return
-		}
-		cli.Warnf("InfluxDB write error (%d points): %v", len(points), err)
-		return
-	}
+	c.pointsDropped.Add(int64(len(points)))
+	cli.Failf("Metrics write failed after %d attempts (%d points dropped): %v", maxWriteAttempts, len(points), lastErr)
+	return fmt.Errorf("metrics write failed after %d attempts: %w", maxWriteAttempts, lastErr)
 }
 
 func (c *Client) writePointsAsync(points []*influxdb3.Point) {
@@ -151,15 +207,40 @@ func (c *Client) writePointsAsync(points []*influxdb3.Point) {
 	copy(pointsCopy, points)
 
 	c.wg.Go(func() {
-		c.writePoints(pointsCopy)
+		// Error is recorded via the drop counter and surfaced by Wait.
+		_ = c.writePoints(pointsCopy)
 	})
 }
 
-func (c *Client) Wait() {
+// Wait is the deadline-bounded final flush: it drains outstanding async writes and
+// returns an error if the drain overruns the deadline or any point was dropped, so
+// the orchestrator can fail the run instead of silently losing metrics (§7.2).
+func (c *Client) Wait() error {
 	if c == nil {
-		return
+		return nil
 	}
-	c.wg.Wait()
+
+	done := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(done)
+	}()
+
+	deadline := c.flushDeadline
+	if deadline <= 0 {
+		deadline = defaultFlushDeadline
+	}
+
+	select {
+	case <-done:
+	case <-time.After(deadline):
+		return fmt.Errorf("metrics final flush exceeded %s deadline", deadline)
+	}
+
+	if n := c.pointsDropped.Load(); n > 0 {
+		return fmt.Errorf("metrics flush dropped %d point(s) after retries", n)
+	}
+	return nil
 }
 
 func RunId(t time.Time) string {

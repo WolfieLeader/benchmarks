@@ -12,6 +12,7 @@ import (
 type Options struct {
 	Servers      []string // empty means all servers
 	Conformance  bool     // run the contract suite instead of the benchmark
+	NoMetrics    bool     // run without the metrics DB (results JSON still written)
 	BaseURL      string   // base URL for conformance runs
 	ContractDir  string   // contract cases directory for conformance runs
 	TestFilesDir string   // upload fixtures directory for conformance runs
@@ -160,6 +161,9 @@ func ParseFlags(args []string) (*Options, error) {
 		case arg == "--conformance":
 			opts.Conformance = true
 			hasExplicitFlags = true
+		case arg == "--no-metrics":
+			opts.NoMetrics = true
+			hasExplicitFlags = true
 		case strings.HasPrefix(arg, "--base-url="):
 			opts.BaseURL = strings.TrimSpace(strings.TrimPrefix(arg, "--base-url="))
 			hasExplicitFlags = true
@@ -194,6 +198,7 @@ func printHelp() {
 Options:
   --servers=a,b,c    Only benchmark specific servers (comma-separated)
   --conformance      Run the contract conformance suite instead of the benchmark
+  --no-metrics       Run without the metrics DB (results JSON still written)
   --base-url=URL     Base URL for --conformance (default http://localhost:8080)
   --contract-dir=DIR Contract cases directory for --conformance (default ../contract)
   --test-files-dir=DIR Upload fixtures directory for --conformance (default ../contract/test-files)
