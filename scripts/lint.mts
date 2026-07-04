@@ -23,6 +23,8 @@ function lintCmd(s: Server): string {
       return "uv run ruff check .";
     case "zig":
       return "zig build"; // the compiler is the linter (PLAN §3)
+    case "cargo":
+      return "cargo clippy -- -D warnings"; // check-only, like the Go/Python linters
     case "root":
       return "pnpm run lint"; // prettier --check
   }

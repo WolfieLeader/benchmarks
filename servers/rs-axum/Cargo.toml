@@ -1,0 +1,49 @@
+[package]
+name = "rs-axum"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.8.9"
+dotenvy = "0.15.7"
+form_urlencoded = "1.2.2"
+futures-util = { version = "0.3.32", default-features = false }
+multer = "3.1.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+shared = { version = "0.1.0", path = "../../shared/rust" }
+tokio = { version = "1.52.3", features = ["full"] }
+tower-http = { version = "0.7.0", features = ["trace"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+# Throughput-tuned release profile for the benchmark artifact (guide rule 50).
+# NOTE: never set `panic = "abort"` — it removes unwinding, so tokio can no
+# longer isolate a per-task handler panic and one bad request would abort the
+# whole process mid-run. Keep the default unwind strategy. Identical to rs-actix.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+# Strictness floor for new Rust code (repo canon, task #21). Duplicated verbatim
+# from shared/rust/Cargo.toml — there is no cargo workspace (PLAN §3 uses path
+# deps), so each crate carries its own lint table. `just verify` runs
+# `cargo clippy -- -D warnings`, promoting every remaining warn to a hard error.
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Handler modules (routes::db, routes::params) intentionally echo their concern.
+module_name_repetitions = "allow"
+# Binary crate, not a published API: rustdoc error/panic/must-use sections would
+# be ceremony with no reader.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+# `Repositories::connect` is a large future (the cassandra session build), but it
+# is awaited exactly once at startup — boxing it only adds a heap allocation with
+# no hot-path benefit.
+large_futures = "allow"

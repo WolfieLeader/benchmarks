@@ -41,8 +41,15 @@ process.env.GOTOOLCHAIN ??= "go1.27rc1";
 // env and threading a Go-only PATH through would ripple across all callers. The
 // only ~/go/bin binaries in play are Go tools, so the wider scope is inert here.
 process.env.PATH = `${join(homedir(), "go", "bin")}:${process.env.PATH ?? ""}`;
+// Rust toolchain pin (PLAN §0.1): the Homebrew `rustup` formula is keg-only and
+// there is NO `~/.cargo/bin`, so the `cargo`/`rustc`/`rustfmt`/`cargo-clippy`
+// proxies live only in /opt/homebrew/opt/rustup/bin. Prepend it (when present)
+// so every cargo command these scripts spawn resolves without relying on the
+// dev's shell profile. Inert on Linux/CI where the dir does not exist.
+const rustupBin = "/opt/homebrew/opt/rustup/bin";
+if (existsSync(rustupBin)) process.env.PATH = `${rustupBin}:${process.env.PATH ?? ""}`;
 
-export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "root";
+export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "cargo" | "root";
 
 export type Server = {
   name: string; // CLI target key (e.g. "ts-express", "go-chi")
@@ -58,14 +65,23 @@ export type Server = {
 // Manifest runtime -> toolchain family, and family -> dev command. These are the
 // only manifest-derived mappings the scripts need; everything else on a discovered
 // row (name/dir/image/port) comes straight from bench.json.
-const RUNTIME_ECO: Record<string, Eco> = { node: "pnpm", bun: "bun", deno: "deno", go: "go", python: "uv", zig: "zig" };
+const RUNTIME_ECO: Record<string, Eco> = {
+  node: "pnpm",
+  bun: "bun",
+  deno: "deno",
+  go: "go",
+  python: "uv",
+  zig: "zig",
+  rust: "cargo"
+};
 const ECO_DEV: Partial<Record<Eco, string>> = {
   pnpm: "pnpm run dev",
   bun: "bun run dev",
   deno: "deno task dev",
   go: "air",
   uv: "uv run python -m src.main",
-  zig: "zig build run"
+  zig: "zig build run",
+  cargo: "cargo run"
 };
 
 type Manifest = {
