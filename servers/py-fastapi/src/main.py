@@ -41,6 +41,8 @@ async def body_size_limit_middleware(request: Request, call_next):
     # Global request-body cap so no route can read an unbounded body. The file
     # route enforces its own smaller 1MB limit; a body under this global cap
     # still reaches that check and returns its own 413.
+    # NOTE: the cap only inspects Content-Length — a chunked request without
+    # that header bypasses it (accepted asymmetry vs the byte-counting caps).
     content_length = request.headers.get("content-length")
     if content_length is not None:
         try:
