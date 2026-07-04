@@ -256,7 +256,7 @@ mongodb Rust driver `max_pool_size` default 10; redis `ConnectionManager` is mul
     pre-warmed and identical to peers. **Escalation point:** "50 connections" is unambiguous for
     Postgres, but redis-rs's recommended path is a _single multiplexed_ connection (no pool), and
     Cassandra/Mongo pool _per node_. The lane MUST escalate how "pool = 50" maps onto multiplexed/
-    per-node drivers rather than silently choosing (see rules 37–40). Source: repo CLAUDE.md fairness
+    per-node drivers rather than silently choosing (see rules 43–46). Source: repo CLAUDE.md fairness
     canon; sqlx `PoolOptions`, mongodb `ClientOptions`, redis docs.
 
 34. **Gate logging on `ENV=prod` — structured `tracing`, off in prod.** Initialize `tracing-subscriber`
