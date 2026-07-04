@@ -4,7 +4,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo import ReturnDocument
 
-from src.database.types import CreateUser, UpdateUser, User, build_user
+from bench_shared.schemas import CreateUser, UpdateUser, User, build_user
 
 
 class MongoUserRepository:

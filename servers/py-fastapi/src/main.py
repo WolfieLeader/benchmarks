@@ -9,9 +9,9 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
-from src.config.env import env
-from src.consts.defaults import MAX_REQUEST_BYTES
-from src.consts.errors import REQUEST_TOO_LARGE, make_error
+from bench_shared.consts import MAX_REQUEST_BYTES
+from bench_shared.env import env
+from bench_shared.errors import REQUEST_TOO_LARGE, make_error
 from src.database.repository import (
     disconnect_databases,
     initialize_databases,

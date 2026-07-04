@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Literal, Protocol
 
-from src.config.env import env
-from src.database.types import CreateUser, UpdateUser, User
+from bench_shared.env import env
+from bench_shared.schemas import CreateUser, UpdateUser, User
 
 DatabaseType = Literal["postgres", "mongodb", "redis", "cassandra"]
 DATABASE_TYPES: list[DatabaseType] = ["postgres", "mongodb", "redis", "cassandra"]

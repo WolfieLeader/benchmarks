@@ -6,7 +6,7 @@ from typing import Any
 
 import redis.asyncio as aioredis
 
-from src.database.types import CreateUser, UpdateUser, User, build_user
+from bench_shared.schemas import CreateUser, UpdateUser, User, build_user
 
 
 def _decode(value: bytes | str) -> str:

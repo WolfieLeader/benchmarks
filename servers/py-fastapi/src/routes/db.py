@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response
 
-from src.consts.errors import INTERNAL_ERROR, NOT_FOUND, make_error
+from bench_shared.errors import INTERNAL_ERROR, NOT_FOUND, make_error
+from bench_shared.schemas import CreateUser, UpdateUser
+
 from src.database.repository import UserRepository, resolve_repository
-from src.database.types import CreateUser, UpdateUser
 
 db_router = APIRouter()
 
