@@ -35,6 +35,7 @@ const CONFIGS = [
   "servers/go-chi/.golangci.json",
   "servers/go-gin/.golangci.json",
   "servers/go-fiber/.golangci.json",
+  "servers/go-echo/.golangci.json",
   "benchmark/.golangci.json",
   "shared/go/.golangci.json"
 ] as const;
@@ -55,6 +56,7 @@ const DEVIATIONS: Deviation[] = [
       "servers/go-chi/.golangci.json": "chi-server",
       "servers/go-gin/.golangci.json": "gin-server",
       "servers/go-fiber/.golangci.json": "fiber-server",
+      "servers/go-echo/.golangci.json": "echo-server",
       "benchmark/.golangci.json": "benchmark-client",
       "shared/go/.golangci.json": "shared"
     },

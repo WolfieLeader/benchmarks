@@ -1,0 +1,11 @@
+{
+  "$schema": "../../config/bench.schema.json",
+  "name": "go-echo",
+  "language": "go",
+  "runtime": "go",
+  "image": "bench/go-echo",
+  "port": 5005,
+  "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "experimental": false,
+  "dev_port": 5005
+}
