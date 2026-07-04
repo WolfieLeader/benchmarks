@@ -1,0 +1,129 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  // Per-project FULL-COPY config, Go-style: every Biome-linted TS project owns a
+  // complete standalone biome.jsonc — exactly like each Go module owns a full
+  // .golangci.json copy. There is NO root/consolidated Biome config and NO
+  // extends chain (PLAN §11.1 law 2: root shared files are lane contention for
+  // parallel worktrees; servers stay standalone reference islands). The identical
+  // ladder is kept in sync by scripts/biome-sync-check.mts, which fails the `root`
+  // verify target on any unexplained drift between copies. ts-deno-oak is not a
+  // Biome target (it uses `deno lint`/`deno fmt`).
+  "files": {
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**"]
+  },
+  "linter": {
+    "enabled": true,
+    // Strict floor: activate the full type-aware (`types`) and project-graph
+    // (`project`) domains, then promote the load-bearing rules to error below and
+    // subtract noise by name. Enabling a domain is what turns on Biome's type
+    // inference / module-graph scanner in the first place.
+    "domains": { "types": "all", "project": "all" },
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noUselessStringConcat": "error",
+        "noImplicitCoercions": "error"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "warn",
+        "noUndeclaredDependencies": "error",
+        "noPrivateImports": "error",
+        // OFF (subtract-by-name): the Node servers use the NodeNext convention of
+        // `.js` specifiers that point at the emitted output of a `.ts` source
+        // (typescript.md rule 9). useImportExtensions misreads this — it resolves
+        // `./routes/db.js` to `db.ts` and "fixes" the specifier to `.ts`, which
+        // breaks Node's ESM loader at runtime. Bun servers use extensionless
+        // imports (their idiom) and Deno is excluded, so the rule is apt nowhere
+        // in this repo. tsc + each runtime's own resolution are the real gates.
+        "useImportExtensions": "off",
+        // OFF (subtract-by-name): Biome's bundled type definitions for the `bun`
+        // module don't model its named exports `randomUUIDv7` / `RedisClient`
+        // (used by ts-bun-elysia / ts-bun-honojs), so Biome reports those valid
+        // imports as unresolved. `@bench/shared` and JSR specifiers resolve fine.
+        // Each runtime's own type-check (tsc / bunx tsc --noEmit / deno check) is
+        // the real resolution gate.
+        "noUnresolvedImports": "off"
+      },
+      "suspicious": {
+        "noDoubleEquals": "error",
+        "noImportCycles": "error",
+        // OFF (subtract-by-name): Biome 2.5's local type inference does not model
+        // optional zod-inferred properties (`data.email?: string`) or boolean flags
+        // mutated across async methods (`this.connected`), so it flags legitimate
+        // `!== undefined` / truthiness guards as "always known". tsc --strict (the
+        // real type gate) does NOT flag these. Re-enable when Biome's inference
+        // models optionality + flow-through-assignment. Verified false-positive on
+        // shared/typescript/src/index.ts lines 200/255/299/392/461/506.
+        "noUnnecessaryConditions": "off"
+      },
+      "style": {
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error",
+        "noCommonJs": "error",
+        "noEnum": "error",
+        // Bans raw process.env everywhere; the one sanctioned read (zEnv.parse in
+        // @bench/shared) carries an inline biome-ignore. Every other module imports
+        // the parsed `env` object from @bench/shared.
+        "noProcessEnv": "error",
+        "noYodaExpression": "error",
+        "useCollapsedElseIf": "error",
+        "useConst": "error",
+        "useTrimStartEnd": "error",
+        "useTemplate": "warn",
+        // Consistent type-only imports (drops runtime loads under isolatedModules).
+        "useImportType": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["../../**"],
+                "message": "Deep relative imports (../../ and beyond) are banned. Import shared infrastructure from the @bench/shared workspace package instead."
+              }
+            ]
+          }
+        }
+      },
+      "nursery": {
+        // Type-aware (`types` domain) rules, promoted to error to actually gate CI
+        // (`biome lint` only fails on errors, not warns/info).
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useAwaitThenable": "error",
+        "useExhaustiveSwitchCases": "error"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "lineEnding": "auto"
+  },
+  "javascript": {
+    // PER-PROJECT DEVIATION (allowlisted in scripts/biome-sync-check.mts): NestJS
+    // relies on parameter decorators (@Param(), @Body(), …); Biome must be told to
+    // parse them. This is the ONLY key that legitimately differs from the other
+    // full-copy biome.jsonc files.
+    "parser": { "unsafeParameterDecoratorsEnabled": true },
+    "formatter": {
+      "bracketSameLine": true,
+      "bracketSpacing": true,
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "none"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  }
+}

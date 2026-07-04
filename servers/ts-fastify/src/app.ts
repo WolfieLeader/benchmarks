@@ -1,7 +1,7 @@
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
-import fastify, { type FastifyError, type FastifyInstance, type FastifyRequest } from "fastify";
+import fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import {
   env,
   FILE_SIZE_EXCEEDS,
@@ -15,8 +15,6 @@ import {
 } from "@bench/shared";
 import { dbRoutes } from "./routes/db.js";
 import { paramsRoutes } from "./routes/params.js";
-
-export type FormFields = Record<string, string>;
 
 export async function createApp(): Promise<FastifyInstance> {
   const app = fastify({ logger: false, bodyLimit: MAX_REQUEST_BYTES });
@@ -87,28 +85,4 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(dbRoutes, { prefix: "/db" });
 
   return app;
-}
-
-export async function collectFormFields(request: FastifyRequest): Promise<FormFields> {
-  if (request.isMultipart()) {
-    const fields: FormFields = {};
-    const parts = request.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        part.file.resume();
-        continue;
-      }
-      fields[part.fieldname] = part.value as string;
-    }
-    return fields;
-  }
-
-  const body = (request.body ?? {}) as Record<string, unknown>;
-  const fields: FormFields = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (typeof value === "string") {
-      fields[key] = value;
-    }
-  }
-  return fields;
 }

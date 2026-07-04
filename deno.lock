@@ -73,6 +73,7 @@
         "npm:@biomejs/biome@^2.5.2",
         "npm:ajv-formats@^3.0.1",
         "npm:ajv@^8.20.0",
+        "npm:knip@^6.24.0",
         "npm:path-to-regexp@^6.3.0",
         "npm:prettier@3.9.4"
       ]

@@ -21,4 +21,4 @@ async function main() {
   process.on("SIGINT", shutdown);
 }
 
-main();
+void main();

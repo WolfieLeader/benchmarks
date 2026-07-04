@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "format": "prettier --write \"**/*.md\" \"config/**/*.json\" \"infra/grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
-    "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"infra/grafana/**/*.{json,yml}\" \"infra/**/*.yml\""
+    "lint": "prettier --check \"**/*.md\" \"config/**/*.json\" \"infra/grafana/**/*.{json,yml}\" \"infra/**/*.yml\"",
+    "knip": "knip"
   },
   "dependencies": {
     "path-to-regexp": "^6.3.0"
@@ -12,8 +13,17 @@
     "@biomejs/biome": "^2.5.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "knip": "^6.24.0",
     "prettier": "3.9.4"
   },
   "packageManager": "pnpm@11.9.0",
-  "workspaces": ["shared/typescript", "servers/ts-express", "servers/ts-fastify", "servers/ts-nestjs", "servers/ts-bun-elysia", "servers/ts-bun-honojs", "servers/ts-deno-oak"]
+  "workspaces": [
+    "shared/typescript",
+    "servers/ts-express",
+    "servers/ts-fastify",
+    "servers/ts-nestjs",
+    "servers/ts-bun-elysia",
+    "servers/ts-bun-honojs",
+    "servers/ts-deno-oak"
+  ]
 }

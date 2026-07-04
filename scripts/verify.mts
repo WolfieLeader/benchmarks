@@ -112,6 +112,20 @@ if (!only && targets.some((s) => s.eco === "root")) {
     name: "check-config",
     steps: [{ label: "check-config", cmd: "node scripts/check-config.mts", cwd: repoRoot }]
   });
+  // The per-project full-copy biome.jsonc files (Go-style, no root config) must
+  // not silently drift apart — this repo-wide gate structurally compares them
+  // against an allowlist of known per-project deviations. Runs alongside
+  // check-config whenever the root target is in scope.
+  jobs.push({
+    name: "biome-sync",
+    steps: [{ label: "biome-sync", cmd: "node scripts/biome-sync-check.mts", cwd: repoRoot }]
+  });
+  // Dead exports/deps across the workspace (knip.json holds the rationale for
+  // why this runs at the root: cross-package visibility into @bench/shared).
+  jobs.push({
+    name: "knip",
+    steps: [{ label: "knip", cmd: "pnpm exec knip", cwd: repoRoot }]
+  });
 }
 
 const results = await runJobs(jobs);
