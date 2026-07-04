@@ -1,5 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Knip stays a single workspace-ROOT run (not per-package) on purpose: unused-
+  // export analysis for @bench/shared needs cross-package visibility — a
+  // per-package knip inside shared/typescript sees no consumers and would flag
+  // every exported symbol as dead. The pnpm workspace root is the only vantage
+  // point with the whole import graph. (Biome configs went per-project full-copy;
+  // knip cannot, for this reason.)
   "ignoreWorkspaces": ["servers/ts-deno-oak"],
   "workspaces": {
     ".": {
