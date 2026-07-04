@@ -27,7 +27,7 @@ func (app *App) Start() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		fmt.Printf("Gin Server development: http://%s\n\n", server.Addr)
+		log.Printf("Gin Server development: http://%s", server.Addr)
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err

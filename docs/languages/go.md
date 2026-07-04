@@ -396,6 +396,76 @@ HTTP client/server is #81 (Standard Library); false sharing #92 and allocation/`
 
 ---
 
+## 8. Lint ladder & boundary rules (golangci-lint)
+
+Every Go module carries a **full-copy `.golangci.json`** (no shared base / no
+`extends`; five copies today: `servers/go-{chi,gin,fiber}`, `benchmark`,
+`shared/go`). They must stay byte-identical except for allowlisted per-module
+deviations — `scripts/golangci-sync-check.mts` is the drift gate (wired into
+`just verify` via the root target, mirroring `biome-sync-check.mts`). The only
+legitimate deviations are (a) `formatters.settings.gofumpt.module-path` (each
+module's own import path) and (b) the `linters.exclusions` that scope the
+boundary rules below. **JSON configs can't hold comments — the rationale for
+every enabled/skipped linter lives here.**
+
+Philosophy: strictest type-aware floor, then subtract BY NAME with a one-line
+reason; one rule per concern; no destructive autofixers; boundaries mechanical
+with the replacement named in the message.
+
+**Type-aware rules added (Stage 2):**
+
+- **`exhaustive`** (`default-signifies-exhaustive: false`, `check: ["switch"]`) —
+  the canon's #1 type-aware rule: every `switch` over a named const-set/`iota`
+  enum must handle all members. `false` (a `default` clause does NOT excuse a
+  missing member) is chosen deliberately: the repo's canonical enum switch
+  (`shared/go/database/repository.go`, `switch database DatabaseType`) already
+  enumerates all four members explicitly and uses `default` only as a defensive
+  fallback for the arbitrary-string→`DatabaseType` conversion path — so strict
+  mode catches real gaps without forcing suppressions. It surfaced one real gap
+  (`benchmark/internal/client/request.go` omitted `RequestTypeNone`), fixed by
+  adding the explicit empty case. Type switches (`x.(type)`) and tagless
+  `switch {}` are unaffected.
+- **`iface`** — interface-pollution detector (identical/unused/opaque). Enabled;
+  zero findings across all five modules (the multi-impl `UserRepository` is a
+  real seam, not pollution). Reinforces rule 6 mechanically.
+- **`embeddedstructfieldcheck`** — embedded fields at the top of the struct +
+  blank-line separation. Cheap hygiene; zero findings.
+
+**Skipped (evidence-based, revisit if the premise changes):**
+
+- **`nilnil`** — SKIPPED. The repo deliberately uses `(nil, nil)` as the
+  "absent / not-found" signal, uniformly: the repository layer across all four DB
+  backends (`FindById` → `(nil, nil)` on not-found, handler maps to 404) and CLI
+  flag/file parsing (`ParseFlags`, `loadFile`). Callers nil-check the value
+  (`main.go`: `if cliOpts != nil`). `nilnil` fundamentally opposes this house
+  idiom and would need scattered per-return suppressions that every new backend
+  re-hits — a wholesale fight, not a targeted subtraction. Revisit only if the
+  repo migrates to sentinel not-found errors (`ErrUserNotFound`).
+- **`testifylint`** — SKIPPED: no `stretchr/testify` anywhere (stdlib `testing`
+  only). Enable the day a module adopts testify.
+- **`gochecksumtype`** — SKIPPED: no `//sumtype:decl` interface unions in the
+  tree; nothing for it to check.
+
+**Boundary rules (`forbidigo`, `analyze-types: true`):** mechanical enforcement
+that names the replacement in the message.
+
+- `^os\.Getenv$` → "read env through the shared config package
+  (shared/go/config), not os.Getenv directly." Exempted only in
+  `shared/go/config/config.go` (the canonical env boundary) via that module's
+  `linters.exclusions`.
+- `^fmt\.Print(ln|f)?$` → "use the logger (`log/*`), not `fmt.Print*`." Exempted
+  only in `benchmark/internal/cli/` + `internal/summary/` (the client's sanctioned
+  stdout surface). This surfaced three server dev-banner `fmt.Printf` calls
+  (`internal/app/start.go`), fixed by switching them to `log.Printf` (consistent
+  with the surrounding `log.*` shutdown lines). `depguard` was not used: `os` and
+  `fmt` are needed for other calls, so an import-level ban is wrong — `forbidigo`
+  bans the identifier, not the package.
+
+Both exemptions are the allowlisted `linters.exclusions` deviations the sync
+check knows about; adding a boundary exemption anywhere else fails the gate.
+
+---
+
 ## In this repo
 
 - **All Go modules pin `go 1.27rc1`** and `scripts/lib.mts` sets `GOTOOLCHAIN=go1.27rc1`

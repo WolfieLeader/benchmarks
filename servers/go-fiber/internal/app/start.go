@@ -18,7 +18,7 @@ func (app *App) Start() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		fmt.Printf("Fiber Server development: http://%s\n\n", addr)
+		log.Printf("Fiber Server development: http://%s", addr)
 		errCh <- app.router.Listen(addr)
 	}()
 
