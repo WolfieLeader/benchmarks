@@ -77,6 +77,14 @@ function checks(s: Server): Record<CheckKind, Step | null> {
         format: st("format", "zig fmt --check src build.zig"),
         lint: null
       };
+    case "cargo":
+      // rustfmt stays at defaults (PLAN §3); clippy runs with `-D warnings` over
+      // the pedantic floor (per-crate `[lints]`), so a lone warn fails the gate.
+      return {
+        typecheck: st("typecheck", "cargo build"),
+        format: st("format", "cargo fmt --check"),
+        lint: st("lint", "cargo clippy -- -D warnings")
+      };
     case "root":
       // Root only carries prettier; its `lint` script IS the format check.
       return { typecheck: null, format: st("format", "pnpm run lint"), lint: null };

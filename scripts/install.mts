@@ -31,6 +31,8 @@ for (const s of targets) {
   else if (s.eco === "uv") jobs.push({ name: s.name, steps: [{ label: "install", cmd: "uv sync", cwd: s.dir }] });
   // Zig deps live in build.zig.zon; `--fetch` resolves them without a full build.
   else if (s.eco === "zig") jobs.push({ name: s.name, steps: [{ label: "install", cmd: "zig build --fetch", cwd: s.dir }] });
+  // Cargo deps resolve from Cargo.toml; `fetch` downloads them without building.
+  else if (s.eco === "cargo") jobs.push({ name: s.name, steps: [{ label: "install", cmd: "cargo fetch", cwd: s.dir }] });
 }
 
 const results = await runJobs(jobs);
