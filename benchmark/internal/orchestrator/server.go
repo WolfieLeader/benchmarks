@@ -79,6 +79,9 @@ func RunServerBenchmark(
 		return result, nil, nil
 	}
 
+	// Align StartTime to the suite's wall-clock base so base + ServerOffset
+	// reconstructs each request's real timestamp for the metrics writer.
+	result.StartTime = suiteOut.startTime
 	result.Complete(suiteOut.allResults())
 	result.Sequences = suiteOut.sequences
 
@@ -88,6 +91,7 @@ func RunServerBenchmark(
 // suiteOutput carries everything a suite run produces; shared by the container
 // path (RunServerBenchmark) and the external-target path (RunTarget).
 type suiteOutput struct {
+	startTime      time.Time // wall-clock base of the timed results' ServerOffset values
 	endpoints      []client.EndpointResult
 	sequences      []client.SequenceStats
 	timedResults   []client.TimedResult
@@ -132,6 +136,7 @@ func runSuite(ctx context.Context, server *config.ResolvedServer, serverUrl stri
 	sequences := suite.RunSequences() //nolint:contextcheck // context is stored in Suite struct
 
 	return &suiteOutput{
+		startTime:      suite.StartTime(),
 		endpoints:      endpoints,
 		sequences:      sequences,
 		timedResults:   suite.GetTimedResults(),

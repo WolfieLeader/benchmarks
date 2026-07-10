@@ -14,7 +14,7 @@ import (
 	"benchmark-client/internal/config"
 	"benchmark-client/internal/container"
 	"benchmark-client/internal/database"
-	"benchmark-client/internal/influx"
+	"benchmark-client/internal/metrics"
 	"benchmark-client/internal/summary"
 )
 
@@ -25,8 +25,9 @@ type Orchestrator struct {
 	writer         *summary.Writer
 	databases      []string
 	dbContainers   map[string]string // database service -> container ID, for resource sampling
-	influx         *influx.Client
+	metrics        *metrics.Client
 	runId          string
+	runStart       time.Time
 	noMetrics      bool
 	exportFailures []string
 }
@@ -34,13 +35,15 @@ type Orchestrator struct {
 const cleanupTimeout = 30 * time.Second
 
 func New(cfg *config.Config, servers []*config.ResolvedServer, repoRoot, resultsDir string, noMetrics bool) *Orchestrator {
+	runStart := time.Now()
 	return &Orchestrator{
 		cfg:       cfg,
 		servers:   servers,
 		compose:   database.NewComposeManager(repoRoot),
 		writer:    summary.NewWriter(&cfg.Benchmark, resultsDir),
 		databases: cfg.Databases,
-		runId:     influx.RunId(time.Now()),
+		runId:     metrics.RunId(runStart),
+		runStart:  runStart,
 		noMetrics: noMetrics,
 	}
 }
@@ -61,13 +64,13 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	if o.noMetrics {
 		cli.Warnf("Metrics disabled (--no-metrics): results JSON is still written, no metrics exported")
 	} else {
-		client, err := influx.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
+		client, err := metrics.NewClient(ctx, o.cfg.Benchmark.SampleRatePct)
 		if err != nil {
 			o.cleanupGrafana() //nolint:contextcheck // cleanup uses fresh context
 			return fmt.Errorf("metrics DB unreachable (pass --no-metrics to run without it): %w", err)
 		}
-		o.influx = client
-		defer o.influx.Close()
+		o.metrics = client
+		defer o.metrics.Close()
 	}
 
 	cli.Infof("Starting database stack...")
@@ -122,21 +125,21 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 	return o.runFailure(flushErr)
 }
 
-// finalizeMetrics drains outstanding async writes, records the run_meta row with
+// finalizeMetrics drains outstanding async writes, records the runs row with
 // the accounting counters, prints the accounting, and returns any flush failure.
 func (o *Orchestrator) finalizeMetrics() error {
-	if o.influx == nil {
+	if o.metrics == nil {
 		return nil
 	}
 
-	flushErr := o.influx.Wait()
-	// A canceled run_meta write means the run was interrupted, not that metrics
+	flushErr := o.metrics.Wait()
+	// A canceled runs write means the run was interrupted, not that metrics
 	// were dropped — cancellation is excluded from the no-silent-drop failure.
-	if err := o.influx.WriteRunMeta(o.runId, o.cfg.Benchmark.SampleRatePct); err != nil && flushErr == nil && !errors.Is(err, context.Canceled) {
+	if err := o.metrics.WriteRunMeta(o.runId, o.runStart, o.cfg.Benchmark.SampleRatePct); err != nil && flushErr == nil && !errors.Is(err, context.Canceled) {
 		flushErr = err
 	}
 
-	acct := o.influx.Accounting()
+	acct := o.metrics.Accounting()
 	cli.Section("Metrics accounting")
 	cli.KeyValue("Points written", strconv.FormatInt(acct.PointsWritten, 10))
 	cli.KeyValue("Points dropped", strconv.FormatInt(acct.PointsDropped, 10))
@@ -183,17 +186,18 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 			o.exportFailures = append(o.exportFailures, server.Name)
 		}
 
-		if o.influx != nil {
-			o.influx.WriteEndpointLatencies(o.runId, server.Name, timedResults)   //nolint:contextcheck // uses stored context from Client
-			o.influx.WriteSequenceLatencies(o.runId, server.Name, timedSequences) //nolint:contextcheck // uses stored context from Client
-			o.influx.WriteEndpointStats(o.runId, server.Name, result.Results)     //nolint:contextcheck // uses stored context from Client
+		if o.metrics != nil {
+			o.metrics.WriteEndpointLatencies(o.runId, server.Name, result.StartTime, timedResults)   //nolint:contextcheck // uses stored context from Client
+			o.metrics.WriteSequenceLatencies(o.runId, server.Name, result.StartTime, timedSequences) //nolint:contextcheck // uses stored context from Client
+			o.metrics.WriteEndpointStats(o.runId, server.Name, result.Results)                       //nolint:contextcheck // uses stored context from Client
+			o.metrics.WriteSequenceStats(o.runId, server.Name, result.Sequences)                     //nolint:contextcheck // uses stored context from Client
 			if result.Resources != nil {
-				o.influx.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
+				o.metrics.WriteResourceStats(o.runId, server.Name, result.Resources) //nolint:contextcheck // uses stored context from Client
 			}
 			for db, stats := range result.DbResources {
-				o.influx.WriteDbResourceStats(o.runId, server.Name, db, stats) //nolint:contextcheck // uses stored context from Client
+				o.metrics.WriteDbResourceStats(o.runId, server.Name, db, stats) //nolint:contextcheck // uses stored context from Client
 			}
-			cli.Infof("Exported metrics to InfluxDB (run: %s)", o.runId)
+			cli.Infof("Exported metrics to metrics-postgres (run: %s)", o.runId)
 		}
 
 		result.Results = nil
@@ -227,7 +231,7 @@ func (o *Orchestrator) runBenchmarkLoop(ctx context.Context) (interrupted bool) 
 
 func (o *Orchestrator) waitForUserThenStopGrafana(ctx context.Context) {
 	cli.Blank()
-	cli.Infof("Grafana is running at http://localhost:3000 (admin/123456)")
+	cli.Infof("Grafana is running at http://localhost:20090 (admin/123456)")
 	cli.Infof("Press Enter or Ctrl+C to stop Grafana and databases and exit...")
 
 	done := make(chan struct{})

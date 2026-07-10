@@ -7,7 +7,6 @@
 
 <p align="center">
   <img src="./assets/grafana.svg" alt="Grafana" height="28" style="display:inline-block; vertical-align:middle;" />
-  <img src="./assets/influxdb.svg" alt="InfluxDB" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/node.svg" alt="Node.js" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/bun.svg" alt="Bun" height="28" style="display:inline-block; vertical-align:middle;" />
   <img src="./assets/deno.svg" alt="Deno" height="28" style="display:inline-block; vertical-align:middle;" />
@@ -163,20 +162,24 @@ All servers connect to all 4 databases with the same user schema.
 
 ## Grafana 📊
 
-Metrics are exported to InfluxDB and visualized in Grafana during benchmarks.
+Metrics are exported to a dedicated metrics PostgreSQL (separate from the benchmarked postgres) and visualized in Grafana during benchmarks. Run history is durable: the metrics volume survives stack restarts, so runs can be compared across weeks.
 
-| Service | URL                   | Username | Password |
-| ------- | --------------------- | -------- | -------- |
-| Grafana | http://localhost:3000 | admin    | 123456   |
+| Service          | URL                        | Username  | Password  |
+| ---------------- | -------------------------- | --------- | --------- |
+| Grafana          | http://localhost:20090     | admin     | 123456    |
+| metrics-postgres | postgres://localhost:20091 | benchmark | benchmark |
 
 ### Exported Metrics
 
-| Measurement             | Fields                                                     | Tags                                        |
-| ----------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| `request_latency`       | latency_ns, server_offset_ms, endpoint_offset_ms           | run_id, server, endpoint, method            |
-| `sequence_latency`      | total_duration_ns, server_offset_ms, sequence_offset_ms    | run_id, server, sequence_id, database       |
-| `sequence_step_latency` | latency_ns, server_offset_ms                               | run_id, server, sequence_id, database, step |
-| `resource_stats`        | memory_min/avg/max_bytes, cpu_min/avg/max_percent, samples | run_id, server, source, database (DB only)  |
+Aggregate tables carry exact numbers computed from the full in-memory result set before any sampling; `request_events` is sampled raw drilldown only. Canonical queries live in `infra/grafana/queries/`.
+
+| Table              | Contents                                                                     | Key columns                                |
+| ------------------ | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| `runs`             | one row per run: sample rate + write accounting                              | run_id, started_at, finished_at            |
+| `endpoint_stats`   | exact per-endpoint aggregates (rps, avg/p50/p95/p99/p99.9, open-mode fields) | run_id, server, endpoint, method, source   |
+| `sequence_stats`   | exact per-sequence aggregates (full-sequence durations)                      | run_id, server, sequence_id, database      |
+| `resource_samples` | container memory/CPU min/avg/max per server run                              | run_id, server, source, database (DB only) |
+| `request_events`   | sampled raw request/sequence events with real timestamps                     | run_id, server, endpoint, source, database |
 
 ## Development 🛠️
 
@@ -205,8 +208,8 @@ just verify              # Non-mutating gate: typecheck -> format-check -> lint
 just images              # Build all Docker images
 just clean               # Remove build artifacts and node_modules
 just remove-images       # Remove Docker images
-just grafana-up          # Start Grafana/InfluxDB stack
-just grafana-down        # Stop Grafana/InfluxDB stack
+just grafana-up          # Start Grafana/metrics-postgres stack
+just grafana-down        # Stop Grafana/metrics-postgres stack (volumes are kept)
 just db-up               # Start database stack
 just db-down             # Stop database stack
 ```
