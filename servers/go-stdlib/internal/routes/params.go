@@ -1,0 +1,199 @@
+package routes
+
+import (
+	"bufio"
+	"cmp"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"errors"
+	"io"
+	"net/http"
+	"shared/consts"
+	"slices"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"stdlib-server/internal/utils"
+)
+
+// decodeOpts keeps json/v2 request decoding aligned with every other server in
+// the suite: duplicate keys take the last value (JSON.parse semantics in the
+// JS/Python stacks), where json/v2 alone would reject them by default.
+var decodeOpts = jsontext.AllowDuplicateNames(true)
+
+func RegisterParams(mux *http.ServeMux) {
+	mux.HandleFunc("GET /params/search", handleSearchParams)
+	mux.HandleFunc("GET /params/url/{dynamic}", handleUrlParams)
+	mux.HandleFunc("GET /params/header", handleHeaderParams)
+	mux.HandleFunc("POST /params/body", handleBodyParams)
+	mux.HandleFunc("GET /params/cookie", handleCookieParams)
+	mux.HandleFunc("POST /params/form", handleFormParams)
+	mux.HandleFunc("POST /params/file", handleFileParams)
+}
+
+func handleSearchParams(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	q := cmp.Or(strings.TrimSpace(query.Get("q")), "none")
+
+	limit := consts.DefaultLimit
+	limitStr := query.Get("limit")
+	if limitStr != "" && !strings.Contains(limitStr, ".") {
+		if n, err := strconv.ParseInt(limitStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			limit = int(n)
+		}
+	}
+
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"search": q, "limit": limit})
+}
+
+func handleUrlParams(w http.ResponseWriter, r *http.Request) {
+	dynamic := r.PathValue("dynamic")
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"dynamic": dynamic})
+}
+
+func handleHeaderParams(w http.ResponseWriter, r *http.Request) {
+	header := cmp.Or(strings.TrimSpace(r.Header.Get("X-Custom-Header")), "none")
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"header": header})
+}
+
+func handleBodyParams(w http.ResponseWriter, r *http.Request) {
+	var body map[string]any
+	if err := json.UnmarshalRead(r.Body, &body, decodeOpts); err != nil {
+		utils.WriteBodyError(w, err)
+		return
+	}
+	if body == nil {
+		// JSON null decodes into a nil map without error; reject it like any
+		// other non-object body.
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidJSON, "expected a JSON object")
+		return
+	}
+
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"body": body})
+}
+
+func handleCookieParams(w http.ResponseWriter, r *http.Request) {
+	cookieVal, err := r.Cookie("foo")
+
+	cookie := "none"
+	if err == nil {
+		if trimmed := strings.TrimSpace(cookieVal.Value); trimmed != "" {
+			cookie = trimmed
+		}
+	}
+
+	//nolint:gosec // G124: benchmark fixture cookie on a local HTTP-only rig; Secure/SameSite deliberately omitted for response parity across all server implementations
+	http.SetCookie(w, &http.Cookie{Name: "bar", Value: "12345", MaxAge: 10, HttpOnly: true, Path: "/"})
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"cookie": cookie})
+}
+
+func handleFormParams(w http.ResponseWriter, r *http.Request) {
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if !strings.HasPrefix(contentType, "application/x-www-form-urlencoded") && !strings.HasPrefix(contentType, "multipart/form-data") {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, consts.ErrExpectedFormContentType)
+		return
+	}
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// ParseForm does not read multipart bodies; parse them explicitly so
+		// FormValue sees the fields.
+		//nolint:gosec // G120: parsing is bounded by consts.MaxFileBytes; form fields are small
+		if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
+			utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
+			return
+		}
+	} else if err := r.ParseForm(); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidForm, err.Error())
+		return
+	}
+
+	name := cmp.Or(strings.TrimSpace(r.FormValue("name")), "none")
+
+	age := 0
+	ageStr := strings.TrimSpace(r.FormValue("age"))
+	if ageStr != "" {
+		if n, err := strconv.ParseInt(ageStr, 10, 64); err == nil && n >= -(1<<53-1) && n <= (1<<53-1) {
+			age = int(n)
+		}
+	}
+
+	utils.WriteResponse(w, http.StatusOK, map[string]any{"name": name, "age": age})
+}
+
+func handleFileParams(w http.ResponseWriter, r *http.Request) {
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, consts.ErrExpectedMultipartContentType)
+		return
+	}
+
+	//nolint:gosec // G120: parsing is bounded by consts.MaxFileBytes; total upload size is enforced explicitly below
+	if err := r.ParseMultipartForm(consts.MaxFileBytes); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "too large") {
+			utils.WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
+			return
+		}
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInvalidMultipart, err.Error())
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrFileNotFound, err.Error())
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	br := bufio.NewReader(file)
+
+	head, err := br.Peek(consts.SniffLen)
+	if err != nil && !errors.Is(err, io.EOF) {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal, err.Error())
+		return
+	}
+
+	fileContentType := fileHeader.Header.Get("Content-Type")
+	if fileContentType != "" {
+		if !strings.HasPrefix(strings.ToLower(fileContentType), "text/plain") {
+			utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+			return
+		}
+	} else {
+		if mime := http.DetectContentType(head); !strings.HasPrefix(mime, "text/plain") {
+			utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrInvalidFileType)
+			return
+		}
+	}
+
+	if slices.Contains(head, consts.NullByte) {
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
+		return
+	}
+
+	limited := io.LimitReader(br, consts.MaxFileBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, consts.ErrInternal, err.Error())
+		return
+	}
+	if int64(len(data)) > consts.MaxFileBytes {
+		utils.WriteError(w, http.StatusRequestEntityTooLarge, consts.ErrFileSizeExceeded)
+		return
+	}
+	if slices.Contains(data, consts.NullByte) {
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
+		return
+	}
+	if !utf8.Valid(data) {
+		utils.WriteError(w, http.StatusUnsupportedMediaType, consts.ErrNotPlainText)
+		return
+	}
+
+	utils.WriteResponse(w, http.StatusOK, map[string]any{
+		"filename": fileHeader.Filename,
+		"size":     len(data),
+		"content":  string(data),
+	})
+}
