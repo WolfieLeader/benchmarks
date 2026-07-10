@@ -1,28 +1,44 @@
+# Pin the compose project so bare `docker compose -f ...` invocations (justfile)
+# resolve to the SAME project — and therefore the same durable metrics-data
+# volume — as the Go client's explicit `-p benchmark-grafana`. Without this,
+# bare invocations default the project to this directory's name ("docker") and
+# create a second, empty metrics stack that collides on container names/ports.
+name: benchmark-grafana
+
 volumes:
-  influx-data:
+  metrics-data:
 
 services:
-  influxdb:
-    image: influxdb:3-core
-    container_name: benchmark-influxdb
-    user: "0:0"
+  # Dedicated metrics store (PLAN §9.1) — never the benchmarked postgres from
+  # databases.yml. It lives in this stack so it is excluded from benchmark
+  # resource sampling and outlives individual runs (durable run history; the
+  # named volume survives `docker compose down` without -v).
+  metrics-postgres:
+    image: postgres:18.4-alpine3.23
+    container_name: benchmark-metrics-postgres
     ports:
-      - "8181:8181" # HTTP API for writes and health
-      - "8082:8082" # gRPC FlightSQL for SQL queries
-    command: ["serve", "--node-id", "local", "--object-store", "file", "--data-dir", "/data", "--without-auth"]
+      - "20091:5432" # host port per PLAN §6 (2LRFF: infra block)
+    environment:
+      POSTGRES_USER: benchmark
+      POSTGRES_PASSWORD: benchmark
+      POSTGRES_DB: benchmarks
     volumes:
-      - influx-data:/data
+      # postgres 18+ images keep data in a version subdirectory under
+      # /var/lib/postgresql; mounting at the old …/data path makes the
+      # container refuse to boot on a fresh volume (docker-library/postgres#1259).
+      - metrics-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U benchmark -d benchmarks"]
+      start_period: 10s
+      interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   grafana:
     image: grafana/grafana:12.2.0
     container_name: benchmark-grafana
     ports:
-      - "3000:3000"
+      - "20090:3000" # host port per PLAN §6 (2LRFF: infra block)
     volumes:
       - ../grafana/provisioning:/etc/grafana/provisioning:ro
       - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -31,5 +47,5 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=123456
       - GF_USERS_ALLOW_SIGN_UP=false
     depends_on:
-      influxdb:
+      metrics-postgres:
         condition: service_healthy

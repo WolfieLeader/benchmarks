@@ -8,7 +8,7 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
       "description": "Servers ranked by median (P50) latency. Each bar shows P50 (solid) with P95 tail (transparent) stacked on top. Total bar height = P95. Use dropdowns to filter by endpoint or source.",
       "fieldConfig": {
         "defaults": {
@@ -185,8 +185,8 @@
       ],
       "targets": [
         {
-          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH stats AS (SELECT server, SUM(CAST(p50_ns AS DOUBLE) * count) / SUM(count) AS p50, SUM(CAST(p95_ns AS DOUBLE) * count) / SUM(count) AS p95 FROM endpoint_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}') GROUP BY server), ranked AS (SELECT server, p50, p95 - p50 AS delta, CAST(ROW_NUMBER() OVER (ORDER BY p50) AS BIGINT) AS rank FROM stats) SELECT server AS name, CASE WHEN t.type = 'p50' THEN server ELSE CONCAT(server, '_delta') END AS series, CASE WHEN t.type = 'p50' THEN p50 ELSE delta END AS value FROM ranked CROSS JOIN (SELECT 'p50' AS type UNION ALL SELECT 'delta') AS t ORDER BY rank, series",
+          "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+          "rawSql": "WITH stats AS (SELECT server, SUM(p50_ns::double precision * count) / SUM(count) AS p50, SUM(p95_ns::double precision * count) / SUM(count) AS p95 FROM endpoint_stats WHERE run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}') GROUP BY server), ranked AS (SELECT server, p50, p95 - p50 AS delta, ROW_NUMBER() OVER (ORDER BY p50) AS rank FROM stats) SELECT server AS name, CASE WHEN t.type = 'p50' THEN server ELSE CONCAT(server, '_delta') END AS series, CASE WHEN t.type = 'p50' THEN p50 ELSE delta END AS value FROM ranked CROSS JOIN (SELECT 'p50' AS type UNION ALL SELECT 'delta') AS t ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
@@ -195,7 +195,7 @@
       "type": "barchart"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
       "description": "Total request count per server, ordered by highest count first",
       "fieldConfig": {
         "defaults": {
@@ -262,8 +262,8 @@
       "pluginVersion": "12.2.0",
       "targets": [
         {
-          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "SELECT server, SUM(count) AS total FROM endpoint_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}') GROUP BY server ORDER BY total DESC",
+          "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+          "rawSql": "SELECT server, SUM(count) AS total FROM endpoint_stats WHERE run_id = '${run_id}' AND ('${endpoint}' = '' OR '${endpoint}' = 'overall' OR endpoint = '${endpoint}') AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}') GROUP BY server ORDER BY total DESC",
           "refId": "A",
           "format": "table"
         }
@@ -283,7 +283,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
       "description": "Memory (bars) and CPU (points) usage ordered by memory usage (lowest first). CPU is per-core: 100% = 1 full core.",
       "fieldConfig": {
         "defaults": {
@@ -462,8 +462,8 @@
       ],
       "targets": [
         {
-          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND (\"source\" IS NULL OR \"source\" = 'server') GROUP BY server), ranked AS (SELECT server, memory, cpu, CAST(ROW_NUMBER() OVER (ORDER BY memory ASC) AS BIGINT) AS rank FROM resource_data) SELECT rank, CASE WHEN t.type = 'memory' THEN CONCAT('memory_', server) ELSE CONCAT('cpu_', server) END AS series, CASE WHEN t.type = 'memory' THEN memory ELSE cpu END AS value FROM ranked CROSS JOIN (SELECT 'memory' AS type UNION ALL SELECT 'cpu') AS t ORDER BY rank, series",
+          "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+          "rawSql": "WITH resource_data AS (SELECT server, AVG(memory_avg_bytes) AS memory, AVG(cpu_avg_percent) AS cpu FROM resource_samples WHERE run_id = '${run_id}' AND source = 'server' GROUP BY server), ranked AS (SELECT server, memory, cpu, ROW_NUMBER() OVER (ORDER BY memory ASC) AS rank FROM resource_data) SELECT rank, CASE WHEN t.type = 'memory' THEN CONCAT('memory_', server) ELSE CONCAT('cpu_', server) END AS series, CASE WHEN t.type = 'memory' THEN memory ELSE cpu END AS value FROM ranked CROSS JOIN (SELECT 'memory' AS type UNION ALL SELECT 'cpu') AS t ORDER BY rank, series",
           "refId": "A",
           "format": "table"
         }
@@ -472,7 +472,7 @@
       "type": "trend"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
       "description": "Total CRUD operation latency (create+read+update+delete) per database, ordered by average CRUD latency (fastest first)",
       "fieldConfig": {
         "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 50 }, "min": 0, "unit": "ns" },
@@ -527,8 +527,8 @@
       ],
       "targets": [
         {
-          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-          "rawSql": "WITH server_total AS (SELECT server, AVG(total_duration_ns) AS avg_latency FROM sequence_latency WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND sequence_id = 'crud' GROUP BY server) SELECT s.server, s.database, AVG(s.total_duration_ns) AS latency FROM sequence_latency s JOIN server_total t ON s.server = t.server WHERE s.time >= now() - INTERVAL '24 hours' AND s.run_id = '${run_id}' AND s.sequence_id = 'crud' GROUP BY s.server, s.database, t.avg_latency ORDER BY t.avg_latency, s.database",
+          "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+          "rawSql": "WITH server_total AS (SELECT server, SUM(avg_ns::double precision * total_runs) / SUM(total_runs) AS avg_latency FROM sequence_stats WHERE run_id = '${run_id}' AND sequence_id = 'crud' GROUP BY server) SELECT s.server, s.database, AVG(s.avg_ns) AS latency FROM sequence_stats s JOIN server_total t ON s.server = t.server WHERE s.run_id = '${run_id}' AND s.sequence_id = 'crud' GROUP BY s.server, s.database, t.avg_latency ORDER BY t.avg_latency, s.database",
           "refId": "A",
           "format": "table"
         }
@@ -543,13 +543,13 @@
   "templating": {
     "list": [
       {
-        "current": { "selected": true, "text": "InfluxDB", "value": "InfluxDB" },
+        "current": { "selected": true, "text": "MetricsPostgres", "value": "MetricsPostgres" },
         "hide": 2,
         "includeAll": false,
         "multi": false,
-        "name": "DS_INFLUXDB",
+        "name": "DS_METRICS",
         "options": [],
-        "query": "influxdb",
+        "query": "postgres",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -557,14 +557,14 @@
       },
       {
         "current": {},
-        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-        "definition": "SELECT DISTINCT run_id FROM run_meta WHERE time >= now() - INTERVAL '24 hours' ORDER BY run_id DESC",
+        "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+        "definition": "SELECT run_id FROM runs ORDER BY started_at DESC",
         "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "run_id",
         "options": [],
-        "query": "SELECT DISTINCT run_id FROM run_meta WHERE time >= now() - INTERVAL '24 hours' ORDER BY run_id DESC",
+        "query": "SELECT run_id FROM runs ORDER BY started_at DESC",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": true,
@@ -589,14 +589,14 @@
       {
         "allValue": "overall",
         "current": { "selected": true, "text": "All", "value": "$__all" },
-        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
-        "definition": "SELECT DISTINCT endpoint FROM endpoint_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}')",
+        "datasource": { "type": "postgres", "uid": "${DS_METRICS}" },
+        "definition": "SELECT DISTINCT endpoint FROM endpoint_stats WHERE run_id = '${run_id}' AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}')",
         "hide": 0,
         "includeAll": true,
         "multi": false,
         "name": "endpoint",
         "options": [],
-        "query": "SELECT DISTINCT endpoint FROM endpoint_stats WHERE time >= now() - INTERVAL '24 hours' AND run_id = '${run_id}' AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}')",
+        "query": "SELECT DISTINCT endpoint FROM endpoint_stats WHERE run_id = '${run_id}' AND ('${source}' = '' OR '${source}' = 'all' OR source = '${source}')",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,

@@ -646,6 +646,12 @@ func (s *Suite) GetTimedSequences() []TimedSequenceResult {
 	return s.timedSequences
 }
 
+// StartTime is the wall-clock base every TimedLatency.ServerOffset is measured
+// from; base + offset reconstructs the request's real timestamp (PLAN §9.1).
+func (s *Suite) StartTime() time.Time {
+	return s.serverStartTime
+}
+
 func isBenchmarkContextCancellation(benchmarkCtx context.Context, err error) bool {
 	if benchmarkCtx == nil || benchmarkCtx.Err() == nil {
 		return false

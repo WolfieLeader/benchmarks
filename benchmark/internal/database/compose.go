@@ -79,8 +79,11 @@ func (m *ComposeManager) EnsureDatabases(ctx context.Context) (*Stack, error) {
 	return m.stack, nil
 }
 
+// StartGrafana (re)creates the grafana/metrics stack. Volumes are kept: the
+// metrics-postgres data volume is the durable cross-run history (PLAN §9.1) —
+// only the containers are recycled.
 func (m *ComposeManager) StartGrafana(ctx context.Context) error {
-	_ = m.composeDown(ctx, m.grafanaPath, GrafanaProject)
+	_ = m.composeDown(ctx, m.grafanaPath, GrafanaProject, false)
 	return m.composeUp(ctx, m.grafanaPath, GrafanaProject)
 }
 
@@ -91,11 +94,13 @@ func (m *ComposeManager) StopDatabases(ctx context.Context) error {
 	if m.stack == nil || !m.stack.Owned {
 		return nil
 	}
-	return m.composeDown(ctx, m.databasesPath, m.stack.Project)
+	return m.composeDown(ctx, m.databasesPath, m.stack.Project, true)
 }
 
+// StopGrafana stops the grafana/metrics stack but keeps its volumes — the
+// metrics history must survive between runs (PLAN §9.1).
 func (m *ComposeManager) StopGrafana(ctx context.Context) error {
-	return m.composeDown(ctx, m.grafanaPath, GrafanaProject)
+	return m.composeDown(ctx, m.grafanaPath, GrafanaProject, false)
 }
 
 func (m *ComposeManager) composeUp(ctx context.Context, composePath, project string) error {
@@ -113,12 +118,15 @@ func (m *ComposeManager) composeUp(ctx context.Context, composePath, project str
 	return nil
 }
 
-func (m *ComposeManager) composeDown(ctx context.Context, composePath, project string) error {
+func (m *ComposeManager) composeDown(ctx context.Context, composePath, project string, removeVolumes bool) error {
 	args := []string{
 		composeCmd,
 		"-f", composePath,
 		projectFlag, project,
-		"down", "-v",
+		"down",
+	}
+	if removeVolumes {
+		args = append(args, "-v")
 	}
 	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // args are controlled internal values
 	out, err := cmd.CombinedOutput()

@@ -34,17 +34,17 @@ db-up:
 db-down:
     docker compose -f infra/docker/databases.yml down -v
 
-# Start Grafana/InfluxDB stack
+# Start Grafana/metrics-postgres stack (volumes are kept — metrics history is durable)
 [group('docker')]
 grafana-up:
-    docker compose -f infra/docker/grafana.yml down -v
+    docker compose -f infra/docker/grafana.yml down
     docker compose -f infra/docker/grafana.yml up -d
-    @echo "Grafana: http://localhost:3000 (admin/123456)"
+    @echo "Grafana: http://localhost:20090 (admin/123456)"
 
-# Stop Grafana/InfluxDB stack
+# Stop Grafana/metrics-postgres stack (volumes are kept — metrics history is durable)
 [group('docker')]
 grafana-down:
-    docker compose -f infra/docker/grafana.yml down -v
+    docker compose -f infra/docker/grafana.yml down
 
 # View Grafana logs
 [group('docker')]
