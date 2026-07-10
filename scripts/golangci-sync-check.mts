@@ -32,6 +32,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // this list matches the .golangci.json files that actually exist, so a new copy
 // can't silently skip the drift gate.
 const CONFIGS = [
+  "servers/go-stdlib/.golangci.json",
   "servers/go-chi/.golangci.json",
   "servers/go-gin/.golangci.json",
   "servers/go-fiber/.golangci.json",
@@ -53,6 +54,7 @@ const DEVIATIONS: Deviation[] = [
   {
     path: ["formatters", "settings", "gofumpt", "module-path"],
     byFile: {
+      "servers/go-stdlib/.golangci.json": "stdlib-server",
       "servers/go-chi/.golangci.json": "chi-server",
       "servers/go-gin/.golangci.json": "gin-server",
       "servers/go-fiber/.golangci.json": "fiber-server",

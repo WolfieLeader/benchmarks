@@ -45,6 +45,7 @@
 | `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0      | 3004  |
 | `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27    | 3005  |
 | `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29   | 3006  |
+| `servers/go-stdlib`     | Go 1.27rc1    | net/http (stdlib) | 21001 |
 | `servers/go-chi`        | Go 1.27rc1    | Chi 5.3.0       | 5001  |
 | `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0      | 5002  |
 | `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0     | 5003  |

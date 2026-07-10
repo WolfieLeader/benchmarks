@@ -1,0 +1,131 @@
+{
+  "version": "2",
+  "run": {
+    "timeout": "5m",
+    "tests": false
+  },
+  "linters": {
+    "enable": [
+      "asciicheck",
+      "bidichk",
+      "bodyclose",
+      "canonicalheader",
+      "contextcheck",
+      "copyloopvar",
+      "dupword",
+      "durationcheck",
+      "embeddedstructfieldcheck",
+      "errcheck",
+      "errchkjson",
+      "errname",
+      "errorlint",
+      "exhaustive",
+      "exptostd",
+      "fatcontext",
+      "forbidigo",
+      "forcetypeassert",
+      "gocheckcompilerdirectives",
+      "gocognit",
+      "goconst",
+      "gocritic",
+      "godox",
+      "goprintffuncname",
+      "gosec",
+      "govet",
+      "iface",
+      "ineffassign",
+      "intrange",
+      "lll",
+      "mirror",
+      "misspell",
+      "modernize",
+      "nakedret",
+      "nestif",
+      "nilerr",
+      "nilnesserr",
+      "noctx",
+      "nolintlint",
+      "nosprintfhostport",
+      "perfsprint",
+      "prealloc",
+      "predeclared",
+      "reassign",
+      "recvcheck",
+      "rowserrcheck",
+      "sqlclosecheck",
+      "staticcheck",
+      "unconvert",
+      "unparam",
+      "unused",
+      "usestdlibvars",
+      "wastedassign",
+      "whitespace"
+    ],
+    "settings": {
+      "errcheck": {
+        "check-type-assertions": true
+      },
+      "exhaustive": {
+        "default-signifies-exhaustive": false,
+        "check": [
+          "switch"
+        ]
+      },
+      "forbidigo": {
+        "forbid": [
+          {
+            "pattern": "^fmt\\.Print(ln|f)?$",
+            "msg": "use the logger (log/*), not fmt.Print* — CLI output is confined to the benchmark client's internal/cli + internal/summary"
+          },
+          {
+            "pattern": "^os\\.Getenv$",
+            "msg": "read env through the shared config package (shared/go/config), not os.Getenv directly"
+          }
+        ],
+        "analyze-types": true
+      },
+      "gocognit": {
+        "min-complexity": 60
+      },
+      "goconst": {
+        "min-len": 2,
+        "min-occurrences": 3
+      },
+      "gocritic": {
+        "enabled-tags": [
+          "diagnostic",
+          "style",
+          "performance"
+        ],
+        "disabled-checks": [
+          "paramTypeCombine"
+        ]
+      },
+      "govet": {
+        "enable": [
+          "shadow"
+        ]
+      },
+      "lll": {
+        "line-length": 200,
+        "tab-width": 1
+      },
+      "misspell": {
+        "locale": "US"
+      },
+      "nestif": {
+        "min-complexity": 25
+      }
+    }
+  },
+  "formatters": {
+    "enable": [
+      "gofumpt"
+    ],
+    "settings": {
+      "gofumpt": {
+        "module-path": "stdlib-server"
+      }
+    }
+  }
+}
