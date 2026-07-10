@@ -1,0 +1,29 @@
+# detekt config for the Kotlin lane — one config per language (PLAN §0.1 lint row).
+# Applied with `buildUponDefaultConfig = true`, so this carries only deltas from
+# detekt's default ruleset. No rule-wide category is disabled (repo Never-list) —
+# only individual thresholds/scopes are tuned to fit legitimate idiomatic code,
+# each with a rationale. Style findings with a clean code fix (SwallowedException,
+# MaxLineLength, SpreadOperator) are fixed in source instead of relaxed here.
+
+complexity:
+  TooManyFunctions:
+    # ParamsRoutes registers one small extension function per endpoint (7 routes +
+    # helpers) — splitting is clearer than one giant function.
+    thresholdInFiles: 15
+
+style:
+  ReturnCount:
+    # Repository methods and validators use guard-clause early-exits (unparseable
+    # id → not found, empty update → unchanged row, per-rule validation misses).
+    max: 4
+    excludeGuardClauses: true
+  ThrowsCount:
+    # Route-registration functions (dbRoutes/webRoutes) map several distinct 4xx
+    # cases via `throw`, the idiomatic StatusPages pattern (kotlin.md item 30/48).
+    max: 6
+    excludeGuardClauses: true
+  MagicNumber:
+    # Range bounds and regex quantifiers live in named `val`s already; JDBC
+    # positional parameter indices (3, 4) are inherent to prepared statements.
+    ignorePropertyDeclaration: true
+    ignoreNumbers: ['-1', '0', '1', '2', '3', '4']
