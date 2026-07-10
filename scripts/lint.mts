@@ -5,7 +5,7 @@
 //
 //   node scripts/lint.mts <target|all>
 
-import { type Job, pickTargets, report, runJobs, SERVERS, type Server, targetArg } from "./lib.mts";
+import { gradleGroup, gradlew, type Job, pickTargets, repoRoot, report, runJobs, SERVERS, type Server, targetArg } from "./lib.mts";
 
 function lintCmd(s: Server): string {
   switch (s.eco) {
@@ -25,12 +25,25 @@ function lintCmd(s: Server): string {
       return "zig build"; // the compiler is the linter (PLAN §3)
     case "cargo":
       return "cargo clippy -- -D warnings"; // check-only, like the Go/Python linters
+    case "gradle":
+      return ""; // collapsed into one repo-root job below; never reached per-target
     case "root":
       return "pnpm run lint"; // prettier --check
   }
 }
 
 const targets = pickTargets(targetArg(), SERVERS, "lint");
-const jobs: Job[] = targets.map((s) => ({ name: s.name, steps: [{ label: "lint", cmd: lintCmd(s), cwd: s.dir }] }));
+const jobs: Job[] = targets
+  .filter((s) => s.eco !== "gradle")
+  .map((s) => ({ name: s.name, steps: [{ label: "lint", cmd: lintCmd(s), cwd: s.dir }] }));
+
+// detekt is the Kotlin linter (check-only, like clippy/ruff); one gradlew
+// invocation from repoRoot covers every in-scope Kotlin project (build-lock).
+const grp = gradleGroup(targets);
+if (grp) {
+  const tasks = grp.projects.map((p) => `${p}:detekt`).join(" ");
+  jobs.push({ name: grp.name, steps: [{ label: "lint", cmd: `${gradlew} ${tasks}`, cwd: repoRoot }] });
+}
+
 const results = await runJobs(jobs);
 report("lint", results);

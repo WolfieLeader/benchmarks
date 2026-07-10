@@ -10,7 +10,7 @@
 // so its dist exists for downstream typechecks/runs. Go, Python and Zig install
 // per-dir (Zig is not a pnpm member — `zig build --fetch` resolves build.zig.zon).
 
-import { type Job, pickTargets, repoRoot, report, runJobs, SERVERS, targetArg } from "./lib.mts";
+import { gradleGroup, gradlew, type Job, pickTargets, repoRoot, report, runJobs, SERVERS, targetArg } from "./lib.mts";
 
 const targets = pickTargets(targetArg(), SERVERS, "install");
 const jobs: Job[] = [];
@@ -36,6 +36,16 @@ for (const s of targets) {
   else if (s.eco === "zig") jobs.push({ name: s.name, steps: [{ label: "install", cmd: "zig build --fetch", cwd: s.dir }] });
   // Cargo deps resolve from Cargo.toml; `fetch` downloads them without building.
   else if (s.eco === "cargo") jobs.push({ name: s.name, steps: [{ label: "install", cmd: "cargo fetch", cwd: s.dir }] });
+}
+
+// Gradle: one invocation from repoRoot bootstraps the committed wrapper (downloads
+// the pinned distribution) and resolves every in-scope project's dependencies into
+// the Gradle cache. Collapsed to one job — concurrent gradlew calls contend on the
+// build lock.
+const grp = gradleGroup(targets);
+if (grp) {
+  const tasks = grp.projects.map((p) => `${p}:dependencies`).join(" ");
+  jobs.push({ name: grp.name, steps: [{ label: "install", cmd: `${gradlew} ${tasks}`, cwd: repoRoot }] });
 }
 
 const results = await runJobs(jobs);

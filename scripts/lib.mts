@@ -48,8 +48,17 @@ process.env.PATH = `${join(homedir(), "go", "bin")}:${process.env.PATH ?? ""}`;
 // dev's shell profile. Inert on Linux/CI where the dir does not exist.
 const rustupBin = "/opt/homebrew/opt/rustup/bin";
 if (existsSync(rustupBin)) process.env.PATH = `${rustupBin}:${process.env.PATH ?? ""}`;
+// JDK toolchain pin (PLAN §0.1): the Kotlin lane builds on Homebrew's keg-only
+// `openjdk@21` — both Gradle's `jvmToolchain(21)` compile target and, on this
+// host, the launcher JVM itself (the only `java` on PATH). brew does NOT symlink
+// keg-only openjdk into /opt/homebrew/bin, so prepend its bin (when present),
+// mirroring the rustup pin above, so `./gradlew` resolves a `java` without
+// leaning on the dev's shell profile. Inert where the dir is absent (Linux/CI),
+// where Gradle then auto-detects whatever JDK is installed for the toolchain.
+const openjdk21Bin = "/opt/homebrew/opt/openjdk@21/bin";
+if (existsSync(openjdk21Bin)) process.env.PATH = `${openjdk21Bin}:${process.env.PATH ?? ""}`;
 
-export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "cargo" | "root";
+export type Eco = "pnpm" | "bun" | "deno" | "uv" | "go" | "zig" | "cargo" | "gradle" | "root";
 
 export type Server = {
   name: string; // CLI target key (e.g. "ts-express", "go-chi")
@@ -61,6 +70,7 @@ export type Server = {
   lib?: boolean; // eco "go": library module (no ./cmd/main.go) — build ./... instead
   port?: number; // host/container port (from the manifest; servers only)
   web?: boolean; // implements the web suite (from the manifest; servers only)
+  gradleProject?: string; // eco "gradle": Gradle project path (":kt-ktor", ":shared")
 };
 
 // Manifest runtime -> toolchain family, and family -> dev command. These are the
@@ -73,8 +83,11 @@ const RUNTIME_ECO: Record<string, Eco> = {
   go: "go",
   python: "uv",
   zig: "zig",
-  rust: "cargo"
+  rust: "cargo",
+  kotlin: "gradle"
 };
+// Family -> dev command. Gradle is intentionally absent: its dev command needs the
+// per-server Gradle project path, so discoverServers builds it per row (below).
 const ECO_DEV: Partial<Record<Eco, string>> = {
   pnpm: "pnpm run dev",
   bun: "bun run dev",
@@ -155,7 +168,13 @@ function discoverServers(): Server[] {
     const priorImage = seen.get(`image:${m.image}`);
     if (priorImage) fatal(`duplicate image "${m.image}" in ${rel} and ${priorImage}`);
     seen.set(`image:${m.image}`, rel);
-    servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, web: m.web ?? false, dev: ECO_DEV[eco] });
+    // Gradle project path mirrors the settings.gradle.kts include (`:<name>`); its
+    // dev command runs the committed wrapper from the repo root (../../gradlew — the
+    // flat servers/<name> layout, PLAN §2.1, is always two levels deep) so `just dev`
+    // starts the server without a per-eco global gradle install.
+    const gradleProject = eco === "gradle" ? `:${m.name}` : undefined;
+    const dev = eco === "gradle" ? `../../gradlew ${gradleProject}:run --console=plain` : ECO_DEV[eco];
+    servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, web: m.web ?? false, dev, gradleProject });
   }
   return servers;
 }
@@ -184,10 +203,32 @@ const EXTRA_TARGETS: Server[] = [
   // server, and clippy/rustfmt only lint the crate in cwd — a path dependency
   // is compiled but never linted, so the crate needs its own row.
   { name: "shared-rust", dir: join(repoRoot, "shared", "rust"), eco: "cargo" },
+  // Kotlin twin of shared-rust/shared-go: the shared module carries its own
+  // ktlint/detekt gating plus a unit test, so it earns its own verify row. Its
+  // Gradle project path is :shared (settings.gradle.kts), distinct from the row
+  // name. All gradle rows collapse into one job at run time (gradleGroup below).
+  { name: "shared-kotlin", dir: join(repoRoot, "shared", "kotlin"), eco: "gradle", gradleProject: ":shared" },
   { name: "root", dir: repoRoot, eco: "root" }
 ];
 
 export const SERVERS: Server[] = [...discoverServers(), ...EXTRA_TARGETS];
+
+// The committed Gradle wrapper, invoked from repoRoot by every gradle-eco job.
+export const gradlew = "./gradlew";
+
+// Kotlin/Gradle is ONE build across every :module, and two concurrent `./gradlew`
+// invocations contend on the build lock — so the worker-pool scripts must NOT emit
+// one job per gradle target. This collapses all in-scope gradle rows into a single
+// group: the caller emits ONE job (run from repoRoot) whose tasks are scoped to
+// `projects` (e.g. `:shared:ktlintCheck :kt-ktor:ktlintCheck`). The job name is the
+// lone target's name when only one is selected, else "kotlin". Returns null when no
+// gradle target is in scope.
+export function gradleGroup(targets: Server[]): { name: string; projects: string[] } | null {
+  const g = targets.filter((s) => s.eco === "gradle");
+  if (g.length === 0) return null;
+  const projects = g.map((s) => s.gradleProject ?? `:${s.name}`);
+  return { name: g.length === 1 ? g[0].name : "kotlin", projects };
+}
 
 // ── Docker DB-stack detection (shared by contract.mts and calibrate.mts) ──
 
