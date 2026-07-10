@@ -13,4 +13,9 @@ const (
 	ErrNotPlainText                 = "file does not look like plain text"
 	ErrNotFound                     = "not found"
 	ErrInternal                     = "internal error"
+
+	// Web suite (PLAN §5) — house "invalid <thing>" / "<what> failed" style.
+	ErrInvalidToken     = "invalid token"
+	ErrValidationFailed = "validation failed"
+	ErrInvalidN         = "invalid n"
 )
