@@ -6,6 +6,7 @@
   "image": "bench/ts-bun-elysia",
   "port": 3006,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "web": false,
   "experimental": false,
   "dev_port": 3006
 }

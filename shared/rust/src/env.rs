@@ -19,6 +19,7 @@ pub struct Env {
     pub cassandra_contact_points: Vec<String>,
     pub cassandra_local_dc: String,
     pub cassandra_keyspace: String,
+    pub jwt_secret: String,
 }
 
 impl Env {
@@ -67,6 +68,9 @@ impl Env {
             )),
             cassandra_local_dc: var_or("CASSANDRA_LOCAL_DATACENTER", "datacenter1"),
             cassandra_keyspace: var_or("CASSANDRA_KEYSPACE", "benchmarks"),
+            // Shared HS256 secret for the web suite; dev default must match the
+            // other languages' shared env modules and the contract harness.
+            jwt_secret: var_or("JWT_SECRET", "benchmarks-shared-jwt-secret-dev-default"),
         }
     }
 }

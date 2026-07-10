@@ -25,7 +25,11 @@ const zEnv = z.object({
         .filter(Boolean)
     ),
   CASSANDRA_KEYSPACE: z.string().trim().default("benchmarks"),
-  CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1")
+  CASSANDRA_LOCAL_DATACENTER: z.string().trim().default("datacenter1"),
+  // Shared HS256 secret for the web suite (/jwt/sign, /jwt/verify). The dev
+  // default must match the other languages' shared env modules and the contract
+  // harness (scripts/contract.mts JWT_SECRET / conformance.DefaultJWTSecret).
+  JWT_SECRET: z.string().trim().default("benchmarks-shared-jwt-secret-dev-default")
 });
 
 // biome-ignore lint/style/noProcessEnv: env parsing is the one sanctioned place process.env is read; every other module must import `env` from @bench/shared
@@ -47,4 +51,5 @@ export const env: {
   CASSANDRA_CONTACT_POINTS: string[];
   CASSANDRA_KEYSPACE: string;
   CASSANDRA_LOCAL_DATACENTER: string;
+  JWT_SECRET: string;
 } = zEnv.parse(rawEnv);

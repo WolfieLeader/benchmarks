@@ -1,6 +1,8 @@
 package conformance
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -9,7 +11,10 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -17,8 +22,17 @@ var (
 	objectIDRe = regexp.MustCompile(`^[0-9a-fA-F]{24}$`)
 )
 
-// validate checks status, headers, and body (text or strict JSON with matchers).
-func validate(exp *Expect, resp *http.Response, body []byte) error {
+// sha256ChainSeed is the fixed seed for the $sha256chain matcher: the runner
+// applies SHA-256 to it n times and expects the server's /compute chain to
+// match. It is contract canon and must equal every server's compute seed.
+const sha256ChainSeed = "benchmark"
+
+// sha256ChainPrefix flags the $sha256chain:<n> matcher token.
+const sha256ChainPrefix = "$sha256chain:"
+
+// validate checks status, headers, and body (text, htmlContains, or strict JSON
+// with matchers). jwtSecret verifies $jwt tokens cryptographically.
+func validate(exp *Expect, resp *http.Response, body, jwtSecret []byte) error {
 	if len(exp.StatusAnyOf) > 0 {
 		if !slices.Contains(exp.StatusAnyOf, resp.StatusCode) {
 			return fmt.Errorf("status: got %d, want one of %v (body: %s)", resp.StatusCode, exp.StatusAnyOf, truncate(body, 200))
@@ -42,6 +56,16 @@ func validate(exp *Expect, resp *http.Response, body []byte) error {
 		return nil
 	}
 
+	if len(exp.HTMLContains) > 0 {
+		s := string(body)
+		for _, want := range exp.HTMLContains {
+			if !strings.Contains(s, want) {
+				return fmt.Errorf("html body: missing expected substring %q (got: %s)", want, truncate(body, 300))
+			}
+		}
+		return nil
+	}
+
 	if exp.Body != nil {
 		var actual any
 		// Duplicate keys in a response keep json/v1's last-wins tolerance so the
@@ -50,7 +74,7 @@ func validate(exp *Expect, resp *http.Response, body []byte) error {
 			return fmt.Errorf("parse response JSON: %w (body: %s)", err, truncate(body, 200))
 		}
 		strict := exp.Match != "subset"
-		if err := matchJSON(exp.Body, actual, strict); err != nil {
+		if err := matchJSON(exp.Body, actual, strict, jwtSecret); err != nil {
 			return fmt.Errorf("body: %w (got: %s)", err, truncate(body, 300))
 		}
 	}
@@ -69,13 +93,14 @@ func headerContains(h http.Header, key, want string) bool {
 
 // matchJSON compares an expected value against an actual value. String matcher
 // tokens ($uuid, $objectid, $id, $string, $number, $bool, $present, $absent,
-// $optional) are recognized; every other value is compared exactly. When strict
-// is true, object comparison rejects unexpected keys — but an expected $optional
-// key never counts as unexpected (it is in want) and its absence is never missing.
-func matchJSON(want, got any, strict bool) error {
+// $optional, $jwt, $sha256chain:<n>) are recognized; every other value is
+// compared exactly. When strict is true, object comparison rejects unexpected
+// keys — but an expected $optional key never counts as unexpected (it is in
+// want) and its absence is never missing. jwtSecret backs the $jwt matcher.
+func matchJSON(want, got any, strict bool, jwtSecret []byte) error {
 	switch w := want.(type) {
 	case string:
-		return matchScalarToken(w, got)
+		return matchScalarToken(w, got, jwtSecret)
 	case map[string]any:
 		g, ok := got.(map[string]any)
 		if !ok {
@@ -105,7 +130,7 @@ func matchJSON(want, got any, strict bool) error {
 			if !exists {
 				return fmt.Errorf("key %q: missing", k)
 			}
-			if err := matchJSON(wv, gv, strict); err != nil {
+			if err := matchJSON(wv, gv, strict, jwtSecret); err != nil {
 				return fmt.Errorf("key %q: %w", k, err)
 			}
 		}
@@ -124,7 +149,7 @@ func matchJSON(want, got any, strict bool) error {
 			return fmt.Errorf("array length: got %d, want %d", len(g), len(w))
 		}
 		for i := range w {
-			if err := matchJSON(w[i], g[i], strict); err != nil {
+			if err := matchJSON(w[i], g[i], strict, jwtSecret); err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
 		}
@@ -148,7 +173,7 @@ func extraKeys(want, got map[string]any) []string {
 	return extra
 }
 
-func matchScalarToken(want string, got any) error {
+func matchScalarToken(want string, got any, jwtSecret []byte) error {
 	switch want {
 	case "$present":
 		return nil
@@ -184,12 +209,62 @@ func matchScalarToken(want string, got any) error {
 			return fmt.Errorf("%q is not a UUID or ObjectId", s)
 		}
 		return nil
+	case "$jwt":
+		return matchJWT(got, jwtSecret)
 	default:
+		if rounds, ok := strings.CutPrefix(want, sha256ChainPrefix); ok {
+			return matchSHA256Chain(want, rounds, got)
+		}
 		if s, ok := got.(string); !ok || s != want {
 			return fmt.Errorf("got %v, want %q", got, want)
 		}
 		return nil
 	}
+}
+
+// matchJWT verifies got is an HS256 JWT with a valid signature under jwtSecret
+// and an unexpired, present exp claim — structural + cryptographic verification
+// via golang-jwt (popular production lib over hand-rolled base64/HMAC). Claim
+// values are asserted separately by the /jwt/verify step's strict body match.
+func matchJWT(got any, jwtSecret []byte) error {
+	s, ok := got.(string)
+	if !ok {
+		return fmt.Errorf("expected JWT string, got %T", got)
+	}
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+	if _, err := parser.Parse(s, func(*jwt.Token) (any, error) { return jwtSecret, nil }); err != nil {
+		return fmt.Errorf("JWT failed HS256 verification against the shared secret: %w", err)
+	}
+	return nil
+}
+
+// matchSHA256Chain recomputes the canonical SHA-256 chain (seed applied n times,
+// lowercase hex) and compares it to got. The rounds count is carried in the
+// matcher token ($sha256chain:<n>) so the runner needs no request context.
+func matchSHA256Chain(token, rounds string, got any) error {
+	n, err := strconv.Atoi(rounds)
+	if err != nil || n < 0 {
+		return fmt.Errorf("invalid matcher %q: rounds must be a non-negative integer", token)
+	}
+	s, ok := got.(string)
+	if !ok {
+		return fmt.Errorf("expected sha256 hex string, got %T", got)
+	}
+	if want := sha256Chain(n); s != want {
+		return fmt.Errorf("sha256 chain (n=%d) mismatch: got %q, want %q", n, s, want)
+	}
+	return nil
+}
+
+// sha256Chain returns the lowercase hex of SHA-256 applied n times to the canon
+// seed (n=0 is the raw seed bytes). It must match every server's /compute impl.
+func sha256Chain(n int) string {
+	state := []byte(sha256ChainSeed)
+	for range n {
+		sum := sha256.Sum256(state)
+		state = sum[:]
+	}
+	return hex.EncodeToString(state)
 }
 
 func matchPattern(got any, re *regexp.Regexp, label string) error {

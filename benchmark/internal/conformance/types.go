@@ -57,10 +57,11 @@ type MultipartFile struct {
 
 // Expect holds the response assertions for a case.
 type Expect struct {
-	Status      int               `json:"status"`
-	StatusAnyOf []int             `json:"statusAnyOf,omitempty"` // any listed status passes (overrides Status; use without a body assertion)
-	Headers     map[string]string `json:"headers,omitempty"`     // substring ("contains") match
-	Text        *string           `json:"text,omitempty"`        // exact text body (trimmed)
-	Body        any               `json:"body,omitempty"`        // JSON body assertion (matchers supported)
-	Match       string            `json:"match,omitempty"`       // "exact" (default) | "subset"
+	Status       int               `json:"status"`
+	StatusAnyOf  []int             `json:"statusAnyOf,omitempty"`  // any listed status passes (overrides Status; use without a body assertion)
+	Headers      map[string]string `json:"headers,omitempty"`      // substring ("contains") match
+	Text         *string           `json:"text,omitempty"`         // exact text body (trimmed)
+	HTMLContains []string          `json:"htmlContains,omitempty"` // each substring must appear in the raw body (whitespace-tolerant HTML match)
+	Body         any               `json:"body,omitempty"`         // JSON body assertion (matchers supported)
+	Match        string            `json:"match,omitempty"`        // "exact" (default) | "subset"
 }

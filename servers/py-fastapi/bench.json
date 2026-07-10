@@ -6,6 +6,7 @@
   "image": "bench/py-fastapi",
   "port": 4001,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "web": false,
   "experimental": false,
   "dev_port": 4001
 }

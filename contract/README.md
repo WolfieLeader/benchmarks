@@ -25,7 +25,21 @@ directories: `--contract-dir=` (cases) and `--test-files-dir=` (upload fixtures)
 
 - One `.json` file per suite. Files are loaded alphabetically.
 - Each file is a **Suite**: `{ "name": string, "cases": Case[] }`.
-- Current suites: `basic`, `params`, `form`, `file`, `db`.
+- Current suites: `basic`, `params`, `form`, `file`, `web`, `db`.
+
+### Suite gating
+
+Some suites only apply to servers that implement them. A suite is **loaded and
+structurally validated for every run**, but only **executed** for a server when
+that server opts in — the runner takes `--skip-suite=<name>[,<name>]` (loaded but
+not run) and the `scripts/contract.mts` harness derives it per server from the
+manifest. Today:
+
+- `db` runs for every server (all declare a non-empty `databases` array).
+- `web` runs only when a server's `bench.json` sets `"web": true`; otherwise the
+  harness passes `--skip-suite=web`. Denylist by design: if the skip ever fails to
+  match (typo, renamed suite), the web cases **run and fail loudly** rather than
+  silently passing.
 
 ## Case format
 
@@ -67,6 +81,8 @@ group of steps that share captured variables.
                                           //   routers legitimately differ (e.g. traversal safety)
     "headers": { "Content-Type": "application/json" }, // substring ("contains") match
     "text": "OK",                         // exact text body (trimmed); mutually exclusive with body
+    "htmlContains": ["Hello, Alice"],     // each substring must appear in the raw body;
+                                          //   whitespace/markup-tolerant HTML match (see below)
     "body": { "hello": "world" },         // JSON body assertion (see matchers below)
     "match": "exact"                      // "exact" (default) | "subset"
   },
@@ -87,19 +103,30 @@ the actual object must contain exactly the expected keys — no more, no less. S
 
 String values in `expect.body` may be **matcher tokens** instead of literals:
 
-| Token       | Passes when the value is…                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `$present`  | present (any value)                                                                                                                                                                  |
-| `$string`   | a JSON string                                                                                                                                                                        |
-| `$number`   | a JSON number                                                                                                                                                                        |
-| `$bool`     | a JSON boolean                                                                                                                                                                       |
-| `$uuid`     | a canonical UUID string                                                                                                                                                              |
-| `$objectid` | a 24-char hex Mongo ObjectId                                                                                                                                                         |
-| `$id`       | a UUID **or** an ObjectId (use for `id` fields)                                                                                                                                      |
-| `$absent`   | **as an object key**: that key must NOT be present                                                                                                                                   |
-| `$optional` | **as an object key**: the key MAY be absent; if present, any non-null value passes. Never an unexpected key under strict matching — use for contract-optional fields like `details`. |
+| Token              | Passes when the value is…                                                                                                                                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$present`         | present (any value)                                                                                                                                                                                                                                                                                       |
+| `$string`          | a JSON string                                                                                                                                                                                                                                                                                             |
+| `$number`          | a JSON number                                                                                                                                                                                                                                                                                             |
+| `$bool`            | a JSON boolean                                                                                                                                                                                                                                                                                            |
+| `$uuid`            | a canonical UUID string                                                                                                                                                                                                                                                                                   |
+| `$objectid`        | a 24-char hex Mongo ObjectId                                                                                                                                                                                                                                                                              |
+| `$id`              | a UUID **or** an ObjectId (use for `id` fields)                                                                                                                                                                                                                                                           |
+| `$absent`          | **as an object key**: that key must NOT be present                                                                                                                                                                                                                                                        |
+| `$optional`        | **as an object key**: the key MAY be absent; if present, any non-null value passes. Never an unexpected key under strict matching — use for contract-optional fields like `details`.                                                                                                                      |
+| `$jwt`             | a string that is a valid **HS256 JWT**: signature verifies against the shared secret (`--jwt-secret`, default the dev secret) **and** an `exp` claim is present and unexpired. Structural + cryptographic check via `golang-jwt` — claim _values_ are asserted separately (e.g. by a `/jwt/verify` step). |
+| `$sha256chain:<n>` | a lowercase-hex string equal to SHA-256 applied **n** times to the canon seed bytes `benchmark`. The rounds count rides in the token, so the runner recomputes the expected digest itself (no request context needed).                                                                                    |
 
 Any other string is compared literally.
+
+### HTML body matching (`htmlContains`)
+
+`expect.htmlContains` is an array of substrings that must **all** appear in the
+raw response body. It is the referee for server-rendered HTML (`GET /html`):
+template engines differ in whitespace and tag layout across frameworks, so the
+contract asserts `Content-Type: text/html` plus the presence of each interpolated
+value rather than a byte-exact body. It is a body-assertion mode of its own — do
+not combine it with `text` or `body`.
 
 ### Variable substitution
 
@@ -155,7 +182,38 @@ All 16 routes with meaningful variations, plus the negative and security cases:
   returns the unchanged row (`200`).
 - **lifecycle** — `reset` provably clears prior rows (create → reset → read is 404).
 
-No JWT cases yet — those endpoints arrive in a later phase.
+### Web suite (`web.json`)
+
+The five web endpoints (`GET /html`, `GET /jwt/sign`, `GET /jwt/verify`,
+`POST /validate`, `GET /compute`). Gated per server (`"web": true` in the
+manifest); no server implements it yet, so it is skipped everywhere for now.
+Canon drafted here (pending lead sign-off — see the PR):
+
+- **`/html`** — `200 text/html` rendering a template with a fixed name (`Alice`),
+  list (`apple`,`banana`,`cherry`), and number (`42`). Asserted via `htmlContains`
+  (whitespace/markup-tolerant), not a byte-exact body.
+- **`/jwt/sign`** — `200 {"token": "$jwt"}`. HS256, shared `JWT_SECRET`. Fixed
+  claims `sub=1234567890`, `name=John Doe`, `admin=true` plus dynamic `iat`/`exp`.
+- **`/jwt/verify`** — `Authorization: Bearer <t>`. Valid token → `200` echoing the
+  payload (`iat`/`exp` matched as `$number`, the rest literally). Missing,
+  malformed, or **wrong-signature** token → `401 {"error":"invalid token"}`
+  (`details` `$optional`). The bad-signature case proves signature verification,
+  not just parsing.
+- **`/validate`** — deep nested object (~4 levels; `user{id:uuid, email, profile{age:0..120, role:enum, preferences{theme:enum, notifications:bool}}}, items[]{sku, quantity:1..100, tags[]}, total:>=0`).
+  Valid → `200 {"valid": true}`; invalid → `400 {"error":"validation failed", "details":"$present"}`.
+  The **error count** from the endpoint sketch is intentionally _not_ asserted as an
+  exact integer: the canonical error shape is `{"error", "details"?}`, and error
+  counts diverge across Zod/Pydantic/validator/serde. `details` carries the
+  per-framework summary (`$present`).
+- **`/compute?n=`** — iterative SHA-256 chain, `200 {"result": "$sha256chain:<n>"}`
+  (seed `benchmark`, lowercase hex). `n` is **clamped** to the cap `1000000`, not
+  rejected — the over-cap case asserts the cap-rounds digest.
+
+**Env contract:** `JWT_SECRET` (shared HS256 secret) joins the server env-var
+contract (defined in each `shared/*/env` module; dev default
+`benchmarks-shared-jwt-secret-dev-default`). The contract harness passes the same
+value to the container (`JWT_SECRET`) and the runner (`--jwt-secret`) so the
+server and the `$jwt` matcher agree.
 
 ### Deliberately not asserted (servers diverge — canon rulings pending)
 

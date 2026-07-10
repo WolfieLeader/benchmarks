@@ -25,6 +25,10 @@ class Env(BaseModel):
     CASSANDRA_CONTACT_POINTS: list[str] = ["localhost"]
     CASSANDRA_LOCAL_DATACENTER: str = "datacenter1"
     CASSANDRA_KEYSPACE: str = "benchmarks"
+    # Shared HS256 secret for the web suite (/jwt/sign, /jwt/verify). The dev
+    # default must match the other languages' shared env modules and the contract
+    # harness (scripts/contract.mts JWT_SECRET / conformance.DefaultJWTSecret).
+    JWT_SECRET: str = "benchmarks-shared-jwt-secret-dev-default"  # noqa: S105  (shared dev default secret, not a real credential)
 
     @field_validator("HOST", mode="before")
     @classmethod

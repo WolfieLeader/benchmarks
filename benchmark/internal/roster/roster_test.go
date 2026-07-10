@@ -19,7 +19,7 @@ func writeManifest(t *testing.T, dir, name, body string) {
 
 func TestDiscoverSortsAndParses(t *testing.T) {
 	dir := t.TempDir()
-	writeManifest(t, dir, "go-chi", `{"name":"go-chi","language":"go","runtime":"go","image":"bench/go-chi","port":5001,"databases":["postgres"],"experimental":false,"dev_port":5001}`)
+	writeManifest(t, dir, "go-chi", `{"name":"go-chi","language":"go","runtime":"go","image":"bench/go-chi","port":5001,"databases":["postgres"],"experimental":false,"dev_port":5001,"web":true}`)
 	writeManifest(t, dir, "ts-express", `{"name":"ts-express","runtime":"node","image":"bench/ts-express","port":3001}`)
 	// A non-server dir without a manifest must be skipped, not error.
 	if err := os.MkdirAll(filepath.Join(dir, "shared"), 0o755); err != nil {
@@ -37,8 +37,12 @@ func TestDiscoverSortsAndParses(t *testing.T) {
 	if entries[0].Name != "go-chi" || entries[1].Name != "ts-express" {
 		t.Fatalf("wrong order/parse: %+v", entries)
 	}
-	if entries[0].Image != "bench/go-chi" || entries[0].Port != 5001 {
+	if entries[0].Image != "bench/go-chi" || entries[0].Port != 5001 || !entries[0].Web {
 		t.Fatalf("wrong fields: %+v", entries[0])
+	}
+	// web defaults to false when the manifest omits it (ts-express here).
+	if entries[1].Web {
+		t.Fatalf("expected ts-express web=false, got %+v", entries[1])
 	}
 }
 

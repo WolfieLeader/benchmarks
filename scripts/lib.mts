@@ -60,6 +60,7 @@ export type Server = {
   goBin?: string; // eco "go": build output name (default "server")
   lib?: boolean; // eco "go": library module (no ./cmd/main.go) — build ./... instead
   port?: number; // host/container port (from the manifest; servers only)
+  web?: boolean; // implements the web suite (from the manifest; servers only)
 };
 
 // Manifest runtime -> toolchain family, and family -> dev command. These are the
@@ -91,6 +92,7 @@ type Manifest = {
   image: string;
   port: number;
   databases: string[];
+  web: boolean;
   experimental: boolean;
   dev_port: number;
 };
@@ -153,7 +155,7 @@ function discoverServers(): Server[] {
     const priorImage = seen.get(`image:${m.image}`);
     if (priorImage) fatal(`duplicate image "${m.image}" in ${rel} and ${priorImage}`);
     seen.set(`image:${m.image}`, rel);
-    servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, dev: ECO_DEV[eco] });
+    servers.push({ name: m.name, dir: dirname(file), eco, image: m.image, port: m.port, web: m.web ?? false, dev: ECO_DEV[eco] });
   }
   return servers;
 }

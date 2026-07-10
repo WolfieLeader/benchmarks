@@ -17,21 +17,24 @@ import (
 )
 
 // Entry is the subset of a manifest the benchmark client needs: which image to
-// run and which container port it listens on. Language/runtime/databases/etc. in
-// the manifest are consumed by other tools (scripts, later client slices) and are
-// deliberately ignored here to keep this focused.
+// run, which container port it listens on, and whether the server implements the
+// web suite (mirrors scripts/lib.mts so both discoverers agree). Other manifest
+// fields (language/runtime/databases/etc.) are consumed by other tools.
 type Entry struct {
 	Name  string
 	Image string
 	Port  int
+	Web   bool
 }
 
 // manifest mirrors config/bench.schema.json. Unknown members are ignored by
-// json/v2's default, so listing only the fields the client uses is safe.
+// json/v2's default, so listing only the fields the client uses is safe. Field
+// order matches Entry so the struct conversion in Discover stays valid.
 type manifest struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
 	Port  int    `json:"port"`
+	Web   bool   `json:"web"`
 }
 
 // Discover scans serversDir with a fixed one-level walk (serversDir/<entry>/bench.json,
