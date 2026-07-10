@@ -1,0 +1,57 @@
+[project]
+name = "flask-server"
+version = "0.0.1"
+description = "Flask benchmark server (sync WSGI: gunicorn/gthread, psycopg3 + pymongo + redis-py + scylla-driver)"
+readme = "README.md"
+requires-python = ">=3.14.3"
+dependencies = [
+    "bench-shared",
+    "flask>=3.1.0",
+    "gunicorn>=26.0.0",
+    "pydantic[email]>=2.0.0",
+    "pyjwt>=2.10.0",
+    "psycopg[binary,pool]>=3.2.0",
+    "pymongo>=4.9.0",
+    "redis[hiredis]>=6.0.0",
+    "scylla-driver>=3.26.6",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.400",
+    "ruff>=0.14.14",
+]
+
+[tool.uv.sources]
+bench-shared = { path = "../../shared/python" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+# Strictest bug-catching floor, subtracted BY NAME. Curated families beyond the
+# E/F default: B (bugbear), UP (pyupgrade), SIM (simplify), C4 (comprehensions),
+# RET (return), PERF (perflint), RUF (ruff-native), S (bandit security),
+# ASYNC (async correctness — kept for parity with the fleet even though Flask is
+# sync WSGI: the family is a no-op here but the select list stays byte-identical
+# across every Python server's pyproject). Full-copy floor.
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM", "C4", "RET", "PERF", "RUF", "S", "ASYNC"]
+
+# NOTE: the fastapi-DI `flake8-bugbear.extend-immutable-calls` whitelist that
+# py-fastapi carries is intentionally omitted here (as in py-django) — Flask has
+# no default-argument factory idiom (`x: T = Depends(...)`) that would trip B008,
+# so there is nothing to whitelist. Not a rule-wide disable; B008 stays active.
+
+# No test overrides yet — no tests exist. When a tests/ tree lands, add a
+# per-file-ignores entry relaxing S101 (assert) / S105-6 (hardcoded test creds)
+# there, scoped to "tests/**".
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+# Strictest floor with zero subtractions. scylla-driver ships no stubs, so its
+# imports/calls are pinned with narrow `# type: ignore[<code>]` at the seam
+# (the §7.42 pattern), never a blanket ignore or a report* subtraction.
+typeCheckingMode = "strict"

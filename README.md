@@ -50,6 +50,7 @@
 | `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0      | 5002  |
 | `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0     | 5003  |
 | `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128 | 4001  |
+| `servers/py-flask`      | Python 3.14.6 | Flask 3.x       | 23003 |
 | `servers/zig`           | Zig 0.16      | http.zig        | 26001 |
 
 ### Pinned dependencies 📌
