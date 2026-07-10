@@ -28,7 +28,7 @@ func TestOptionalMatcher(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := matchJSON(want, mustJSON(t, tc.got), tc.strict)
+			err := matchJSON(want, mustJSON(t, tc.got), tc.strict, nil)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("matchJSON err = %v, wantErr = %v", err, tc.wantErr)
 			}
@@ -39,7 +39,7 @@ func TestOptionalMatcher(t *testing.T) {
 // TestOptionalAsScalarValueRejected guards the misuse: $optional is only valid as
 // an object key, never as a standalone value.
 func TestOptionalAsScalarValueRejected(t *testing.T) {
-	if err := matchJSON("$optional", "anything", true); err == nil {
+	if err := matchJSON("$optional", "anything", true, nil); err == nil {
 		t.Fatal("expected error when $optional is used as a scalar value")
 	}
 }

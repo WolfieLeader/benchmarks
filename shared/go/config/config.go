@@ -21,6 +21,7 @@ type Env struct {
 	CassandraContactPoints []string
 	CassandraLocalDc       string
 	CassandraKeyspace      string
+	JwtSecret              string
 }
 
 const (
@@ -33,6 +34,9 @@ const (
 	defaultCassandraContactPoints = "localhost"
 	defaultCassandraLocalDc       = "datacenter1"
 	defaultCassandraKeyspace      = "benchmarks"
+	// Shared HS256 secret for the web suite; dev default must match the other
+	// languages' shared env modules and the contract harness (scripts/contract.mts).
+	defaultJwtSecret = "benchmarks-shared-jwt-secret-dev-default"
 )
 
 // LoadEnv builds the server Env from process environment, falling back to
@@ -55,6 +59,7 @@ func LoadEnv(defaultPort uint16) *Env {
 		CassandraContactPoints: parseContactPoints(defaultCassandraContactPoints),
 		CassandraLocalDc:       defaultCassandraLocalDc,
 		CassandraKeyspace:      defaultCassandraKeyspace,
+		JwtSecret:              defaultJwtSecret,
 	}
 
 	if e, ok := os.LookupEnv("ENV"); ok {
@@ -98,6 +103,9 @@ func LoadEnv(defaultPort uint16) *Env {
 	}
 	if ks, ok := os.LookupEnv("CASSANDRA_KEYSPACE"); ok && ks != "" {
 		env.CassandraKeyspace = ks
+	}
+	if secret, ok := os.LookupEnv("JWT_SECRET"); ok && secret != "" {
+		env.JwtSecret = secret
 	}
 
 	return env

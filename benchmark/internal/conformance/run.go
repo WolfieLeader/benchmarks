@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +23,13 @@ const (
 	DefaultTestFiles   = "../contract/test-files"
 	DefaultBaseURL     = "http://localhost:8080"
 	requestTimeout     = 15 * time.Second
+
+	// DefaultJWTSecret backs the web suite's $jwt matcher when --jwt-secret is
+	// not passed. It MUST equal the shared env modules' JWT_SECRET dev default
+	// (shared/{typescript,python,rust,go}) so a raw `--conformance` run agrees
+	// with a server started on defaults. The scripts/contract.mts harness passes
+	// this same value to both the container (JWT_SECRET) and the runner.
+	DefaultJWTSecret = "benchmarks-shared-jwt-secret-dev-default"
 )
 
 type failure struct {
@@ -31,10 +39,14 @@ type failure struct {
 }
 
 // Run loads the contract cases from contractDir and executes them once,
-// sequentially, against baseURL with strict assertions. It prints a concise
-// report and returns a process exit code (0 = all passed, 1 = any failure or
-// setup error). It performs plain HTTP only — no docker, orchestrator, or metrics.
-func Run(ctx context.Context, baseURL, contractDir, testFilesDir string) int {
+// sequentially, against baseURL with strict assertions. Suites whose name is in
+// skipSuites are loaded (and structurally validated) but not executed — this is
+// how per-server suite gating works: the harness passes --skip-suite=web for
+// servers whose manifest does not declare web support. jwtSecret (default when
+// empty) backs the $jwt matcher. It prints a concise report and returns a
+// process exit code (0 = all passed, 1 = any failure or setup error). It
+// performs plain HTTP only — no docker, orchestrator, or metrics.
+func Run(ctx context.Context, baseURL, contractDir, testFilesDir string, skipSuites []string, jwtSecret string) int {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -44,6 +56,9 @@ func Run(ctx context.Context, baseURL, contractDir, testFilesDir string) int {
 	}
 	if testFilesDir == "" {
 		testFilesDir = DefaultTestFiles
+	}
+	if jwtSecret == "" {
+		jwtSecret = DefaultJWTSecret
 	}
 
 	suites, err := loadSuites(contractDir)
@@ -55,38 +70,18 @@ func Run(ctx context.Context, baseURL, contractDir, testFilesDir string) int {
 	cli.Header("Contract Conformance")
 	cli.KeyValue("Base URL", baseURL)
 	cli.KeyValue("Contract dir", contractDir)
-
-	httpClient := &http.Client{Timeout: requestTimeout}
-
-	var passed, failed int
-	var failures []failure
-
-	for _, suite := range suites {
-		cli.Section(suite.Name)
-		for i := range suite.Cases {
-			c := &suite.Cases[i]
-			if len(c.Flow) > 0 {
-				p, f, fails := runFlow(ctx, httpClient, baseURL, testFilesDir, suite.Name, c)
-				passed += p
-				failed += f
-				failures = append(failures, fails...)
-				continue
-			}
-			if err := runCase(ctx, httpClient, baseURL, testFilesDir, nil, c); err != nil {
-				failed++
-				failures = append(failures, failure{suite.Name, c.Name, err})
-				cli.Failf("%s", c.Name)
-			} else {
-				passed++
-				cli.Successf("%s", c.Name)
-			}
-		}
+	if len(skipSuites) > 0 {
+		cli.KeyValue("Skipped suites", strings.Join(skipSuites, ", "))
 	}
 
+	httpClient := &http.Client{Timeout: requestTimeout}
+	passed, failed, failures := runSuites(ctx, httpClient, baseURL, testFilesDir, suites, skipSuites, []byte(jwtSecret))
+
 	// Guard against a vacuous green: zero executed cases is a setup error
-	// (empty suites, wrong --contract-dir, schema drift), never a pass.
+	// (empty suites, wrong --contract-dir, schema drift, or every suite skipped),
+	// never a pass.
 	if passed+failed == 0 {
-		cli.Failf("no contract cases were executed — check --contract-dir and suite contents")
+		cli.Failf("no contract cases were executed — check --contract-dir, --skip-suite, and suite contents")
 		return 1
 	}
 
@@ -97,15 +92,49 @@ func Run(ctx context.Context, baseURL, contractDir, testFilesDir string) int {
 	return 0
 }
 
+// runSuites executes every non-skipped suite's cases in order and tallies the
+// results. Kept separate from Run so tests can drive a single suite against an
+// in-process stub (web_test.go) without the CLI/exit-code shell.
+func runSuites(
+	ctx context.Context, hc *http.Client, baseURL, testFilesDir string,
+	suites []Suite, skipSuites []string, jwtSecret []byte,
+) (passed, failed int, failures []failure) {
+	for _, suite := range suites {
+		if slices.Contains(skipSuites, suite.Name) {
+			continue
+		}
+		cli.Section(suite.Name)
+		for i := range suite.Cases {
+			c := &suite.Cases[i]
+			if len(c.Flow) > 0 {
+				p, f, fails := runFlow(ctx, hc, baseURL, testFilesDir, suite.Name, c, jwtSecret)
+				passed += p
+				failed += f
+				failures = append(failures, fails...)
+				continue
+			}
+			if err := runCase(ctx, hc, baseURL, testFilesDir, nil, c, jwtSecret); err != nil {
+				failed++
+				failures = append(failures, failure{suite.Name, c.Name, err})
+				cli.Failf("%s", c.Name)
+			} else {
+				passed++
+				cli.Successf("%s", c.Name)
+			}
+		}
+	}
+	return passed, failed, failures
+}
+
 // runFlow executes an ordered set of steps sharing one capture map. A failed
 // step aborts the remaining steps in the flow (they depend on it).
-func runFlow(ctx context.Context, hc *http.Client, baseURL, testFilesDir, suite string, group *Case) (passed, failed int, failures []failure) {
+func runFlow(ctx context.Context, hc *http.Client, baseURL, testFilesDir, suite string, group *Case, jwtSecret []byte) (passed, failed int, failures []failure) {
 	captured := make(map[string]string)
 	cli.Linef("%s %s", cli.SymbolDot, group.Name)
 	for i := range group.Flow {
 		step := &group.Flow[i]
 		label := group.Name + "/" + step.Name
-		if err := runCase(ctx, hc, baseURL, testFilesDir, captured, step); err != nil {
+		if err := runCase(ctx, hc, baseURL, testFilesDir, captured, step, jwtSecret); err != nil {
 			failed++
 			failures = append(failures, failure{suite, label, err})
 			cli.Failf("  %s", label)
@@ -123,7 +152,7 @@ func runFlow(ctx context.Context, hc *http.Client, baseURL, testFilesDir, suite 
 	return passed, failed, failures
 }
 
-func runCase(ctx context.Context, hc *http.Client, baseURL, testFilesDir string, captured map[string]string, c *Case) error {
+func runCase(ctx context.Context, hc *http.Client, baseURL, testFilesDir string, captured map[string]string, c *Case, jwtSecret []byte) error {
 	resolved := resolveCase(c, captured)
 
 	req, err := buildRequest(ctx, baseURL, testFilesDir, &resolved)
@@ -144,7 +173,7 @@ func runCase(ctx context.Context, hc *http.Client, baseURL, testFilesDir string,
 		return fmt.Errorf("close response: %w", closeErr)
 	}
 
-	if err := validate(&resolved.Expect, resp, body); err != nil {
+	if err := validate(&resolved.Expect, resp, body, jwtSecret); err != nil {
 		return err
 	}
 
@@ -219,6 +248,18 @@ func validateSuite(file string, suite *Suite) error {
 func validateExpect(file, name string, exp *Expect) error {
 	if len(exp.StatusAnyOf) > 0 && (exp.Body != nil || exp.Text != nil) {
 		return fmt.Errorf("%s: case %q combines statusAnyOf with a body/text assertion — bodies differ per status, assert one or the other", file, name)
+	}
+	// text, htmlContains, and body are mutually exclusive body-assertion modes;
+	// validate (validate.go) checks them in that order and would silently ignore
+	// the later ones — an authoring error must fail loud at load time instead.
+	modes := 0
+	for _, set := range []bool{exp.Text != nil, len(exp.HTMLContains) > 0, exp.Body != nil} {
+		if set {
+			modes++
+		}
+	}
+	if modes > 1 {
+		return fmt.Errorf("%s: case %q sets more than one of text/htmlContains/body — they are mutually exclusive body-assertion modes", file, name)
 	}
 	return nil
 }

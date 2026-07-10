@@ -16,6 +16,8 @@ type Options struct {
 	BaseURL      string   // base URL for conformance runs
 	ContractDir  string   // contract cases directory for conformance runs
 	TestFilesDir string   // upload fixtures directory for conformance runs
+	SkipSuites   []string // conformance suites to load but not execute (per-server gating)
+	JWTSecret    string   // shared HS256 secret backing the web suite's $jwt matcher
 	Target       string   // benchmark one externally-managed server at this base URL (no containers, no metrics)
 	ConfigFile   string   // config file path override (default ../config/config.json)
 	ResultsDir   string   // results output directory override (default ../results/<timestamp>)
@@ -176,6 +178,16 @@ func ParseFlags(args []string) (*Options, error) {
 		case strings.HasPrefix(arg, "--test-files-dir="):
 			opts.TestFilesDir = strings.TrimSpace(strings.TrimPrefix(arg, "--test-files-dir="))
 			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--skip-suite="):
+			for s := range strings.SplitSeq(strings.TrimPrefix(arg, "--skip-suite="), ",") {
+				if trimmed := strings.TrimSpace(s); trimmed != "" {
+					opts.SkipSuites = append(opts.SkipSuites, trimmed)
+				}
+			}
+			hasExplicitFlags = true
+		case strings.HasPrefix(arg, "--jwt-secret="):
+			opts.JWTSecret = strings.TrimSpace(strings.TrimPrefix(arg, "--jwt-secret="))
+			hasExplicitFlags = true
 		case strings.HasPrefix(arg, "--target="):
 			opts.Target = strings.TrimSpace(strings.TrimPrefix(arg, "--target="))
 			if opts.Target == "" {
@@ -226,6 +238,8 @@ Options:
   --base-url=URL     Base URL for --conformance (default http://localhost:8080)
   --contract-dir=DIR Contract cases directory for --conformance (default ../contract)
   --test-files-dir=DIR Upload fixtures directory for --conformance (default ../contract/test-files)
+  --skip-suite=a,b   Contract suites to load but not run (per-server gating, e.g. web)
+  --jwt-secret=SECRET Shared HS256 secret for the web suite's $jwt matcher (default dev secret)
   --target=URL       Benchmark one externally-managed server at URL (no containers, no metrics DB)
   --config=PATH      Config file override (default ../config/config.json)
   --results-dir=DIR  Results output directory override (default ../results/<timestamp>)

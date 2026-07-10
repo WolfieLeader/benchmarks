@@ -3,7 +3,7 @@
   "title": "Server manifest (bench.json)",
   "description": "Per-server manifest next to each Dockerfile — the roster's single source of truth (PLAN §7.4).",
   "type": "object",
-  "required": ["name", "language", "runtime", "image", "port", "databases", "experimental", "dev_port"],
+  "required": ["name", "language", "runtime", "image", "port", "databases", "web", "experimental", "dev_port"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -17,6 +17,10 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true,
       "minItems": 1
+    },
+    "web": {
+      "type": "boolean",
+      "description": "Whether this server implements the web suite (GET /html, /jwt/sign, /jwt/verify, POST /validate, GET /compute). When false, the contract harness loads but skips the web suite for this server (scripts/contract.mts passes --skip-suite=web)."
     },
     "experimental": { "type": "boolean" },
     "dev_port": { "type": "integer", "minimum": 1, "maximum": 65535 }

@@ -20,7 +20,7 @@ import { dbPreflight, detectDbStack, repoRoot, SERVERS, type Server } from "./li
 
 // A fully-resolved server entry: the roster rows that carry both an image and a
 // port (i.e. the discovered servers, not the benchmark/root helper targets).
-type Entry = { name: string; image: string; port: number; dir: string };
+type Entry = { name: string; image: string; port: number; dir: string; web: boolean };
 type Config = { databases: string[] };
 type EntryResult = { name: string; passed: number; failed: number; ok: boolean; note: string };
 
@@ -30,6 +30,12 @@ const testFilesDir = join(repoRoot, "contract", "test-files");
 
 const HEALTH_TIMEOUT_MS = 45_000;
 const HEALTH_INTERVAL_MS = 300;
+
+// Shared HS256 secret the web suite signs and verifies with. Passed to BOTH the
+// container (JWT_SECRET env) and the conformance runner (--jwt-secret) so the
+// server and the $jwt matcher agree on the key. Mirrors conformance.DefaultJWTSecret
+// and the shared env modules' JWT_SECRET dev default (shared/{typescript,python,rust,go}).
+const JWT_SECRET = "benchmarks-shared-jwt-secret-dev-default";
 
 function fail(message: string): never {
   console.error(`\x1b[31m✗\x1b[0m ${message}`);
@@ -45,7 +51,7 @@ function loadConfig(): Config {
 // a port. The benchmark/root helper rows in SERVERS have neither and drop out.
 function roster(): Entry[] {
   return SERVERS.filter((s): s is Server & { image: string; port: number } => !!s.image && s.port !== undefined).map(
-    (s) => ({ name: s.name, image: s.image, port: s.port, dir: s.dir })
+    (s) => ({ name: s.name, image: s.image, port: s.port, dir: s.dir, web: s.web ?? false })
   );
 }
 
@@ -69,9 +75,13 @@ function buildImage(entry: Entry): void {
 function startContainer(image: string, port: number, network: string): string {
   // -d --rm so `docker stop` auto-removes; map host port = container port
   // (the image's baked PORT env), join the DB network for service-name DNS.
-  const res = spawnSync("docker", ["run", "-d", "--rm", "-p", `${port}:${port}`, "--network", network, image], {
-    encoding: "utf8"
-  });
+  // JWT_SECRET is part of the env contract (web suite): harmless for servers
+  // that don't read it, and it must match the runner's --jwt-secret for web servers.
+  const res = spawnSync(
+    "docker",
+    ["run", "-d", "--rm", "-p", `${port}:${port}`, "-e", `JWT_SECRET=${JWT_SECRET}`, "--network", network, image],
+    { encoding: "utf8" }
+  );
   if (res.status !== 0) {
     throw new HarnessError("start", `docker run failed for ${image}:\n${res.stderr.trim()}`);
   }
@@ -128,19 +138,25 @@ function buildConformanceBinary(): string {
 }
 
 // Run the conformance binary, streaming its output while capturing it to parse
-// the "N passed, M failed" summary line for the final table.
-function runConformance(binPath: string, port: number): Promise<{ code: number; passed: number; failed: number }> {
+// the "N passed, M failed" summary line for the final table. The web suite is
+// gated per server: unless the manifest declares web support, it is skipped
+// (--skip-suite=web) so servers that don't implement /html,/jwt/*,/validate,
+// /compute stay green. --jwt-secret must match the container's JWT_SECRET.
+function runConformance(
+  binPath: string,
+  port: number,
+  web: boolean
+): Promise<{ code: number; passed: number; failed: number }> {
   return new Promise((resolve) => {
-    const child = spawn(
-      binPath,
-      [
-        "--conformance",
-        `--base-url=http://localhost:${port}`,
-        `--contract-dir=${contractDir}`,
-        `--test-files-dir=${testFilesDir}`
-      ],
-      { cwd: benchmarkDir }
-    );
+    const args = [
+      "--conformance",
+      `--base-url=http://localhost:${port}`,
+      `--contract-dir=${contractDir}`,
+      `--test-files-dir=${testFilesDir}`,
+      `--jwt-secret=${JWT_SECRET}`
+    ];
+    if (!web) args.push("--skip-suite=web");
+    const child = spawn(binPath, args, { cwd: benchmarkDir });
     let buf = "";
     let settled = false;
     const relay = (chunk: Buffer, out: NodeJS.WriteStream) => {
@@ -189,7 +205,7 @@ async function runEntry(entry: Entry, network: string, binPath: string, database
   try {
     console.log(`\x1b[36m›\x1b[0m container ${id.slice(0, 12)} up; waiting for health ...`);
     await waitHealthy(entry.port, databases);
-    const { code, passed, failed } = await runConformance(binPath, entry.port);
+    const { code, passed, failed } = await runConformance(binPath, entry.port, entry.web);
     const note = code === 0 ? "" : failed > 0 ? `${failed} failed` : "conformance run error";
     return { name: entry.name, passed, failed, ok: code === 0, note };
   } finally {

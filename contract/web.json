@@ -1,0 +1,215 @@
+{
+  "name": "web",
+  "cases": [
+    {
+      "name": "html_renders_dynamic_template",
+      "note": "GET /html renders a server-side template interpolating a name, a list, and a number. Frameworks' template engines differ in whitespace/tag layout, so the contract asserts text/html + the presence of each interpolated value (htmlContains, whitespace-tolerant) rather than a byte-exact body. CANON values: greeting 'Hello, Alice', list=[apple,banana,cherry], and the labeled number 'Total: 42' — labeled so the assertion cannot collide with an incidental 42 elsewhere in the markup.",
+      "method": "GET",
+      "path": "/html",
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "text/html" },
+        "htmlContains": ["Hello, Alice", "apple", "banana", "cherry", "Total: 42"]
+      }
+    },
+
+    {
+      "name": "jwt_sign_then_verify",
+      "note": "CANON: GET /jwt/sign issues an HS256 token with fixed claims (sub=1234567890, name=John Doe, admin=true) plus iat+exp, signed with the shared JWT_SECRET. $jwt verifies the signature cryptographically against that secret and requires an unexpired exp (golang-jwt). The verify step then decodes the SAME token and echoes the payload; iat/exp are dynamic ($number), the rest are asserted literally.",
+      "flow": [
+        {
+          "name": "sign",
+          "method": "GET",
+          "path": "/jwt/sign",
+          "capture": { "token": "token" },
+          "expect": {
+            "status": 200,
+            "headers": { "Content-Type": "application/json" },
+            "body": { "token": "$jwt" }
+          }
+        },
+        {
+          "name": "verify",
+          "method": "GET",
+          "path": "/jwt/verify",
+          "headers": { "Authorization": "Bearer {token}" },
+          "expect": {
+            "status": 200,
+            "headers": { "Content-Type": "application/json" },
+            "body": { "sub": "1234567890", "name": "John Doe", "admin": true, "iat": "$number", "exp": "$number" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "jwt_verify_missing_authorization_401",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
+    {
+      "name": "jwt_verify_malformed_token_401",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "headers": { "Authorization": "Bearer not-a-jwt" },
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
+    {
+      "name": "jwt_verify_bad_signature_401",
+      "note": "SECURITY: a structurally-valid HS256 token signed with a DIFFERENT secret must be rejected — proves the server verifies the signature, not just parses the token. This token is signed with a throwaway secret (not JWT_SECRET), so it is stable regardless of the shared secret value.",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbiI6dHJ1ZSwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5hbWUiOiJKb2huIERvZSIsInN1YiI6IjEyMzQ1Njc4OTAifQ.J75FiSXpAhQxN9jiUjBHADeu_su1WJnZjJqDXI4aOWw"
+      },
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
+    {
+      "name": "jwt_verify_expired_token_401",
+      "note": "SECURITY (PLAN §8: tampered/expired token → 401): this token is signed with the CORRECT dev-default JWT_SECRET but its exp is 2020-01-01T01:00:00Z — a server that verifies the signature but ignores exp would wrongly return 200. Statically embedded; only valid against the dev-default secret, which is what the contract harness always runs with.",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbiI6dHJ1ZSwiZXhwIjoxNTc3ODQwNDAwLCJpYXQiOjE1Nzc4MzY4MDAsIm5hbWUiOiJKb2huIERvZSIsInN1YiI6IjEyMzQ1Njc4OTAifQ.8XxPN0yJufkzy8TdEspyV-GqR1b1MF8aW_YVERdoRic"
+      },
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
+
+    {
+      "name": "validate_accepts_valid_object",
+      "note": "CANON /validate schema (~4 levels): user{ id:uuid, email:email, profile{ age:0..120, role:admin|user|guest, preferences{ theme:light|dark, notifications:bool } } }, items[]{ sku:string, quantity:1..100, tags:string[] }, total:number>=0. A fully valid object returns 200 {\"valid\":true}.",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "age": 30,
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [
+          { "sku": "SKU-1", "quantity": 2, "tags": ["new", "featured"] },
+          { "sku": "SKU-2", "quantity": 100, "tags": [] }
+        ],
+        "total": 42.5
+      },
+      "expect": { "status": 200, "headers": { "Content-Type": "application/json" }, "body": { "valid": true } }
+    },
+    {
+      "name": "validate_rejects_invalid_object",
+      "note": "The mirror-image object with a broken uuid, bad email, out-of-range age, invalid role enum, out-of-range quantity, bad theme enum, and negative total. Returns a 400 with the canonical error shape; details carries a per-framework summary of the failures (asserted $present, not an exact count — Zod/Pydantic/validator/serde count and word failures differently).",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "not-a-uuid",
+          "email": "not-an-email",
+          "profile": {
+            "age": 200,
+            "role": "superuser",
+            "preferences": { "theme": "neon", "notifications": true }
+          }
+        },
+        "items": [{ "sku": "SKU-1", "quantity": 0, "tags": ["x"] }],
+        "total": -5
+      },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "validation failed", "details": "$present" }
+      }
+    },
+
+    {
+      "name": "compute_one_round",
+      "note": "CANON: GET /compute?n= applies SHA-256 n times to the fixed seed bytes \"benchmark\" and returns the lowercase hex digest. $sha256chain:<n> recomputes it independently in the runner. n must be an integer >= 1 (validate-at-boundary): missing, non-numeric, zero, or negative n is a 400; above the cap it is clamped.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "1" },
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "result": "$sha256chain:1" }
+      }
+    },
+    {
+      "name": "compute_thousand_rounds",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "1000" },
+      "expect": { "status": 200, "body": { "result": "$sha256chain:1000" } }
+    },
+    {
+      "name": "compute_caps_excessive_n",
+      "note": "CANON: n above the cap (1000000) is CLAMPED, not rejected — the response is still 200 and equals the cap-rounds chain. This bounds the per-request CPU work.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "5000000" },
+      "expect": { "status": 200, "body": { "result": "$sha256chain:1000000" } }
+    },
+    {
+      "name": "compute_missing_n_400",
+      "note": "CANON: n is required (validate-at-boundary — unlike /params/search's limit, which has a documented default to fall back to, /compute has no meaningful default amount of work). Error string follows the house 'invalid <thing>' style (shared consts: invalid JSON body / invalid form data / invalid token); details $present like every other 400.",
+      "method": "GET",
+      "path": "/compute",
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_non_numeric_n_400",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "abc" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_zero_n_400",
+      "note": "n must be >= 1: zero rounds would return the raw seed digest-free, which is no compute at all.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "0" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_negative_n_400",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "-5" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    }
+  ]
+}
