@@ -199,6 +199,17 @@
         "headers": { "Content-Type": "application/json" },
         "body": { "error": "invalid n", "details": "$present" }
       }
+    },
+    {
+      "name": "compute_negative_n_400",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "-5" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
     }
   ]
 }
