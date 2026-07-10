@@ -2,12 +2,14 @@
 
 For the implementer/reviewer agents building Phase 4's two Kotlin lanes
 (`servers/kt-ktor`, `servers/kt-spring-boot`, shared module `shared/kotlin` →
-Gradle `:shared`, currently empty — neither lane has started). Versions below
-were verified live in early July 2026 — **re-verify at implementation time**,
-especially anything marked UNVERIFIED.
+Gradle `:shared`). Part 1 shipped the root Gradle skeleton, `shared/kotlin`, and
+`kt-ktor`; `kt-spring-boot` joins later as a second `:kt-spring-boot` module
+without restructuring. Versions below were verified live in early July 2026 —
+**re-verify at implementation time**, especially anything marked UNVERIFIED.
 
-Confirmed current versions: Kotlin **2.3.21** (patch; features shipped in
-2.3.0/2.3.20), Gradle **9.6.1**, Ktor **3.5.1**, Spring Boot **4.1.0** (Spring
+Confirmed current versions: Kotlin **2.4.0** (pinned in the version catalog;
+Gradle 9.6.1's _embedded_ Kotlin is 2.3.21, so the Kotlin Gradle plugin is pinned
+forward to 2.4.0), Gradle **9.6.1**, Ktor **3.5.1**, Spring Boot **4.1.0** (Spring
 Framework 7.0.8+, JDK 17–26 certified), kotlinx.coroutines (no official
 virtual-thread dispatcher yet), detekt **1.23.8**, ktlint core **1.8.0** (no
 first-party Gradle plugin — use `org.jlleitschuh.gradle.ktlint:14.2.0`).
