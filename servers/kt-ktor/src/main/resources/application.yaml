@@ -1,0 +1,10 @@
+# Ktor EngineMain config. Host/port come from the env-var contract ($PORT/$HOST),
+# with kt-ktor's canonical port 25001 as the default (PLAN §6: 2·L·R·FF, Kotlin
+# L=5, R=0, kt-ktor FF=01). The container maps host:container 1:1 on this port.
+ktor:
+  deployment:
+    port: "$PORT:25001"
+    host: "$HOST:0.0.0.0"
+  application:
+    modules:
+      - com.bench.ktor.ApplicationKt.module
