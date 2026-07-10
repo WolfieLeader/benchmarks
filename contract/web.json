@@ -3,13 +3,13 @@
   "cases": [
     {
       "name": "html_renders_dynamic_template",
-      "note": "GET /html renders a server-side template interpolating a name, a list, and a number. Frameworks' template engines differ in whitespace/tag layout, so the contract asserts text/html + the presence of each interpolated value (htmlContains, whitespace-tolerant) rather than a byte-exact body. CANON values: name=Alice, list=[apple,banana,cherry], number=42.",
+      "note": "GET /html renders a server-side template interpolating a name, a list, and a number. Frameworks' template engines differ in whitespace/tag layout, so the contract asserts text/html + the presence of each interpolated value (htmlContains, whitespace-tolerant) rather than a byte-exact body. CANON values: greeting 'Hello, Alice', list=[apple,banana,cherry], and the labeled number 'Total: 42' — labeled so the assertion cannot collide with an incidental 42 elsewhere in the markup.",
       "method": "GET",
       "path": "/html",
       "expect": {
         "status": 200,
         "headers": { "Content-Type": "text/html" },
-        "htmlContains": ["Hello, Alice", "apple", "banana", "cherry", "42"]
+        "htmlContains": ["Hello, Alice", "apple", "banana", "cherry", "Total: 42"]
       }
     },
 
@@ -76,6 +76,20 @@
         "body": { "error": "invalid token", "details": "$optional" }
       }
     },
+    {
+      "name": "jwt_verify_expired_token_401",
+      "note": "SECURITY (PLAN §8: tampered/expired token → 401): this token is signed with the CORRECT dev-default JWT_SECRET but its exp is 2020-01-01T01:00:00Z — a server that verifies the signature but ignores exp would wrongly return 200. Statically embedded; only valid against the dev-default secret, which is what the contract harness always runs with.",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbiI6dHJ1ZSwiZXhwIjoxNTc3ODQwNDAwLCJpYXQiOjE1Nzc4MzY4MDAsIm5hbWUiOiJKb2huIERvZSIsInN1YiI6IjEyMzQ1Njc4OTAifQ.8XxPN0yJufkzy8TdEspyV-GqR1b1MF8aW_YVERdoRic"
+      },
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
 
     {
       "name": "validate_accepts_valid_object",
@@ -127,7 +141,7 @@
 
     {
       "name": "compute_one_round",
-      "note": "CANON: GET /compute?n= applies SHA-256 n times to the fixed seed bytes \"benchmark\" and returns the lowercase hex digest. $sha256chain:<n> recomputes it independently in the runner.",
+      "note": "CANON: GET /compute?n= applies SHA-256 n times to the fixed seed bytes \"benchmark\" and returns the lowercase hex digest. $sha256chain:<n> recomputes it independently in the runner. n must be an integer >= 1 (validate-at-boundary): missing, non-numeric, zero, or negative n is a 400; above the cap it is clamped.",
       "method": "GET",
       "path": "/compute",
       "query": { "n": "1" },
@@ -151,6 +165,40 @@
       "path": "/compute",
       "query": { "n": "5000000" },
       "expect": { "status": 200, "body": { "result": "$sha256chain:1000000" } }
+    },
+    {
+      "name": "compute_missing_n_400",
+      "note": "CANON: n is required (validate-at-boundary — unlike /params/search's limit, which has a documented default to fall back to, /compute has no meaningful default amount of work). Error string follows the house 'invalid <thing>' style (shared consts: invalid JSON body / invalid form data / invalid token); details $present like every other 400.",
+      "method": "GET",
+      "path": "/compute",
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_non_numeric_n_400",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "abc" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_zero_n_400",
+      "note": "n must be >= 1: zero rounds would return the raw seed digest-free, which is no compute at all.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "0" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
     }
   ]
 }

@@ -20,10 +20,11 @@ import (
 
 // These tests prove the web suite is not vacuously green: the same contract/web.json
 // cases the harness runs PASS against a correct in-process stub and FAIL against
-// stubs with a specific defect (wrong JWT secret, wrong compute hash, a validator
-// that accepts bad input, a template missing an interpolated value, a wrong 401
-// error string). If the referee (validate.go / the $jwt & $sha256chain matchers)
-// were toothless, the broken-stub cases would still pass — so these guard it.
+// stubs with a specific defect (wrong JWT secret, a verifier that ignores exp,
+// wrong compute hash, a validator that accepts bad input, a template missing an
+// interpolated value, a wrong 401 error string). If the referee (validate.go /
+// the $jwt & $sha256chain matchers) were toothless, the broken-stub cases would
+// still pass — so these guard it.
 
 const (
 	// Canon claims the /jwt/sign endpoint bakes (fixed) plus iat/exp (dynamic).
@@ -44,6 +45,7 @@ var (
 // (all false) is the correct server.
 type stubDefect struct {
 	wrongJWTSecret bool // sign with a different secret -> $jwt signature check must fail
+	ignoreExp      bool // verify the signature but skip exp validation -> the expired-token 401 case must fail
 	wrongCompute   bool // return the wrong SHA-256 chain -> $sha256chain must fail
 	acceptInvalid  bool // return 200 {"valid":true} for invalid input -> the fail case must fail
 	htmlMissing    bool // drop an interpolated list item -> htmlContains must fail
@@ -65,7 +67,7 @@ func newStub(defect stubDefect) *httptest.Server {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte("<!DOCTYPE html>\n<html><head><title>Benchmark</title></head>\n<body>\n" +
-			"<h1>Hello, Alice</h1>\n<ul>" + items + "</ul>\n<p>Favorite number: 42</p>\n</body></html>\n"))
+			"<h1>Hello, Alice</h1>\n<ul>" + items + "</ul>\n<p>Total: 42</p>\n</body></html>\n"))
 	})
 
 	mux.HandleFunc("GET /jwt/sign", func(w http.ResponseWriter, _ *http.Request) {
@@ -91,7 +93,13 @@ func newStub(defect stubDefect) *httptest.Server {
 			writeInvalidToken(w, defect)
 			return
 		}
-		parser := jwt.NewParser(jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+		parserOpts := []jwt.ParserOption{jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired()}
+		if defect.ignoreExp {
+			// The defect: signature is still verified, but claims validation
+			// (including exp) is skipped — an expired token wrongly passes.
+			parserOpts = []jwt.ParserOption{jwt.WithValidMethods([]string{"HS256"}), jwt.WithoutClaimsValidation()}
+		}
+		parser := jwt.NewParser(parserOpts...)
 		claims := jwt.MapClaims{}
 		if _, err := parser.ParseWithClaims(raw, claims, func(*jwt.Token) (any, error) { return secret, nil }); err != nil {
 			writeInvalidToken(w, defect)
@@ -113,7 +121,15 @@ func newStub(defect stubDefect) *httptest.Server {
 	})
 
 	mux.HandleFunc("GET /compute", func(w http.ResponseWriter, r *http.Request) {
-		n, _ := strconv.Atoi(r.URL.Query().Get("n"))
+		// Canon: n must be an integer >= 1; missing/non-numeric/zero/negative -> 400.
+		n, err := strconv.Atoi(r.URL.Query().Get("n"))
+		if err != nil || n < 1 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"error":   "invalid n",
+				"details": "n must be an integer >= 1",
+			})
+			return
+		}
 		if n > computeCap {
 			n = computeCap
 		}
@@ -252,6 +268,7 @@ func TestWebSuiteCatchesBrokenStubs(t *testing.T) {
 		wantSubstr string // a failing case label must contain this
 	}{
 		{"wrong jwt secret", stubDefect{wrongJWTSecret: true}, "jwt"},
+		{"verifies signature but ignores exp", stubDefect{ignoreExp: true}, "expired"},
 		{"wrong compute hash", stubDefect{wrongCompute: true}, "compute"},
 		{"validator accepts bad input", stubDefect{acceptInvalid: true}, "validate"},
 		{"html missing interpolation", stubDefect{htmlMissing: true}, "html"},

@@ -249,6 +249,18 @@ func validateExpect(file, name string, exp *Expect) error {
 	if len(exp.StatusAnyOf) > 0 && (exp.Body != nil || exp.Text != nil) {
 		return fmt.Errorf("%s: case %q combines statusAnyOf with a body/text assertion — bodies differ per status, assert one or the other", file, name)
 	}
+	// text, htmlContains, and body are mutually exclusive body-assertion modes;
+	// validate (validate.go) checks them in that order and would silently ignore
+	// the later ones — an authoring error must fail loud at load time instead.
+	modes := 0
+	for _, set := range []bool{exp.Text != nil, len(exp.HTMLContains) > 0, exp.Body != nil} {
+		if set {
+			modes++
+		}
+	}
+	if modes > 1 {
+		return fmt.Errorf("%s: case %q sets more than one of text/htmlContains/body — they are mutually exclusive body-assertion modes", file, name)
+	}
 	return nil
 }
 

@@ -125,8 +125,9 @@ Any other string is compared literally.
 raw response body. It is the referee for server-rendered HTML (`GET /html`):
 template engines differ in whitespace and tag layout across frameworks, so the
 contract asserts `Content-Type: text/html` plus the presence of each interpolated
-value rather than a byte-exact body. It is a body-assertion mode of its own — do
-not combine it with `text` or `body`.
+value rather than a byte-exact body. It is a body-assertion mode of its own —
+`text`, `htmlContains`, and `body` are mutually exclusive, enforced at load time
+(a case setting more than one is a suite load error).
 
 ### Variable substitution
 
@@ -187,18 +188,25 @@ All 16 routes with meaningful variations, plus the negative and security cases:
 The five web endpoints (`GET /html`, `GET /jwt/sign`, `GET /jwt/verify`,
 `POST /validate`, `GET /compute`). Gated per server (`"web": true` in the
 manifest); no server implements it yet, so it is skipped everywhere for now.
-Canon drafted here (pending lead sign-off — see the PR):
+Canon (lead-ruled):
 
-- **`/html`** — `200 text/html` rendering a template with a fixed name (`Alice`),
-  list (`apple`,`banana`,`cherry`), and number (`42`). Asserted via `htmlContains`
-  (whitespace/markup-tolerant), not a byte-exact body.
+- **`/html`** — `200 text/html` rendering a template with a fixed greeting
+  (`Hello, Alice`), list (`apple`,`banana`,`cherry`), and the **labeled** number
+  `Total: 42` (the label makes the substring distinctive — a bare `42` could
+  collide with an incidental value elsewhere in the markup). Asserted via
+  `htmlContains` (whitespace/markup-tolerant), not a byte-exact body.
 - **`/jwt/sign`** — `200 {"token": "$jwt"}`. HS256, shared `JWT_SECRET`. Fixed
   claims `sub=1234567890`, `name=John Doe`, `admin=true` plus dynamic `iat`/`exp`.
+  **Canon TTL = 1 hour** (`exp = iat + 3600`): servers SHOULD sign with a 1-hour
+  TTL; the contract asserts only that `exp` is present and unexpired (`$jwt`), so
+  the exact TTL never flakes a run — but a too-short TTL risks expiring between
+  the sign and verify steps, so don't shorten it.
 - **`/jwt/verify`** — `Authorization: Bearer <t>`. Valid token → `200` echoing the
   payload (`iat`/`exp` matched as `$number`, the rest literally). Missing,
-  malformed, or **wrong-signature** token → `401 {"error":"invalid token"}`
+  malformed, **wrong-signature**, or **expired** token → `401 {"error":"invalid token"}`
   (`details` `$optional`). The bad-signature case proves signature verification,
-  not just parsing.
+  not just parsing; the expired case (signed with the correct dev-default secret,
+  `exp` in 2020) proves `exp` is validated, not just the signature.
 - **`/validate`** — deep nested object (~4 levels; `user{id:uuid, email, profile{age:0..120, role:enum, preferences{theme:enum, notifications:bool}}}, items[]{sku, quantity:1..100, tags[]}, total:>=0`).
   Valid → `200 {"valid": true}`; invalid → `400 {"error":"validation failed", "details":"$present"}`.
   The **error count** from the endpoint sketch is intentionally _not_ asserted as an
@@ -206,8 +214,13 @@ Canon drafted here (pending lead sign-off — see the PR):
   counts diverge across Zod/Pydantic/validator/serde. `details` carries the
   per-framework summary (`$present`).
 - **`/compute?n=`** — iterative SHA-256 chain, `200 {"result": "$sha256chain:<n>"}`
-  (seed `benchmark`, lowercase hex). `n` is **clamped** to the cap `1000000`, not
-  rejected — the over-cap case asserts the cap-rounds digest.
+  (seed `benchmark`, lowercase hex). `n` must be an **integer ≥ 1**
+  (validate-at-boundary): missing, non-numeric, zero, or negative `n` →
+  `400 {"error":"invalid n","details":"$present"}` (house `invalid <thing>` error
+  style; unlike `/params/search`'s `limit`, which falls back to a documented
+  default, `/compute` has no meaningful default amount of work). Above the cap
+  `1000000`, `n` is **clamped**, not rejected — the over-cap case asserts the
+  cap-rounds digest.
 
 **Env contract:** `JWT_SECRET` (shared HS256 secret) joins the server env-var
 contract (defined in each `shared/*/env` module; dev default
