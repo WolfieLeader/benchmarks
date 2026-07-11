@@ -21,7 +21,7 @@ WORKDIR /app/servers/py-django
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=4002 \
+    PORT=8080 \
     DJANGO_SETTINGS_MODULE=src.settings \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
@@ -40,8 +40,8 @@ RUN addgroup --gid 1001 app-group && \
 
 USER app-runner
 
-EXPOSE 4002
+EXPOSE 8080
 
 # ASGI via uvicorn, single worker + uvloop (fleet fairness canon). --no-access-log
 # keeps the logger off in prod (fleet-wide env contract).
-CMD [".venv/bin/uvicorn", "src.asgi:application", "--host", "0.0.0.0", "--port", "4002", "--loop", "uvloop", "--workers", "1", "--no-access-log"]
+CMD [".venv/bin/uvicorn", "src.asgi:application", "--host", "0.0.0.0", "--port", "8080", "--loop", "uvloop", "--workers", "1", "--no-access-log"]

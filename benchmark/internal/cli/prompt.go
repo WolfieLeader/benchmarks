@@ -251,6 +251,6 @@ Interactive mode:
 Examples:
   benchmark                                            # Interactive mode
   benchmark --servers=go-chi,go-gin                    # Benchmark specific servers
-  benchmark --conformance --base-url=http://localhost:5001  # Run the contract gate
+  benchmark --conformance --base-url=http://localhost:8080  # Run the contract gate
   benchmark --target=http://localhost:8080 --config=../config/calibration.json  # External target`)
 }

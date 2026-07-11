@@ -27,11 +27,11 @@ type Env struct {
 const (
 	defaultEnv                    = "dev"
 	defaultHost                   = "0.0.0.0"
-	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:5432/benchmarks" //nolint:gosec // G101: local dev default connection string, not a real credential
-	defaultMongoDbUrl             = "mongodb://localhost:27017"
+	defaultPostgresUrl            = "postgres://postgres:postgres@localhost:20001/benchmarks" //nolint:gosec // G101: local dev default connection string, not a real credential
+	defaultMongoDbUrl             = "mongodb://localhost:20002"
 	defaultMongoDbDatabase        = "benchmarks"
-	defaultRedisUrl               = "redis://localhost:6379"
-	defaultCassandraContactPoints = "localhost"
+	defaultRedisUrl               = "redis://localhost:20003"
+	defaultCassandraContactPoints = "localhost:20004"
 	defaultCassandraLocalDc       = "datacenter1"
 	defaultCassandraKeyspace      = "benchmarks"
 	// Shared HS256 secret for the web suite; dev default must match the other

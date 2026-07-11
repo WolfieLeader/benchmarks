@@ -21,7 +21,7 @@ WORKDIR /app/servers/py-flask
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=23003 \
+    PORT=8080 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -40,7 +40,7 @@ RUN addgroup --gid 1001 app-group && \
 
 USER app-runner
 
-EXPOSE 23003
+EXPOSE 8080
 
 # Sync WSGI via gunicorn, single worker + 50-thread pool (fleet fairness canon;
 # see gunicorn.conf.py). Exec form so gunicorn is PID 1 and receives SIGTERM/

@@ -37,7 +37,7 @@ WORKDIR /app
 # reads HOST/PORT from application.yaml's $HOST/$PORT overrides.
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=25001 \
+    PORT=8080 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -54,6 +54,6 @@ RUN groupadd -g 1001 app-group \
 
 USER app-runner
 
-EXPOSE 25001
+EXPOSE 8080
 
 CMD ["./bin/kt-ktor"]

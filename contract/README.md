@@ -8,9 +8,9 @@ differ. These cases are the referee.
 They are consumed by the Go benchmark client's conformance mode:
 
 ```sh
-just benchmark --conformance --base-url=http://localhost:5001
+just benchmark --conformance --base-url=http://localhost:8080
 # or, from benchmark/:
-go run ./cmd/main.go --conformance --base-url=http://localhost:5001
+go run ./cmd/main.go --conformance --base-url=http://localhost:8080
 ```
 
 Every case runs **once, sequentially, with strict full-body assertions**, against a

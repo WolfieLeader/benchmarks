@@ -31,7 +31,7 @@ WORKDIR /app
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=3004 \
+    PORT=8080 \
     DENO_DIR=/deno-dir \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
@@ -52,5 +52,5 @@ RUN chown -R deno:deno /app /deno-dir
 
 USER deno
 
-EXPOSE 3004
+EXPOSE 8080
 CMD ["deno", "run", "--allow-all", "src/index.ts"]

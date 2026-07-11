@@ -1,6 +1,7 @@
 # Ktor EngineMain config. Host/port come from the env-var contract ($PORT/$HOST),
-# with kt-ktor's canonical port 25001 as the default (PLAN §6: 2·L·R·FF, Kotlin
-# L=5, R=0, kt-ktor FF=01). The container maps host:container 1:1 on this port.
+# with kt-ktor's local-dev host port 25001 as the default (PLAN §6: 2·L·R·FF,
+# Kotlin L=5, R=0, kt-ktor FF=01). Inside the container PORT is baked to the
+# canonical 8080 (PLAN §6 rule 1); the client maps a dynamic host port.
 #
 # Netty engine threads deliberately stay at EngineMain defaults — no
 # connectionGroupSize/workerGroupSize/callGroupSize pins. Lead ruling: this

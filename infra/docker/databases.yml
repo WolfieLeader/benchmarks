@@ -3,7 +3,7 @@ services:
   postgres:
     image: postgres:18.4-alpine3.23
     ports:
-      - "5432:5432"
+      - "20001:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -25,7 +25,7 @@ services:
   mongodb:
     image: mongo:8.2.11
     ports:
-      - "27017:27017"
+      - "20002:27017"
     environment:
       MONGO_INITDB_DATABASE: benchmarks
     volumes:
@@ -40,7 +40,7 @@ services:
   redis:
     image: redis:8.4.4-alpine3.22
     ports:
-      - "6379:6379"
+      - "20003:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -54,7 +54,7 @@ services:
     image: cassandra:5.0.8
     restart: unless-stopped
     ports:
-      - "9042:9042"
+      - "20004:9042"
     environment:
       CASSANDRA_CLUSTER_NAME: bench
       CASSANDRA_BROADCAST_RPC_ADDRESS: 127.0.0.1
