@@ -57,14 +57,14 @@ impl Env {
             port,
             postgres_url: var_or(
                 "POSTGRES_URL",
-                "postgres://postgres:postgres@localhost:5432/benchmarks",
+                "postgres://postgres:postgres@localhost:20001/benchmarks",
             ),
-            mongodb_url: var_or("MONGODB_URL", "mongodb://localhost:27017"),
+            mongodb_url: var_or("MONGODB_URL", "mongodb://localhost:20002"),
             mongodb_db: var_or("MONGODB_DB", "benchmarks"),
-            redis_url: var_or("REDIS_URL", "redis://localhost:6379"),
+            redis_url: var_or("REDIS_URL", "redis://localhost:20003"),
             cassandra_contact_points: parse_contact_points(&var_or(
                 "CASSANDRA_CONTACT_POINTS",
-                "localhost",
+                "localhost:20004",
             )),
             cassandra_local_dc: var_or("CASSANDRA_LOCAL_DATACENTER", "datacenter1"),
             cassandra_keyspace: var_or("CASSANDRA_KEYSPACE", "benchmarks"),

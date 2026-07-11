@@ -17,12 +17,12 @@ class Env(BaseModel):
     # S104: binding all interfaces is the deliberate container default for every
     # server in the fleet (the HOST env contract) — not an accidental exposure.
     HOST: str = "0.0.0.0"  # noqa: S104
-    PORT: int = 4001
-    POSTGRES_URL: str = "postgres://postgres:postgres@localhost:5432/benchmarks"
-    MONGODB_URL: str = "mongodb://localhost:27017"
+    PORT: int = 8080
+    POSTGRES_URL: str = "postgres://postgres:postgres@localhost:20001/benchmarks"
+    MONGODB_URL: str = "mongodb://localhost:20002"
     MONGODB_DB: str = "benchmarks"
-    REDIS_URL: str = "redis://localhost:6379"
-    CASSANDRA_CONTACT_POINTS: list[str] = ["localhost"]
+    REDIS_URL: str = "redis://localhost:20003"
+    CASSANDRA_CONTACT_POINTS: list[str] = ["localhost:20004"]
     CASSANDRA_LOCAL_DATACENTER: str = "datacenter1"
     CASSANDRA_KEYSPACE: str = "benchmarks"
     # Shared HS256 secret for the web suite (/jwt/sign, /jwt/verify). The dev

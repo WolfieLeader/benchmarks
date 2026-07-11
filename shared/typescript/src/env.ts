@@ -9,15 +9,15 @@ const zEnv = z.object({
     .union([z.ipv4().trim(), z.literal("localhost")])
     .transform((val) => (val === "localhost" ? "0.0.0.0" : val))
     .default("0.0.0.0"),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3001),
-  POSTGRES_URL: z.string().trim().default("postgres://postgres:postgres@localhost:5432/benchmarks"),
-  MONGODB_URL: z.string().trim().default("mongodb://localhost:27017"),
+  PORT: z.coerce.number().int().min(1).max(65535).default(8080),
+  POSTGRES_URL: z.string().trim().default("postgres://postgres:postgres@localhost:20001/benchmarks"),
+  MONGODB_URL: z.string().trim().default("mongodb://localhost:20002"),
   MONGODB_DB: z.string().trim().default("benchmarks"),
-  REDIS_URL: z.string().trim().default("redis://localhost:6379"),
+  REDIS_URL: z.string().trim().default("redis://localhost:20003"),
   CASSANDRA_CONTACT_POINTS: z
     .string()
     .trim()
-    .default("localhost")
+    .default("localhost:20004")
     .transform((value) =>
       value
         .split(",")

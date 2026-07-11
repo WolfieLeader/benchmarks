@@ -24,12 +24,12 @@ data class Env(
         fun load(): Env =
             Env(
                 env = envOr("ENV", "dev"),
-                postgresUrl = envOr("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/benchmarks"),
-                mongodbUrl = envOr("MONGODB_URL", "mongodb://localhost:27017"),
+                postgresUrl = envOr("POSTGRES_URL", "postgres://postgres:postgres@localhost:20001/benchmarks"),
+                mongodbUrl = envOr("MONGODB_URL", "mongodb://localhost:20002"),
                 mongodbDb = envOr("MONGODB_DB", "benchmarks"),
-                redisUrl = envOr("REDIS_URL", "redis://localhost:6379"),
+                redisUrl = envOr("REDIS_URL", "redis://localhost:20003"),
                 cassandraContactPoints =
-                    envOr("CASSANDRA_CONTACT_POINTS", "localhost")
+                    envOr("CASSANDRA_CONTACT_POINTS", "localhost:20004")
                         .split(",")
                         .map { it.trim() }
                         .filter { it.isNotEmpty() },
