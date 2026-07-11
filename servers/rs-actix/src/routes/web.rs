@@ -66,16 +66,19 @@ async fn compute(req: HttpRequest) -> Result<HttpResponse, ApiError> {
 }
 
 /// Parse the `n` query param, requiring an integer `>= 1` and clamping to the
-/// canon cap. `None` (missing, non-numeric, zero, or negative) is a 400.
-/// No trimming: `u64::from_str` matches Go's `strconv.Atoi` in rejecting
-/// whitespace, underscores (`1_000`), and negative signs. (A literal `+` in
-/// the query string is decoded to a space by `form_urlencoded` before parsing
-/// — same as Go's `url.Query()` — so `n=+5` arrives as `" 5"` and is rejected.)
+/// canon cap. `None` (missing, non-numeric, zero, negative, or out of range) is
+/// a 400. Parsed as signed `i64` to match Go's `strconv.Atoi` exactly: the
+/// overflow boundary is `i64::MAX`, so `9300000000000000000` (below `u64::MAX`
+/// but above `i64::MAX`) is rejected rather than clamped. `i64::from_str` also
+/// mirrors Atoi in rejecting whitespace, underscores (`1_000`), and Unicode
+/// digits while accepting a leading `+`. A `%2B`-encoded `n=+5` decodes to a
+/// literal `+` and parses to 5; a raw literal `+` decodes to a space (`" 5"`)
+/// and is rejected — both consistent with Go's `url.Query()`.
 fn parse_rounds(query: &str) -> Option<u64> {
-    let n: u64 = form_urlencoded::parse(query.as_bytes())
+    let n: i64 = form_urlencoded::parse(query.as_bytes())
         .find(|(key, _)| key == "n")
         .and_then(|(_, value)| value.parse().ok())?;
-    (n >= 1).then_some(n.min(shared_web::COMPUTE_MAX_ROUNDS))
+    (n >= 1).then_some(n.min(shared_web::COMPUTE_MAX_ROUNDS as i64) as u64)
 }
 
 #[cfg(test)]
@@ -88,6 +91,12 @@ mod tests {
         assert_eq!(parse_rounds("n=1000"), Some(1000));
         // Above the cap: clamped, not rejected.
         assert_eq!(parse_rounds("n=5000000"), Some(1_000_000));
+        // Leading + accepted (%2B-encoded so it survives as a literal plus).
+        assert_eq!(parse_rounds("n=%2B5"), Some(5));
+        // Leading zeros are decimal.
+        assert_eq!(parse_rounds("n=007"), Some(7));
+        // 2^53+1 is a valid i64, far above the cap -> clamped, not rejected.
+        assert_eq!(parse_rounds("n=9007199254740993"), Some(1_000_000));
     }
 
     #[test]
@@ -99,5 +108,9 @@ mod tests {
         assert_eq!(parse_rounds("n=1_000"), None); // Rust literal syntax is not an integer
         assert_eq!(parse_rounds("n=1.5"), None); // fractional
         assert_eq!(parse_rounds("n="), None); // empty value
+        // Above i64::MAX but below u64::MAX: overflows i64 (matches Go's signed Atoi).
+        assert_eq!(parse_rounds("n=9300000000000000000"), None);
+        // A raw literal + decodes to a space, which i64::from_str rejects.
+        assert_eq!(parse_rounds("n=+5"), None);
     }
 }
