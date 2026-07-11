@@ -17,6 +17,12 @@ pub enum ApiError {
     NotFound(String),
     /// 400 — malformed JSON or a failed validation; `details` is the cause.
     InvalidJson(String),
+    /// 400 — `/validate` body decoded but failed the schema rules.
+    ValidationFailed(String),
+    /// 400 — `/compute` reached without a valid integer `n >= 1`.
+    InvalidN,
+    /// 401 — `/jwt/verify` token missing, malformed, wrong-signature, or expired.
+    InvalidToken,
     /// 400 — form route reached with a non-form content type.
     InvalidForm,
     /// 400 — file route reached with a non-multipart content type.
@@ -51,6 +57,17 @@ impl IntoResponse for ApiError {
                 consts::ERR_INVALID_JSON,
                 Some(details),
             ),
+            Self::ValidationFailed(details) => (
+                StatusCode::BAD_REQUEST,
+                consts::ERR_VALIDATION_FAILED,
+                Some(details),
+            ),
+            Self::InvalidN => (
+                StatusCode::BAD_REQUEST,
+                consts::ERR_INVALID_N,
+                Some("n must be an integer >= 1".to_string()),
+            ),
+            Self::InvalidToken => (StatusCode::UNAUTHORIZED, consts::ERR_INVALID_TOKEN, None),
             Self::InvalidForm => (
                 StatusCode::BAD_REQUEST,
                 consts::ERR_INVALID_FORM,
