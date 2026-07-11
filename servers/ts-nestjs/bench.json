@@ -6,7 +6,7 @@
   "image": "bench/ts-nestjs",
   "port": 3002,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
-  "web": false,
+  "web": true,
   "experimental": false,
   "dev_port": 3002
 }
