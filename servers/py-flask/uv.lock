@@ -21,17 +21,30 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
+[package.optional-dependencies]
+cassandra = [
+    { name = "scylla-driver" },
+]
+mongo = [
+    { name = "pymongo" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pymongo", marker = "extra == 'mongo'", specifier = ">=4.9.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "scylla-driver", marker = "extra == 'cassandra'", specifier = ">=3.26.6" },
 ]
+provides-extras = ["cassandra", "mongo"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "pymongo", specifier = ">=4.9.0" },
     { name = "pyright", specifier = ">=1.1.400" },
     { name = "ruff", specifier = ">=0.14.14" },
+    { name = "scylla-driver", specifier = ">=3.26.6" },
 ]
 
 [[package]]
@@ -108,15 +121,13 @@ name = "flask-server"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
-    { name = "bench-shared" },
+    { name = "bench-shared", extra = ["cassandra", "mongo"] },
     { name = "flask" },
     { name = "gunicorn" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic", extra = ["email"] },
     { name = "pyjwt" },
-    { name = "pymongo" },
     { name = "redis", extra = ["hiredis"] },
-    { name = "scylla-driver" },
 ]
 
 [package.dev-dependencies]
@@ -127,15 +138,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bench-shared", directory = "../../shared/python" },
+    { name = "bench-shared", extras = ["cassandra", "mongo"], directory = "../../shared/python" },
     { name = "flask", specifier = ">=3.1.0" },
     { name = "gunicorn", specifier = ">=26.0.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.0.0" },
     { name = "pyjwt", specifier = ">=2.10.0" },
-    { name = "pymongo", specifier = ">=4.9.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=6.0.0" },
-    { name = "scylla-driver", specifier = ">=3.26.6" },
 ]
 
 [package.metadata.requires-dev]
