@@ -33,7 +33,7 @@ WORKDIR /app
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=26001 \
+    PORT=8080 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -49,6 +49,6 @@ RUN addgroup -g 1001 -S app-group && \
 
 USER app-runner
 
-EXPOSE 26001
+EXPOSE 8080
 
 CMD ["./server"]

@@ -21,7 +21,7 @@ WORKDIR /app/servers/py-fastapi
 
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=4001 \
+    PORT=8080 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -39,6 +39,6 @@ RUN addgroup --gid 1001 app-group && \
 
 USER app-runner
 
-EXPOSE 4001
+EXPOSE 8080
 
 CMD [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "4001", "--loop", "uvloop", "--workers", "1"]

@@ -24,7 +24,8 @@ use tower_http::trace::TraceLayer;
 
 use state::AppState;
 
-/// This framework's canonical host port (PLAN §6: Rust = 24001 rs-axum).
+/// This framework's local-dev host port (PLAN §6: Rust = 24001 rs-axum); inside
+/// the container PORT is baked to the canonical 8080 (PLAN §6 rule 1).
 const DEFAULT_PORT: u16 = 24001;
 
 #[tokio::main]

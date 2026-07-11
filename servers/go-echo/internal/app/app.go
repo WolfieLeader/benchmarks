@@ -38,7 +38,7 @@ func New() *App {
 	// other Go servers instead of echo's stdlib-v1 DefaultJSONSerializer.
 	e.JSONSerializer = utils.JSONSerializer{}
 
-	env := config.LoadEnv(5005)
+	env := config.LoadEnv(21005)
 
 	database.InitializeConnections(env)
 

@@ -17,7 +17,8 @@ use actix_web::{App, HttpResponse, HttpServer, web};
 use serde_json::json;
 use shared::{Env, Repositories, consts};
 
-/// This framework's canonical host port (PLAN §6: Rust = 24002 rs-actix).
+/// This framework's local-dev host port (PLAN §6: Rust = 24002 rs-actix); inside
+/// the container PORT is baked to the canonical 8080 (PLAN §6 rule 1).
 const DEFAULT_PORT: u16 = 24002;
 
 #[actix_web::main]

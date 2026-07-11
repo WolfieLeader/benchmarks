@@ -11,7 +11,12 @@
     "language": { "type": "string", "enum": ["typescript", "go", "python", "zig", "rust", "kotlin"] },
     "runtime": { "type": "string", "enum": ["node", "bun", "deno", "go", "python", "zig", "rust", "kotlin"] },
     "image": { "type": "string", "minLength": 1 },
-    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Canonical container port the server listens on inside its image — 8080 for every server (PLAN §6 rule 1). The benchmark client (testcontainers) maps it to a dynamic host port; the contract harness maps it 1:1."
+    },
     "databases": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
@@ -23,6 +28,11 @@
       "description": "Whether this server implements the web suite (GET /html, /jwt/sign, /jwt/verify, POST /validate, GET /compute). When false, the contract harness loads but skips the web suite for this server (scripts/contract.mts passes --skip-suite=web)."
     },
     "experimental": { "type": "boolean" },
-    "dev_port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+    "dev_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Local-dev host port (PLAN §6 `2LRFF` = 20000 + L×1000 + R×100 + FF) this server binds on localhost when run outside a container (`just dev`). Distinct per server; never collides with another repo's stack."
+    }
   }
 }

@@ -1,5 +1,6 @@
 # Spring Boot config. Host/port come from the env-var contract ($PORT/$HOST), with
-# kt-spring-boot's canonical port 25002 as the default (PLAN §6: Kotlin L=5, FF=02).
+# kt-spring-boot's local-dev host port 25002 as the default (PLAN §6: Kotlin L=5,
+# FF=02). Inside the container PORT is baked to the canonical 8080 (PLAN §6 rule 1).
 # DB config is NOT here — :shared's Env.load() reads POSTGRES_URL/etc. directly from
 # the environment; Spring only needs the web-server settings below.
 #

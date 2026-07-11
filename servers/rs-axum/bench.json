@@ -4,7 +4,7 @@
   "language": "rust",
   "runtime": "rust",
   "image": "bench/rs-axum",
-  "port": 24001,
+  "port": 8080,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
   "web": true,
   "experimental": false,

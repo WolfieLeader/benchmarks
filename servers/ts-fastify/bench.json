@@ -4,9 +4,9 @@
   "language": "typescript",
   "runtime": "node",
   "image": "bench/ts-fastify",
-  "port": 3003,
+  "port": 8080,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
   "web": true,
   "experimental": false,
-  "dev_port": 3003
+  "dev_port": 22003
 }

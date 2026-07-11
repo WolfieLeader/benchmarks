@@ -16,9 +16,9 @@ import (
 // StartOptions describes one server-under-test container.
 type StartOptions struct {
 	Image string
-	// ContainerPort is the port the server listens on INSIDE the container (the
-	// manifest port for now; canonical 8080 lands at PLAN §0E). testcontainers
-	// maps it to a dynamic host port so servers never collide on a fixed 8080.
+	// ContainerPort is the port the server listens on INSIDE the container: the
+	// canonical 8080 (PLAN §6 rule 1), sourced from the manifest `port`.
+	// testcontainers maps it to a dynamic host port so servers never collide.
 	ContainerPort  int
 	CpuLimit       float64
 	MemoryLimit    string // normalized memory string ("2gb", "512mb", or bare bytes)

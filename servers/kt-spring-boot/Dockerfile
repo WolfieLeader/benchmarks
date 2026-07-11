@@ -36,7 +36,7 @@ WORKDIR /app
 # logging; :shared's Env.load() reads the DB URLs below directly.
 ENV ENV=prod \
     HOST=0.0.0.0 \
-    PORT=25002 \
+    PORT=8080 \
     POSTGRES_URL=postgres://postgres:postgres@postgres:5432/benchmarks \
     MONGODB_URL=mongodb://mongodb:27017 \
     MONGODB_DB=benchmarks \
@@ -52,6 +52,6 @@ RUN groupadd -g 1001 app-group \
 
 USER app-runner
 
-EXPOSE 25002
+EXPOSE 8080
 
 CMD ["java", "-jar", "app.jar"]

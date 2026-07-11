@@ -4,7 +4,7 @@
   "language": "zig",
   "runtime": "zig",
   "image": "bench/zig",
-  "port": 26001,
+  "port": 8080,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
   "web": true,
   "experimental": false,
