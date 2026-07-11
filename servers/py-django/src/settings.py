@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from urllib.parse import urlparse
 
 from bench_shared.consts import MAX_REQUEST_BYTES
@@ -23,6 +24,20 @@ INSTALLED_APPS = ["src.api"]
 MIDDLEWARE = ["src.middleware.LoggingMiddleware"] if DEBUG else []
 
 ROOT_URLCONF = "src.urls"
+
+# Django's own template engine backs GET /html (the framework-idiomatic parallel to
+# the other servers' engines). APP_DIRS finds src/api/templates/page.html; no
+# context processors are needed for this static page. The explicit `Any` value type
+# keeps the heterogeneous config known under pyright strict (guide §7.42) — the
+# empty DIRS/OPTIONS containers otherwise infer as Unknown.
+TEMPLATES: list[dict[str, Any]] = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {},
+    }
+]
 
 _pg = urlparse(env.POSTGRES_URL)
 DATABASES = {

@@ -6,7 +6,7 @@
   "image": "bench/py-django",
   "port": 4002,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
-  "web": false,
+  "web": true,
   "experimental": false,
   "dev_port": 4002
 }

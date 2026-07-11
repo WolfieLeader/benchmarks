@@ -1,6 +1,6 @@
 from django.urls import path
 
-from src.api.views import basic, db, params
+from src.api.views import basic, db, params, web
 
 urlpatterns = [
     path("", basic.root),
@@ -12,6 +12,11 @@ urlpatterns = [
     path("params/cookie", params.cookie_params),
     path("params/form", params.form_params),
     path("params/file", params.file_params),
+    path("html", web.html),
+    path("jwt/sign", web.jwt_sign),
+    path("jwt/verify", web.jwt_verify),
+    path("validate", web.validate),
+    path("compute", web.compute),
     path("db/<str:database>/health", db.database_health),
     path("db/<str:database>/reset", db.reset_database),
     path("db/<str:database>/users", db.UsersCollectionView.as_view()),
