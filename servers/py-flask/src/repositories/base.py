@@ -14,7 +14,8 @@ DATABASE_TYPES: tuple[DatabaseType, ...] = ("postgres", "mongodb", "redis", "cas
 class UserRepository(Protocol):
     """The shape every sync DB backend satisfies (mirrors py-fastapi's async
     Protocol, sans async). Four unrelated driver classes (psycopg3, pymongo,
-    redis-py, scylla-driver) implement it structurally."""
+    redis-py, scylla-driver) implement it structurally — mongo/cassandra via
+    the shared bench_shared.repositories cores."""
 
     def create(self, data: CreateUser) -> User: ...
     def find_by_id(self, id: str) -> User | None: ...
@@ -28,6 +29,10 @@ class UserRepository(Protocol):
 _repositories: dict[str, UserRepository] = {}
 _lock = threading.Lock()
 
+# Canon pool bound (PLAN §3), same 50 that postgres/redis carry in their modules.
+# Pool config stays per-server — the shared mongo core takes it as a parameter.
+_MONGO_POOL_SIZE = 50
+
 
 def _build(database: str) -> UserRepository:
     # Deferred imports: a driver a given DB never uses is never imported (nor its
@@ -38,16 +43,16 @@ def _build(database: str) -> UserRepository:
 
         return PostgresRepository(env.POSTGRES_URL)
     if database == "mongodb":
-        from src.repositories.mongo import MongoRepository
+        from bench_shared.repositories.mongo import SyncMongoRepository
 
-        return MongoRepository(env.MONGODB_URL, env.MONGODB_DB)
+        return SyncMongoRepository(env.MONGODB_URL, env.MONGODB_DB, max_pool_size=_MONGO_POOL_SIZE)
     if database == "redis":
         from src.repositories.redis_repo import RedisRepository
 
         return RedisRepository(env.REDIS_URL)
-    from src.repositories.cassandra import CassandraRepository
+    from bench_shared.repositories.cassandra import SyncCassandraRepository
 
-    return CassandraRepository(env.CASSANDRA_CONTACT_POINTS, env.CASSANDRA_LOCAL_DATACENTER, env.CASSANDRA_KEYSPACE)
+    return SyncCassandraRepository(env.CASSANDRA_CONTACT_POINTS, env.CASSANDRA_LOCAL_DATACENTER, env.CASSANDRA_KEYSPACE)
 
 
 def resolve_repository(database: str) -> UserRepository | None:

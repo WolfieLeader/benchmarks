@@ -9,8 +9,6 @@ from pymongo.collection import Collection
 
 from bench_shared.schemas import CreateUser, UpdateUser, User, build_user
 
-_POOL_SIZE = 50
-
 
 def _parse_object_id(value: str) -> ObjectId | None:
     try:
@@ -23,12 +21,19 @@ def _to_user(doc: dict[str, Any]) -> User:
     return User(id=str(doc["_id"]), name=doc["name"], email=doc["email"], favoriteNumber=doc.get("favoriteNumber"))
 
 
-class MongoRepository:
-    """MongoDB via the sync pymongo driver (thread-safe, connection-pooled)."""
+class SyncMongoRepository:
+    """MongoDB user-repository core via the sync pymongo driver (thread-safe,
+    connection-pooled). Shared by the sync Python servers; async bridging
+    (py-django's sync_to_async) stays in-server.
 
-    def __init__(self, url: str, db_name: str) -> None:
+    Pool sizing is per-server config, passed in rather than fixed here:
+    ``max_pool_size=None`` leaves the driver default in place.
+    """
+
+    def __init__(self, url: str, db_name: str, max_pool_size: int | None = None) -> None:
         self._url = url
         self._db_name = db_name
+        self._max_pool_size = max_pool_size
         self._client: MongoClient[dict[str, Any]] | None = None
         self._lock = threading.Lock()
 
@@ -38,7 +43,11 @@ class MongoRepository:
             return client
         with self._lock:
             if self._client is None:
-                self._client = MongoClient(self._url, maxPoolSize=_POOL_SIZE)
+                self._client = (
+                    MongoClient(self._url)
+                    if self._max_pool_size is None
+                    else MongoClient(self._url, maxPoolSize=self._max_pool_size)
+                )
             return self._client
 
     def _collection(self) -> Collection[dict[str, Any]]:

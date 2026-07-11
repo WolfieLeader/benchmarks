@@ -1,7 +1,7 @@
 [project]
 name = "bench-shared"
 version = "0.0.1"
-description = "Shared infrastructure (env, consts, error strings, pydantic schemas) for the Python benchmark servers"
+description = "Shared infrastructure (env, consts, error strings, pydantic schemas, sync DB repository cores) for the Python benchmark servers"
 requires-python = ">=3.14.3"
 dependencies = [
     "email-validator>=2.0.0",
@@ -9,10 +9,21 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+# The sync driver cores (bench_shared.repositories.*) are optional extras so the
+# async consumer (py-fastapi) never pulls sync drivers it doesn't import — the
+# sync servers depend on `bench-shared[cassandra,mongo]`.
+[project.optional-dependencies]
+cassandra = ["scylla-driver>=3.26.6"]
+mongo = ["pymongo>=4.9.0"]
+
 [dependency-groups]
 dev = [
     "pyright>=1.1.400",
     "ruff>=0.14.14",
+    # verify runs `uv run pyright src` here without extras; mirror the extras'
+    # pins so the bench_shared.repositories modules typecheck in this venv.
+    "pymongo>=4.9.0",
+    "scylla-driver>=3.26.6",
 ]
 
 [build-system]

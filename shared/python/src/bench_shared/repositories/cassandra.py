@@ -11,18 +11,14 @@ from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # typ
 from bench_shared.schemas import CreateUser, UpdateUser, User
 
 
-class _ContactPointAddressTranslator(AddressTranslator):
+class ContactPointAddressTranslator(AddressTranslator):
     """Pin every discovered node address to the configured contact point.
 
     Our single-node Cassandra advertises ``broadcast_rpc_address`` as 127.0.0.1;
     the driver would otherwise reconnect to that unreachable-from-another-container
-    address. (Load-bearing, docs/languages/python.md §10.)
-
-    NOTE (multi-consumer trigger): this is a verbatim copy of py-django's
-    translator — py-flask is now the SECOND Python Cassandra consumer, so the
-    rule says extract it (and the sync repo cores) into shared. Doing that here
-    would mean refactoring py-django too (out of this slice's blast radius), so it
-    is duplicated for now and flagged for a dedicated extraction lane.
+    address. Routing discovered addresses back to the contact point keeps
+    NAT/container topologies working (in-container -> ``cassandra``, host ->
+    ``localhost``). (Load-bearing, docs/languages/python.md §10.)
     """
 
     def __init__(self, host: str) -> None:
@@ -39,10 +35,13 @@ def _parse_uuid(value: str) -> UUID | None:
         return None
 
 
-class CassandraRepository:
-    """Cassandra via the sync scylla-driver. The driver's cluster/session surface
-    is only partially typed, so it is pinned to Any at this seam (§7.42) — the
-    ORM-less driver calls stay clean under pyright strict without per-call ignores.
+class SyncCassandraRepository:
+    """Cassandra user-repository core via the sync scylla-driver.
+
+    Shared by the sync Python servers; async bridging (py-django's sync_to_async)
+    stays in-server. The driver's cluster/session surface is only partially typed,
+    so it is pinned to Any at this seam (§7.42) — the ORM-less driver calls stay
+    clean under pyright strict without per-call ignores.
     """
 
     def __init__(self, contact_points: list[str], local_dc: str, keyspace: str) -> None:
@@ -62,7 +61,7 @@ class CassandraRepository:
                 self._cluster = Cluster(
                     contact_points=self._contact_points,
                     load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=self._local_dc),
-                    address_translator=_ContactPointAddressTranslator(self._contact_points[0]),
+                    address_translator=ContactPointAddressTranslator(self._contact_points[0]),
                 )
                 self._session = self._cluster.connect(self._keyspace)
             return self._session
