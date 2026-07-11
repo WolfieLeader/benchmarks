@@ -10,6 +10,31 @@ from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # typ
 
 from bench_shared.schemas import CreateUser, UpdateUser, User
 
+_DEFAULT_PORT = 9042
+
+
+def split_contact_points(contact_points: list[str]) -> tuple[list[str], int]:
+    """Split ``host[:port]`` contact points into hosts plus the single driver port.
+
+    This driver takes hosts and the port as separate arguments
+    (``Cluster(contact_points=..., port=...)``); a raw ``host:port`` string is
+    treated whole as a hostname and fails resolution. Mirrors shared/rust's
+    ``resolve_addr`` and shared/kotlin's ``ContactPointTranslator``: the port
+    comes from the first contact point that carries one (the driver supports
+    only one port), defaulting to 9042. Non-numeric ports fall back to the
+    default, like Kotlin's ``toIntOrNull() ?: DEFAULT_PORT``.
+    """
+    hosts: list[str] = []
+    port = _DEFAULT_PORT
+    port_seen = False
+    for point in contact_points:
+        host, sep, port_str = point.partition(":")
+        hosts.append(host)
+        if sep and not port_seen and port_str.isdigit():
+            port = int(port_str)
+            port_seen = True
+    return hosts, port
+
 
 class ContactPointAddressTranslator(AddressTranslator):
     """Pin every discovered node address to the configured contact point.
@@ -58,10 +83,12 @@ class SyncCassandraRepository:
             return session
         with self._lock:
             if self._session is None:
+                hosts, port = split_contact_points(self._contact_points)
                 self._cluster = Cluster(
-                    contact_points=self._contact_points,
+                    contact_points=hosts,
+                    port=port,
                     load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=self._local_dc),
-                    address_translator=ContactPointAddressTranslator(self._contact_points[0]),
+                    address_translator=ContactPointAddressTranslator(hosts[0]),
                 )
                 self._session = self._cluster.connect(self._keyspace)
             return self._session

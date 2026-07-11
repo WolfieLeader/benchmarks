@@ -24,7 +24,23 @@ pub const Cassandra = struct {
 
     pub fn init(io: std.Io, allocator: std.mem.Allocator, contact_points: []const u8, local_dc: []const u8, keyspace: []const u8) !Cassandra {
         const cluster = c.cass_cluster_new();
-        const cpz = try allocator.dupeZ(u8, contact_points);
+        // A single contact point may carry `host:port` (host-side local dev,
+        // e.g. localhost:20004). The C driver takes the port ONLY via
+        // cass_cluster_set_port — a port embedded in the contact-point string
+        // is treated as part of the hostname — so split it out here (mirrors
+        // shared/rust's resolve_addr / shared/kotlin's ContactPointTranslator).
+        // Comma-separated multi-point strings pass through untouched (ports
+        // cannot be expressed per-point; the driver default 9042 applies).
+        var hosts = contact_points;
+        if (std.mem.indexOfScalar(u8, contact_points, ',') == null) {
+            if (std.mem.lastIndexOfScalar(u8, contact_points, ':')) |i| {
+                if (std.fmt.parseInt(u16, contact_points[i + 1 ..], 10)) |port| {
+                    hosts = contact_points[0..i];
+                    _ = c.cass_cluster_set_port(cluster, port);
+                } else |_| {}
+            }
+        }
+        const cpz = try allocator.dupeZ(u8, hosts);
         defer allocator.free(cpz);
         _ = c.cass_cluster_set_contact_points(cluster, cpz.ptr);
         // DC-aware routing pinned to the local datacenter (mirrors the other

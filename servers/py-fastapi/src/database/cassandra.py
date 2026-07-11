@@ -8,6 +8,7 @@ from uuid import UUID
 from cassandra.cluster import Cluster  # type: ignore[import-untyped]
 from cassandra.policies import AddressTranslator, DCAwareRoundRobinPolicy  # type: ignore[import-untyped]
 
+from bench_shared.repositories.cassandra import split_contact_points
 from bench_shared.schemas import CreateUser, UpdateUser, User
 
 
@@ -39,10 +40,12 @@ class CassandraUserRepository:
     def _connect_sync(self) -> None:
         if self._session is not None:
             return
+        hosts, port = split_contact_points(self._contact_points)
         self._cluster = Cluster(
-            contact_points=self._contact_points,
+            contact_points=hosts,
+            port=port,
             load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=self._local_dc),
-            address_translator=_ContactPointAddressTranslator(self._contact_points[0]),
+            address_translator=_ContactPointAddressTranslator(hosts[0]),
         )
         self._session = self._cluster.connect(self._keyspace)  # type: ignore[union-attr]
 
