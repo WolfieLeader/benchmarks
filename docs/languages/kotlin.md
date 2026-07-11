@@ -87,9 +87,11 @@ first-party Gradle plugin — use `org.jlleitschuh.gradle.ktlint:14.2.0`).
 
 ## 2. Concurrency — coroutines (deep) + virtual threads
 
-**kt-ktor is coroutine-native end-to-end; kt-spring-boot is blocking MVC +
-virtual threads.** Both are correct, current, idiomatic choices for their
-framework — don't blur them (item 20).
+**kt-ktor is coroutine-native end-to-end; kt-spring-boot shipped as WebFlux +
+coroutine controllers** (lead ruling 2026-07-11 — see item 20 for why the
+original "blocking MVC + virtual threads" pick no longer applied). The
+virtual-threads guidance below (items 16–19, 31, 33–34) remains correct for
+any future Spring lane whose DB layer is blocking.
 
 ### Structured concurrency
 
@@ -198,21 +200,23 @@ framework — don't blur them (item 20).
     itself flags `ThreadLocal` as costly at virtual-thread scale). Not urgent
     at JDK 21; flag only, don't build for it speculatively. — openjdk.org/jeps/506
 
-20. **Coroutines vs virtual threads is per-framework, follow the plan exactly.**
-    Ktor's own stack (routing, I/O, plugins) is `suspend`-based — no reason to
-    introduce virtual threads there. Spring MVC is historically blocking;
-    virtual threads keep that model while removing the platform-thread-count
-    ceiling. **Correction worth flagging**: Spring MVC controllers _can_
-    technically declare `suspend fun`/`Deferred`/`Flow` (native Kotlin
-    coroutine support, gated only on `kotlinx-coroutines-reactor` on the
-    classpath) — "MVC needs WebFlux for coroutines" is not literally true.
-    Still not idiomatic here: mixing `suspend` controllers into the lane whose
-    whole point is exercising blocking+virtual-thread MVC adds a second
-    concurrency model for no benefit, and MVC's execution is still
-    thread-per-request regardless of handler signature — the non-blocking win
-    only appears if the _entire_ chain including the DB client is reactive,
-    which is out of scope (JDBC not R2DBC, item 34). Keep kt-spring-boot's
-    controllers plain blocking functions. — docs.spring.io/spring-framework/reference/languages/kotlin/coroutines.html,
+20. **Coroutines vs virtual threads is per-framework — and the DB layer's model
+    decides.** Ktor's own stack (routing, I/O, plugins) is `suspend`-based — no
+    reason to introduce virtual threads there. Spring MVC is historically
+    blocking; virtual threads keep that model while removing the
+    platform-thread-count ceiling. Spring MVC controllers _can_ technically
+    declare `suspend fun`/`Deferred`/`Flow` (native Kotlin coroutine support,
+    gated only on `kotlinx-coroutines-reactor` on the classpath) — "MVC needs
+    WebFlux for coroutines" is not literally true.
+    **RULING (lead, 2026-07-11): kt-spring-boot ships WebFlux + suspend
+    controllers, not MVC + virtual threads.** This item's original MVC guidance
+    was premised on a blocking JDBC layer; `shared/kotlin` shipped
+    coroutine-native repositories (`suspend fun` across all four backends), so
+    suspend controllers consume them with zero bridging while MVC would have
+    needed per-request `runBlocking` (item 13's smell). The MVC + virtual-threads
+    guidance still applies whenever the DB chain is blocking — an
+    MVC+virtual-threads Spring variant would join as a NEW roster entry, not a
+    rewrite of kt-spring-boot. — docs.spring.io/spring-framework/reference/languages/kotlin/coroutines.html,
     docs.spring.io/spring-boot/reference/features/task-execution-and-scheduling.html
 
 ---
@@ -578,10 +582,11 @@ Kotlin; the picks below fill that gap.
   an arbitrary JSON POST body**: `server.tomcat.max-http-form-post-size` only
   bounds `application/x-www-form-urlencoded` bodies, and `max-swallow-size` is
   not a size cap at all (it only limits how many bytes Tomcat drains from an
-  _already-rejected_ upload). kt-spring-boot must therefore **hand-roll a
-  `Filter`** (e.g. `ContentCachingRequestWrapper` / a `Content-Length` +
-  streaming check) to enforce the 10MiB/1MiB caps, mirroring Ktor's approach —
-  plus the same hand-rolled content-type byte-check for the 415.
+  _already-rejected_ upload) — that Tomcat/`Filter` route applies to an MVC
+  lane. As shipped (WebFlux, item 20 ruling), kt-spring-boot enforces the cap
+  by reading bodies via `DataBufferUtils.join(body, maxBytes)`, whose
+  `DataBufferLimitException` maps to the canonical 413 — plus the same
+  hand-rolled content-type byte-check for the 415.
 - **Graceful drain then DB teardown order**: Ktor — `ApplicationStopped` after
   `EngineMain`'s automatic SIGINT/SIGTERM (item 22). Spring Boot — Tomcat's
   graceful shutdown (`server.shutdown=graceful`) completes in-flight requests

@@ -4,6 +4,7 @@
 [versions]
 kotlin = "2.4.0"                        # Kotlin Gradle plugin (Gradle 9.6.1 bundles only 2.3.21, so pin)
 ktor = "3.5.1"
+spring-boot = "4.1.0"                    # Spring Boot 4.1 (Spring Framework 7.0.x; JDK 17–26 certified)
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.11.0" # aligned to the Ktor 3.5.1 BOM resolution so :shared tests cover the production version
 hikari = "6.3.0"
@@ -19,6 +20,10 @@ ktlint-plugin = "14.2.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+# Reactor bridge for Spring WebFlux coroutine support; pinned to the same version as
+# -core so the two artifacts never skew (they share internal APIs and MUST match) —
+# the Spring Boot BOM constraint below then aligns to this via Gradle's max() rule.
+kotlinx-coroutines-reactor = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactor", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 # DB drivers (framework-agnostic infrastructure, shared by every Kotlin server).
@@ -46,8 +51,23 @@ ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
+# Spring Boot (kt-spring-boot). The dependencies BOM (imported as a platform, like
+# the Ktor BOM above) manages every spring-boot-* + transitive version, so the
+# starters carry no version. Contract JSON is kotlinx.serialization: the shared
+# @Serializable models decode/encode with the exact semantics kt-ktor and :shared's
+# tests already prove (manual decode + codec precedence for @Serializable types).
+# Jackson 3 stays on the classpath via starter-webflux → spring-boot-starter-jackson
+# — it backs the framework error path (DefaultErrorWebExceptionHandler) and never
+# serialises a contract body.
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
