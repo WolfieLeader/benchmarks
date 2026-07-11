@@ -57,6 +57,7 @@ func New() *App {
 
 	routes.RegisterParams(e.Group("/params"))
 	routes.RegisterDb(e.Group("/db"), env)
+	routes.RegisterWeb(e, env.JwtSecret)
 
 	// echo's default 404 renders {"message":"Not Found"}; RouteNotFound is echo's hook to
 	// render the suite's {"error": ...} shape for unmatched routes.

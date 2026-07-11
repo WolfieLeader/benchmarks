@@ -14,11 +14,13 @@ import (
 
 func (app *App) Start() error {
 	e := app.echo
-	// echo drives its own *http.Server (e.Server); set the same timeouts as the
-	// other Go servers before Start reads it (identical-across-frameworks canon —
-	// chi/gin/fiber set exactly these three; ReadHeaderTimeout deliberately
-	// omitted for parity until it's backfilled everywhere). Safe to set here:
-	// the go statement below happens-before the listener goroutine.
+	// echo drives its own *http.Server (e.Server); set the same core timeouts as the
+	// other net/http-based Go servers before Start reads it. These are not perfectly
+	// uniform across frameworks: chi and go-stdlib set exactly these three
+	// (Read/Write/Idle); gin additionally sets ReadHeaderTimeout; fiber runs on
+	// fasthttp and configures none of them. ReadHeaderTimeout is omitted here to match
+	// chi/go-stdlib. Safe to set here: the go statement below happens-before the
+	// listener goroutine.
 	e.Server.ReadTimeout = 15 * time.Second
 	e.Server.WriteTimeout = 15 * time.Second
 	e.Server.IdleTimeout = 60 * time.Second
