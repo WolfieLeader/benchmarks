@@ -53,10 +53,12 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 
 # Spring Boot (kt-spring-boot). The dependencies BOM (imported as a platform, like
 # the Ktor BOM above) manages every spring-boot-* + transitive version, so the
-# starters carry no version. Serialization is kotlinx (not Jackson): the shared
-# @Serializable models decode/encode with the exact contract semantics kt-ktor and
-# :shared's tests already prove, so spring-boot-starter-json (Jackson) is excluded
-# in the module build.
+# starters carry no version. Contract JSON is kotlinx.serialization: the shared
+# @Serializable models decode/encode with the exact semantics kt-ktor and :shared's
+# tests already prove (manual decode + codec precedence for @Serializable types).
+# Jackson 3 stays on the classpath via starter-webflux → spring-boot-starter-jackson
+# — it backs the framework error path (DefaultErrorWebExceptionHandler) and never
+# serialises a contract body.
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf" }

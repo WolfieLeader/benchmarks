@@ -30,8 +30,10 @@ class AppConfig {
 
 /**
  * Register the app-wide kotlinx.serialization Json (ignoreUnknownKeys +
- * explicitNulls=false) as THE JSON codec, replacing WebFlux's auto-configured default
- * so `favoriteNumber: null` is dropped on encode (absent-vs-0 contract rule).
+ * explicitNulls=false) as the KotlinSerialization codec instance, so
+ * `favoriteNumber: null` is dropped on encode (absent-vs-0 contract rule). It handles
+ * every @Serializable response ahead of Jackson in codec precedence; Jackson stays
+ * registered behind it (framework-error rendering, non-@Serializable types).
  */
 @Configuration
 class WebConfig : WebFluxConfigurer {

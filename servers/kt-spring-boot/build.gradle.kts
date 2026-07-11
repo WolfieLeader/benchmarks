@@ -7,11 +7,16 @@
 // — the idiomatic match. kotlin.md item 20's "MVC + virtual threads" guidance was
 // premised on a blocking JDBC layer, which the shipped :shared module is not.
 //
-// kotlinx.serialization (not Jackson): the shared model is @Serializable, and Spring 7
-// gates its Kotlin-serialization codec on @Serializable types (KotlinDetector), so it
-// reproduces the exact JSON semantics the contract requires (duplicate-key last-wins,
-// explicitNulls=false for absent-vs-0, required-field-missing → 400, fractional→Int
-// rejected). spring-boot-starter-json (Jackson) is therefore excluded.
+// kotlinx.serialization handles ALL contract JSON: the shared model is @Serializable,
+// and Spring 7 gates its Kotlin-serialization codec on @Serializable types
+// (KotlinDetector), so it reproduces the exact JSON semantics the contract requires
+// (duplicate-key last-wins, explicitNulls=false for absent-vs-0, required-field-missing
+// → 400, fractional→Int rejected). Request decoding is manual (decodeFromString on the
+// raw body); response encoding wins via codec precedence (the KotlinSerialization
+// encoder registers ahead of Jackson's for @Serializable types). Jackson 3 REMAINS on
+// the classpath — spring-boot-starter-jackson rides in with starter-webflux and also
+// backs DefaultErrorWebExceptionHandler's framework-error rendering, so it is not
+// excluded; it simply never touches a contract body.
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -33,10 +38,9 @@ dependencies {
     // every spring-boot-* + transitive version, so the starters below carry none.
     implementation(platform(libs.spring.boot.dependencies))
 
-    implementation(libs.spring.boot.starter.webflux) {
-        // Drop Jackson — kotlinx.serialization is the JSON stack (see file header).
-        exclude(group = "org.springframework.boot", module = "spring-boot-starter-json")
-    }
+    // starter-webflux pulls spring-boot-starter-jackson (kept — see file header: it
+    // backs framework-error rendering; kotlinx owns every contract body regardless).
+    implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.thymeleaf)
 
     // Coroutine support for WebFlux (suspend controllers) needs the Reactor bridge on

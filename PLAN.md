@@ -197,7 +197,7 @@ Shared holds only what has ≥2 real consumers (Sensei's challenge; same trigger
 ### Rust / Kotlin / Zig
 
 - **Rust**: shared crate (sqlx or deadpool-postgres, mongodb, redis-rs, scylla) used by Axum + Actix.
-- **Kotlin**: shared Gradle module with DB ops; Ktor (Netty/CIO) + Spring Boot in Kotlin (MVC + virtual threads — the current idiomatic-modern setup).
+- **Kotlin**: shared Gradle module with DB ops; Ktor (Netty/CIO) + Spring Boot in Kotlin (WebFlux + coroutine controllers — lead ruling 2026-07-11: the earlier "MVC + virtual threads" pick was premised on a blocking DB layer, and shared/kotlin shipped coroutine-native repositories; an MVC+virtual-threads Spring variant would be a NEW roster entry, not a rewrite of kt-spring-boot).
 - **Zig**: no shared layer — single server (see §6); a `shared/zig` layer is extracted only on a second Zig consumer (same multi-consumer trigger as the Python async repos above).
 
 ---
