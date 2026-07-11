@@ -17,6 +17,12 @@ pub enum ApiError {
     NotFound(String),
     /// 400 — malformed JSON or a failed validation; `details` is the cause.
     InvalidJson(String),
+    /// 400 — `/validate` body decoded but failed the schema rules.
+    ValidationFailed(String),
+    /// 400 — `/compute` reached without a valid integer `n >= 1`.
+    InvalidN,
+    /// 401 — `/jwt/verify` token missing, malformed, wrong-signature, or expired.
+    InvalidToken,
     /// 400 — form route reached with a non-form content type.
     InvalidForm,
     /// 400 — file route reached with a non-multipart content type.
@@ -46,6 +52,14 @@ impl ApiError {
         match self {
             Self::NotFound(details) => (consts::ERR_NOT_FOUND, Some(details.clone())),
             Self::InvalidJson(details) => (consts::ERR_INVALID_JSON, Some(details.clone())),
+            Self::ValidationFailed(details) => {
+                (consts::ERR_VALIDATION_FAILED, Some(details.clone()))
+            }
+            Self::InvalidN => (
+                consts::ERR_INVALID_N,
+                Some("n must be an integer >= 1".to_string()),
+            ),
+            Self::InvalidToken => (consts::ERR_INVALID_TOKEN, None),
             Self::InvalidForm => (
                 consts::ERR_INVALID_FORM,
                 Some(consts::ERR_EXPECTED_FORM_CONTENT_TYPE.to_string()),
@@ -77,9 +91,12 @@ impl ResponseError for ApiError {
         match self {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::InvalidJson(_)
+            | Self::ValidationFailed(_)
+            | Self::InvalidN
             | Self::InvalidForm
             | Self::InvalidMultipartContentType
             | Self::FileNotFound(_) => StatusCode::BAD_REQUEST,
+            Self::InvalidToken => StatusCode::UNAUTHORIZED,
             Self::InvalidFileType | Self::NotPlainText => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::FileTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
