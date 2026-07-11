@@ -19,6 +19,11 @@ pub const ERR_NOT_PLAIN_TEXT: &str = "file does not look like plain text";
 pub const ERR_NOT_FOUND: &str = "not found";
 pub const ERR_INTERNAL: &str = "internal error";
 
+// Web suite (PLAN §5) — house "invalid <thing>" / "<what> failed" style.
+pub const ERR_INVALID_TOKEN: &str = "invalid token";
+pub const ERR_VALIDATION_FAILED: &str = "validation failed";
+pub const ERR_INVALID_N: &str = "invalid n";
+
 /// Global request-body cap (10 MiB) applied to every route.
 pub const MAX_REQUEST_BYTES: usize = 10 << 20;
 /// Per-file upload cap (1 MiB) enforced on `POST /params/file`.
