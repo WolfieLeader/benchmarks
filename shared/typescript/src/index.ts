@@ -31,13 +31,16 @@ export {
   INVALID_FORM_DATA,
   INVALID_JSON_BODY,
   INVALID_MULTIPART,
+  INVALID_N,
+  INVALID_TOKEN,
   makeError,
   MAX_FILE_BYTES,
   MAX_REQUEST_BYTES,
   NOT_FOUND,
   NULL_BYTE,
   ONLY_TEXT_PLAIN,
-  SNIFF_LEN
+  SNIFF_LEN,
+  VALIDATION_FAILED
 } from "./consts.ts";
 export {
   disconnectDatabases,
@@ -58,3 +61,18 @@ export {
   zUpdateUser,
   zUser
 } from "./schemas.ts";
+export {
+  COMPUTE_MAX_ROUNDS,
+  COMPUTE_SEED,
+  JWT_ADMIN,
+  JWT_NAME,
+  JWT_SUBJECT,
+  JWT_TTL_SECONDS,
+  parseComputeRounds,
+  sha256Chain,
+  signToken,
+  type ValidateResult,
+  validateWebPayload,
+  verifyToken,
+  type WebTokenClaims
+} from "./web.ts";

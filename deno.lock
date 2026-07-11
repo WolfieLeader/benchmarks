@@ -182,6 +182,7 @@
             "npm:cassandra-driver@^4.9.0",
             "npm:drizzle-orm@1.0.0-rc.4",
             "npm:ioredis@^5.11.1",
+            "npm:jose@^6.1.0",
             "npm:mongodb@^7.4.0",
             "npm:postgres@^3.4.9",
             "npm:tsdown@0.22.3",

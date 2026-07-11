@@ -25,6 +25,7 @@ export default defineConfig({
       /^cassandra-driver(\/.*)?$/,
       /^drizzle-orm(\/.*)?$/,
       /^ioredis(\/.*)?$/,
+      /^jose(\/.*)?$/,
       /^mongodb(\/.*)?$/,
       /^postgres(\/.*)?$/,
       /^uuid(\/.*)?$/,
