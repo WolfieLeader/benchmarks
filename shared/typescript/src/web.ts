@@ -74,14 +74,19 @@ export async function verifyToken(secret: string, token: string): Promise<WebTok
 
 // ── /compute ────────────────────────────────────────────────────────────────
 // Parse the raw `n` query value into a clamped round count, or null when it is
-// missing / non-integer / < 1 (validate-at-boundary, house "invalid n" 400).
-// Integer-string semantics mirror Go's strconv.Atoi: a fractional or non-numeric
-// string is rejected, not truncated.
+// missing / non-integer / < 1 / out of range (validate-at-boundary, house
+// "invalid n" 400). Semantics mirror Go's strconv.Atoi exactly: ASCII digits
+// with an optional leading sign only (the `\d` class is ASCII, so underscores
+// and Unicode digits are rejected and no trimming happens), parsed as a signed
+// 64-bit integer. BigInt does the range check because Number loses precision
+// past 2^53 — e.g. 9300000000000000000 (> i64::MAX, < u64::MAX) must be rejected,
+// which a Number-based check would wrongly clamp and accept.
+const COMPUTE_I64_MAX = 9223372036854775807n;
 export function parseComputeRounds(raw: string | null | undefined): number | null {
   if (raw == null || !/^[+-]?\d+$/.test(raw)) return null;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1) return null;
-  return n > COMPUTE_MAX_ROUNDS ? COMPUTE_MAX_ROUNDS : n;
+  const n = BigInt(raw);
+  if (n < 1n || n > COMPUTE_I64_MAX) return null;
+  return n > BigInt(COMPUTE_MAX_ROUNDS) ? COMPUTE_MAX_ROUNDS : Number(n);
 }
 
 // Apply SHA-256 to the seed bytes `rounds` times and return the lowercase-hex
