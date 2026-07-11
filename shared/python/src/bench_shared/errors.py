@@ -14,6 +14,15 @@ FILE_NOT_TEXT = "file does not look like plain text"
 INTERNAL_ERROR = "internal error"
 REQUEST_TOO_LARGE = "request body too large"
 
+# Web suite (PLAN §3) — house "invalid <thing>" / "<what> failed" style, asserted
+# by the /validate, /jwt/verify and /compute referees (contract/web.json). Promoted
+# from py-flask's in-server consts once fastapi/django gained web: true (3 consumers).
+VALIDATION_FAILED = "validation failed"
+# S105: the /jwt/verify error-message string (contract canon), not a credential —
+# the name just happens to contain "TOKEN".
+INVALID_TOKEN = "invalid token"  # noqa: S105
+INVALID_N = "invalid n"
+
 
 class ErrorResponse(TypedDict, total=False):
     error: str

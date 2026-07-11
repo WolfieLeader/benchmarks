@@ -26,6 +26,7 @@ from src.handlers import (
 )
 from src.routes.db import db_router
 from src.routes.params import params_router
+from src.routes.web import web_router
 
 
 @asynccontextmanager
@@ -87,6 +88,7 @@ async def health():
 
 app.include_router(params_router, prefix="/params")
 app.include_router(db_router, prefix="/db")
+app.include_router(web_router)
 
 
 if __name__ == "__main__":
