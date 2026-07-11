@@ -9,9 +9,18 @@ from flask import Blueprint, jsonify, render_template, request
 from flask.typing import ResponseReturnValue
 
 from bench_shared.env import env
-from src.consts import COMPUTE_CAP, INVALID_N, INVALID_TOKEN, JWT_TTL_SECONDS, SHA256_SEED, VALIDATION_FAILED
+from bench_shared.errors import INVALID_N, INVALID_TOKEN, VALIDATION_FAILED
+from bench_shared.web import (
+    COMPUTE_CAP,
+    JWT_ADMIN,
+    JWT_NAME,
+    JWT_SUBJECT,
+    JWT_TTL_SECONDS,
+    SHA256_SEED,
+    parse_compute_rounds,
+    validate_payload,
+)
 from src.responses import json_error
-from src.validation import validate_payload
 
 bp = Blueprint("web", __name__)
 
@@ -29,9 +38,9 @@ def html() -> ResponseReturnValue:
 def jwt_sign() -> ResponseReturnValue:
     now = datetime.now(UTC)
     payload: dict[str, Any] = {
-        "sub": "1234567890",
-        "name": "John Doe",
-        "admin": True,
+        "sub": JWT_SUBJECT,
+        "name": JWT_NAME,
+        "admin": JWT_ADMIN,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=JWT_TTL_SECONDS)).timestamp()),
     }
@@ -65,19 +74,9 @@ def validate() -> ResponseReturnValue:
     return jsonify({"valid": True})
 
 
-def _parse_rounds(value: str | None) -> int | None:
-    if value is None:
-        return None
-    try:
-        n = int(value.strip())
-    except ValueError:
-        return None
-    return n if n >= 1 else None
-
-
 @bp.get("/compute")
 def compute() -> ResponseReturnValue:
-    n = _parse_rounds(request.args.get("n"))
+    n = parse_compute_rounds(request.args.get("n"))
     if n is None:
         return json_error(INVALID_N, 400, "n must be an integer >= 1")
     n = min(n, COMPUTE_CAP)
