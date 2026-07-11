@@ -78,3 +78,16 @@ test "parseRounds rejects Zig-style underscore digit separators" {
     try testing.expectError(error.InvalidRounds, parseRounds("_1"));
     try testing.expectError(error.InvalidRounds, parseRounds("1_"));
 }
+
+test "parseRounds matches Atoi on signs, leading zeros, and the i64 boundary" {
+    // Leading + accepted, leading zeros are decimal (mirrors strconv.Atoi).
+    try testing.expectEqual(@as(u64, 5), try parseRounds("+5"));
+    try testing.expectEqual(@as(u64, 7), try parseRounds("007"));
+    // Whitespace is not trimmed, and Unicode digits are not ASCII digits.
+    try testing.expectError(error.InvalidRounds, parseRounds(" 5"));
+    try testing.expectError(error.InvalidRounds, parseRounds("\u{0665}")); // Arabic-Indic 5
+    // Above i64::MAX (but below u64::MAX): overflows i64, rejected not clamped.
+    try testing.expectError(error.InvalidRounds, parseRounds("9300000000000000000"));
+    // 2^53+1 is a valid i64 far above the cap: clamped, not rejected.
+    try testing.expectEqual(max_rounds, try parseRounds("9007199254740993"));
+}

@@ -90,6 +90,20 @@
         "body": { "error": "invalid token", "details": "$optional" }
       }
     },
+    {
+      "name": "jwt_verify_none_alg_401",
+      "note": "SECURITY (alg confusion): an UNSIGNED token with header {\"alg\":\"none\"} and an empty signature segment must be rejected. It carries the canon claims and a far-future exp (4102444800), so a server that trusts the header's alg and skips verification would wrongly return 200. Every stack pins HS256 at the library-config level (golang-jwt WithValidMethods, jose alg, PyJWT algorithms, jsonwebtoken Validation, auth0 HMAC256, Zig hand-rolled pinning), so alg=none is refused. Statically embedded (no signature to compute).",
+      "method": "GET",
+      "path": "/jwt/verify",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTczNTY4OTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ."
+      },
+      "expect": {
+        "status": 401,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid token", "details": "$optional" }
+      }
+    },
 
     {
       "name": "validate_accepts_valid_object",
@@ -131,6 +145,112 @@
         },
         "items": [{ "sku": "SKU-1", "quantity": 0, "tags": ["x"] }],
         "total": -5
+      },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "validation failed", "details": "$present" }
+      }
+    },
+    {
+      "name": "validate_omitted_age_200",
+      "note": "ZERO-VALUE CANON: age is NOT required — omitting it entirely defaults to 0, which satisfies the 0..120 range (Go: int zero-value 0; the rule is gte=0,lte=120 without required). A server whose validator treats a missing optional field as an error would wrongly 400. The rest of the object is the fully-valid shape.",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [{ "sku": "SKU-1", "quantity": 2, "tags": ["new"] }],
+        "total": 42.5
+      },
+      "expect": { "status": 200, "headers": { "Content-Type": "application/json" }, "body": { "valid": true } }
+    },
+    {
+      "name": "validate_omitted_total_200",
+      "note": "ZERO-VALUE CANON: total is NOT required — omitting it defaults to 0, which satisfies gte=0. Only the presence of the field is optional; its zero value is a legal amount.",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "age": 30,
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [{ "sku": "SKU-1", "quantity": 2, "tags": ["new"] }]
+      },
+      "expect": { "status": 200, "headers": { "Content-Type": "application/json" }, "body": { "valid": true } }
+    },
+    {
+      "name": "validate_omitted_tags_200",
+      "note": "ZERO-VALUE CANON: tags is NOT required and carries no presence rule — omitting it from an item defaults to an empty/nil list, which is valid. (Distinct from the sku/quantity fields on the same item, which ARE required and range-checked.)",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "age": 30,
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [{ "sku": "SKU-1", "quantity": 2 }],
+        "total": 42.5
+      },
+      "expect": { "status": 200, "headers": { "Content-Type": "application/json" }, "body": { "valid": true } }
+    },
+    {
+      "name": "validate_empty_items_400",
+      "note": "BOUNDARY CANON: items has a min=1 rule — an empty array is a violation (an order with no line items). Returns the canonical validation-failed error, same shape as validate_rejects_invalid_object.",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "age": 30,
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [],
+        "total": 42.5
+      },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "validation failed", "details": "$present" }
+      }
+    },
+    {
+      "name": "validate_empty_sku_400",
+      "note": "BOUNDARY CANON: sku is required — an empty string fails the required rule (empty string is the zero value, which 'required' rejects). Everything else on the object is valid, isolating the sku violation.",
+      "method": "POST",
+      "path": "/validate",
+      "body": {
+        "user": {
+          "id": "3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+          "email": "alice@conformance-suite.com",
+          "profile": {
+            "age": 30,
+            "role": "admin",
+            "preferences": { "theme": "dark", "notifications": true }
+          }
+        },
+        "items": [{ "sku": "", "quantity": 2, "tags": ["new"] }],
+        "total": 42.5
       },
       "expect": {
         "status": 400,
@@ -209,6 +329,90 @@
         "status": 400,
         "headers": { "Content-Type": "application/json" },
         "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_underscore_n_400",
+      "note": "PARSE CANON (Go strconv.Atoi): digit-group underscores like 1_000 are a source-literal convenience, NOT valid input — Atoi rejects them. Zig's std.fmt.parseInt ACCEPTS underscores by default, so this pins the Go behavior as canon.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "1_000" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_whitespace_n_400",
+      "note": "PARSE CANON (Go strconv.Atoi): a leading space is rejected — Atoi does not trim. The query value is a literal space + '5'; the runner url-encodes it and the server must see the untrimmed value and reject it.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": " 5" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_unicode_digit_n_400",
+      "note": "PARSE CANON (Go strconv.Atoi): only ASCII digits count. This is the Arabic-Indic digit five U+0665 (٥), which Python int() and some parsers accept as numeric — Atoi rejects it. Pins ASCII-only parsing as canon.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "٥" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_plus_n_200",
+      "note": "PARSE CANON (Go strconv.Atoi): a leading '+' sign is accepted (Atoi handles optional +/-). '+5' parses to 5. The runner url-encodes the '+' as %2B so it reaches the server as a literal plus, not a space.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "+5" },
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "result": "$sha256chain:5" }
+      }
+    },
+    {
+      "name": "compute_leading_zeros_n_200",
+      "note": "PARSE CANON (Go strconv.Atoi): leading zeros are decimal, NOT octal — '007' parses to 7 (not 7 octal, which is coincidentally also 7, but e.g. '010' would be 10 decimal). Pins base-10 parsing.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "007" },
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "result": "$sha256chain:7" }
+      }
+    },
+    {
+      "name": "compute_int64_overflow_n_400",
+      "note": "PARSE CANON (Go strconv.Atoi = signed 64-bit): 9300000000000000000 exceeds i64 max (9223372036854775807) but is below u64 max, so a server parsing n as UNSIGNED 64-bit would accept it (then clamp) and wrongly return 200. Canon parses as signed i64: this overflows and is a 400. Paired with compute_huge_n_clamped_200 to pin both sides of the i64 boundary.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "9300000000000000000" },
+      "expect": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "error": "invalid n", "details": "$present" }
+      }
+    },
+    {
+      "name": "compute_huge_n_clamped_200",
+      "note": "PARSE CANON (the other side of the i64 boundary): 9007199254740993 (2^53+1) is a valid i64, far above the 1000000 cap, so it is CLAMPED to the cap and returns 200 with the cap-rounds digest. This stops a server from passing compute_int64_overflow_n_400 by rejecting large-but-valid values too early — the boundary is i64 max, not the cap.",
+      "method": "GET",
+      "path": "/compute",
+      "query": { "n": "9007199254740993" },
+      "expect": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "result": "$sha256chain:1000000" }
       }
     }
   ]

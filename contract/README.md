@@ -164,8 +164,13 @@ All 16 routes with meaningful variations, plus the negative and security cases:
 - **404** — unknown user id; unknown database name; nonexistent-but-well-formed id on
   `GET` / `PATCH` / `DELETE`.
 - **413** — oversized file upload (synthesized).
-- **415** — wrong declared content-type; sniffed binary; and the anti-sniffing case
-  (binary content lying as `text/plain`).
+- **415** — wrong declared content-type; sniffed binary; the anti-sniffing case
+  (binary content lying as `text/plain`); and the **full-body NUL scan**
+  (`file_rejects_nul_after_sniff_window`): a body whose first 512 bytes are clean
+  text but which carries a NUL past that window is still rejected. Canon per
+  go-stdlib (`servers/go-stdlib/internal/routes/params.go`): the 512-byte window
+  is used **only** for MIME sniffing; the NUL / UTF-8 validity check scans the
+  entire body, so a late NUL cannot slip through.
 - **Content-Type** — every error response asserts its `Content-Type`: JSON error bodies are
   `application/json` (asserted via the substring/"contains" header match, so both bare and
   `; charset=...` forms pass), and the 503 unknown-db health is `text/plain`. Success bodies
@@ -203,16 +208,27 @@ Canon (lead-ruled):
   the sign and verify steps, so don't shorten it.
 - **`/jwt/verify`** — `Authorization: Bearer <t>`. Valid token → `200` echoing the
   payload (`iat`/`exp` matched as `$number`, the rest literally). Missing,
-  malformed, **wrong-signature**, or **expired** token → `401 {"error":"invalid token"}`
-  (`details` `$optional`). The bad-signature case proves signature verification,
-  not just parsing; the expired case (signed with the correct dev-default secret,
-  `exp` in 2020) proves `exp` is validated, not just the signature.
+  malformed, **wrong-signature**, **expired**, or **`alg:none`** token →
+  `401 {"error":"invalid token"}` (`details` `$optional`). The bad-signature case
+  proves signature verification, not just parsing; the expired case (signed with
+  the correct dev-default secret, `exp` in 2020) proves `exp` is validated, not
+  just the signature; the `alg:none` case (an unsigned token with a far-future
+  `exp` and an empty signature segment) proves the algorithm is pinned to HS256 at
+  the library-config level — no stack trusts the header's `alg`.
 - **`/validate`** — deep nested object (~4 levels; `user{id:uuid, email, profile{age:0..120, role:enum, preferences{theme:enum, notifications:bool}}}, items[]{sku, quantity:1..100, tags[]}, total:>=0`).
   Valid → `200 {"valid": true}`; invalid → `400 {"error":"validation failed", "details":"$present"}`.
   The **error count** from the endpoint sketch is intentionally _not_ asserted as an
   exact integer: the canonical error shape is `{"error", "details"?}`, and error
   counts diverge across Zod/Pydantic/validator/serde. `details` carries the
   per-framework summary (`$present`).
+  **Zero-value canon** (pinned by `validate_omitted_{age,total,tags}_200`): fields
+  Go only range-checks — `age` (`0..120`), `total` (`>= 0`), and `tags` (untagged) —
+  are **not required**; when omitted they decode to their zero value (Go's
+  `encoding/json` behavior) and validate. Every stack reproduces this at the schema
+  layer (serde `#[serde(default)]`, zod `.default()`, pydantic field defaults, Zig
+  struct defaults), so a missing optional field is a `200`, never a parse/validation
+  error. Conversely the **presence/range** rules are pinned too: `items` (`min=1`)
+  rejects an empty array and `sku` (`required`) rejects an empty string → `400`.
 - **`/compute?n=`** — iterative SHA-256 chain, `200 {"result": "$sha256chain:<n>"}`
   (seed `benchmark`, lowercase hex). `n` must be an **integer ≥ 1**
   (validate-at-boundary): missing, non-numeric, zero, or negative `n` →
@@ -221,6 +237,22 @@ Canon (lead-ruled):
   default, `/compute` has no meaningful default amount of work). Above the cap
   `1000000`, `n` is **clamped**, not rejected — the over-cap case asserts the
   cap-rounds digest.
+  **Parse canon = Go `strconv.Atoi` (signed 64-bit, base-10, ASCII).** The
+  `compute_*_n_*` cases pin the exact accept/reject set every stack must match:
+  a leading `+` is accepted (`+5` → 5) and leading zeros are decimal (`007` → 7),
+  but digit-group underscores (`1_000`), surrounding whitespace (` 5`, no trim),
+  and non-ASCII digits (Arabic-Indic `٥`) are rejected. The overflow boundary is
+  **`i64::MAX` (9223372036854775807), not `u64::MAX`**: `9300000000000000000`
+  (above `i64::MAX`, below `u64::MAX`) is a `400`, while `9007199254740993`
+  (`2^53+1`, a valid `i64` far above the cap) is a `200` clamped to the cap. The
+  paired boundary cases stop a server from passing the overflow case by rejecting
+  large-but-valid values too early. Stacks whose native parser diverges guard it:
+  Python gates `int()` with an ASCII-digit regex + explicit `i64` range check
+  (its `int()` accepts Unicode digits and is unbounded); TypeScript uses `BigInt`
+  for the range check (`Number` loses precision past `2^53`); Rust parses as
+  signed `i64`; Kotlin gates `toLongOrNull()` with an ASCII-digit regex (Java's
+  `Long.parseLong` accepts Unicode digits via `Character.digit`); Zig guards the
+  underscore its `parseInt` would otherwise accept.
 
 **Env contract:** `JWT_SECRET` (shared HS256 secret) joins the server env-var
 contract (defined in each `shared/*/env` module; dev default
@@ -237,3 +269,11 @@ Not Allowed"}` (no `Allow`); the other eight fall through to `404 {"error":"not 
   omit it, the rest include a detail string. Left as `$optional`, not tightened to `$absent`.
 - **name/email length maxima** — no server-level max; only the DB `varchar(255)` bounds them,
   so over-long names diverge (postgres errors, other stores accept).
+- **JSON `null` into a non-required numeric field** (e.g. `"total": null`, `"age": null`,
+  `"tags": null` on `/validate`) — intentionally **unpinned**. Go's `encoding/json` treats
+  an explicit `null` for a scalar as a no-op (the field keeps its zero value → `200`), whereas
+  zod, pydantic, and serde reject `null` for a typed field unless it is declared nullable
+  (`400`). Pinning either way would force one side into unidiomatic null-handling (a bespoke
+  null→zero coercion or a Go-side explicit-null rejection), which violates the idiom rule
+  (PLAN §3). This is distinct from an **omitted** field (pinned `200` — zero-value canon
+  above): only the explicit-`null` case diverges, and only for the non-required scalars.

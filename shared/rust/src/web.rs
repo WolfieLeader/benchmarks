@@ -120,6 +120,9 @@ pub struct ValidatePayload {
     pub user: Option<ValidateUser>,
     #[validate(length(min = 1), nested)]
     pub items: Vec<ValidateItem>,
+    // total is not required: omitted decodes to 0.0 (mirroring Go's zero-value
+    // decode), which satisfies the `>= 0` rule.
+    #[serde(default)]
     #[validate(range(min = 0.0))]
     pub total: f64,
 }
@@ -168,6 +171,9 @@ pub struct ValidateItem {
     pub sku: String,
     #[validate(range(min = 1, max = 100))]
     pub quantity: i64,
+    // tags is not required and carries no presence rule: omitted decodes to an
+    // empty vec (mirroring Go's zero-value decode), which is valid.
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -308,6 +314,27 @@ mod tests {
                 .as_object_mut()
                 .expect("profile object")
                 .remove("age");
+        });
+        assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn validate_accepts_omitted_total() {
+        // total is not required (canon): omitted → defaults to 0.0, which is >= 0.
+        let result = decode_and_validate(|body| {
+            body.as_object_mut().expect("root object").remove("total");
+        });
+        assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn validate_accepts_omitted_tags() {
+        // tags is not required (canon): omitted → defaults to an empty vec.
+        let result = decode_and_validate(|body| {
+            body["items"][0]
+                .as_object_mut()
+                .expect("item object")
+                .remove("tags");
         });
         assert_eq!(result, Ok(()));
     }

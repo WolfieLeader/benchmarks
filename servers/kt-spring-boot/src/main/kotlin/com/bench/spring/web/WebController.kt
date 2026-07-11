@@ -61,8 +61,9 @@ class WebController(
     suspend fun compute(
         @RequestParam(required = false) n: String?,
     ): ComputeResponse {
-        // Strict integer parse: toLongOrNull rejects underscores/decimals/non-numerics.
-        val rounds = n?.toLongOrNull()
+        // Strict integer parse with Atoi semantics (shared Compute.parseRounds):
+        // rejects underscores/decimals/non-numerics/Unicode digits/i64 overflow.
+        val rounds = Compute.parseRounds(n)
         if (rounds == null || rounds < 1) {
             throw ApiException.BadRequest(Consts.ERR_INVALID_N, "n must be an integer >= 1")
         }
