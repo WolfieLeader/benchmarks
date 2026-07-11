@@ -71,6 +71,7 @@ func New() *App {
 
 	routes.RegisterParams(r.Group("/params"))
 	routes.RegisterDb(r.Group("/db"), env)
+	routes.RegisterWeb(r, env.JwtSecret)
 
 	r.Use(func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": consts.ErrNotFound})

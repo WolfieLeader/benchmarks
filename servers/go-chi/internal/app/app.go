@@ -55,6 +55,7 @@ func New() *App {
 
 	r.Route("/params", routes.RegisterParams)
 	r.Route("/db", func(r chi.Router) { routes.RegisterDb(r, env) })
+	routes.RegisterWeb(r, env.JwtSecret)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusNotFound, consts.ErrNotFound)

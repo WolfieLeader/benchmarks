@@ -48,6 +48,7 @@ func New() *App {
 	})
 	routes.RegisterParams(r.Group("/params"))
 	routes.RegisterDb(r.Group("/db"), env)
+	routes.RegisterWeb(r, env.JwtSecret)
 
 	r.NoRoute(func(c *gin.Context) {
 		utils.WriteResponse(c, http.StatusNotFound, gin.H{"error": consts.ErrNotFound})
