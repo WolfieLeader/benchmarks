@@ -15,6 +15,7 @@ import {
 } from "@bench/shared";
 import { dbRoutes } from "./routes/db.js";
 import { paramsRoutes } from "./routes/params.js";
+import { webRoutes } from "./routes/web.js";
 
 export async function createApp(): Promise<FastifyInstance> {
   const app = fastify({ logger: false, bodyLimit: MAX_REQUEST_BYTES });
@@ -83,6 +84,7 @@ export async function createApp(): Promise<FastifyInstance> {
 
   await app.register(paramsRoutes, { prefix: "/params" });
   await app.register(dbRoutes, { prefix: "/db" });
+  await app.register(webRoutes);
 
   return app;
 }
