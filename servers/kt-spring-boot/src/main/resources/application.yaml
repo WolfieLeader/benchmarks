@@ -1,0 +1,50 @@
+# Spring Boot config. Host/port come from the env-var contract ($PORT/$HOST), with
+# kt-spring-boot's canonical port 25002 as the default (PLAN §6: Kotlin L=5, FF=02).
+# DB config is NOT here — :shared's Env.load() reads POSTGRES_URL/etc. directly from
+# the environment; Spring only needs the web-server settings below.
+#
+# Reactor Netty (the WebFlux default engine) thread pools stay at defaults — mirroring
+# kt-ktor's runtime-default stance (only DB pool sizes are pinned for fairness).
+server:
+  port: ${PORT:25002}
+  address: ${HOST:0.0.0.0}
+  # Graceful shutdown: Reactor Netty drains in-flight requests in the earliest
+  # SmartLifecycle phase, ahead of the DB-pool @Bean(destroyMethod="disconnect"),
+  # so the pools outlive the drain (kotlin.md "graceful drain then teardown").
+  shutdown: graceful
+
+spring:
+  application:
+    name: kt-spring-boot
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  webflux:
+    multipart:
+      # Hold an uploaded part in memory (no disk spill) up to the global request cap,
+      # so POST /params/file byte-inspects it directly. Oversized parts are rejected
+      # by the handler's own 1 MiB check (413), not by this.
+      max-in-memory-size: 10MB
+
+# Logger off in prod (repo mandate): WebFlux has no per-request access log by default,
+# and the prod profile drops the root level to WARN so only warnings/errors surface.
+# Driver/engine startup chatter is quieted in both modes.
+logging:
+  level:
+    root: INFO
+    io.netty: WARN
+    reactor.netty: WARN
+    com.datastax: WARN
+    org.mongodb: WARN
+    io.lettuce: WARN
+    com.zaxxer.hikari: WARN
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  level:
+    root: WARN

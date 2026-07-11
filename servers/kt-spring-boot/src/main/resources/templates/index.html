@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>Benchmark</title>
+</head>
+<body>
+    <h1 th:text="'Hello, ' + ${name}">Hello, Alice</h1>
+    <ul>
+        <li th:each="fruit : ${fruits}" th:text="${fruit}">fruit</li>
+    </ul>
+    <p th:text="'Total: ' + ${total}">Total: 42</p>
+</body>
+</html>
