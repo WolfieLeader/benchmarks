@@ -163,7 +163,11 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 // countValidationErrors is a faithful (if partial) validator over the canon
-// /validate schema: enough rules to correctly classify the pass/fail payloads.
+// /validate schema: enough rules to correctly classify the pass/fail payloads,
+// including the zero-value canon (age/total/tags are range-checked but NOT
+// required — omitted they default to the zero value and validate; tags carries
+// no rule at all, so it is not even parsed) and the presence rules (items min=1,
+// per-item sku required, quantity 1..100).
 func countValidationErrors(r *http.Request) int {
 	var p struct {
 		User struct {
@@ -174,6 +178,11 @@ func countValidationErrors(r *http.Request) int {
 				Role string `json:"role"`
 			} `json:"profile"`
 		} `json:"user"`
+		Items []struct {
+			SKU      string `json:"sku"`
+			Quantity int    `json:"quantity"`
+		} `json:"items"`
+		Total *float64 `json:"total"`
 	}
 	if err := json.UnmarshalRead(r.Body, &p); err != nil {
 		return 1
@@ -185,10 +194,24 @@ func countValidationErrors(r *http.Request) int {
 	if !emailRe.MatchString(p.User.Email) {
 		count++
 	}
-	if p.User.Profile.Age == nil || *p.User.Profile.Age < 0 || *p.User.Profile.Age > 120 {
+	if p.User.Profile.Age != nil && (*p.User.Profile.Age < 0 || *p.User.Profile.Age > 120) {
 		count++
 	}
 	if !slices.Contains(roleSet, p.User.Profile.Role) {
+		count++
+	}
+	if len(p.Items) < 1 {
+		count++
+	}
+	for _, item := range p.Items {
+		if item.SKU == "" {
+			count++
+		}
+		if item.Quantity < 1 || item.Quantity > 100 {
+			count++
+		}
+	}
+	if p.Total != nil && *p.Total < 0 {
 		count++
 	}
 	return count
