@@ -81,7 +81,9 @@ async fn compute(RawQuery(query): RawQuery) -> Result<Json<Value>, ApiError> {
 /// Parse the `n` query param, requiring an integer `>= 1` and clamping to the
 /// canon cap. `None` (missing, non-numeric, zero, or negative) is a 400.
 /// No trimming: `u64::from_str` matches Go's `strconv.Atoi` in rejecting
-/// whitespace, underscores (`1_000`), and signs other than a leading `+`.
+/// whitespace, underscores (`1_000`), and negative signs. (A literal `+` in
+/// the query string is decoded to a space by `form_urlencoded` before parsing
+/// — same as Go's `url.Query()` — so `n=+5` arrives as `" 5"` and is rejected.)
 fn parse_rounds(query: &str) -> Option<u64> {
     let n: u64 = form_urlencoded::parse(query.as_bytes())
         .find(|(key, _)| key == "n")

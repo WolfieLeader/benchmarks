@@ -291,7 +291,7 @@ mod tests {
         assert!(payload.validate().is_err());
     }
 
-    /// Decode VALID_BODY, apply `patch` to the parsed JSON, then decode+validate.
+    /// Decode `VALID_BODY`, apply `patch` to the parsed JSON, then decode+validate.
     /// `Err(true)` = decode failed; `Err(false)` = validation failed; `Ok(())` = valid.
     fn decode_and_validate(patch: impl FnOnce(&mut serde_json::Value)) -> Result<(), bool> {
         let mut body: serde_json::Value = serde_json::from_str(VALID_BODY).expect("base body");
