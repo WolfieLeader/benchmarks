@@ -12,6 +12,8 @@
 //   root      → (none)       · prettier --check          · (none)
 
 import {
+  gradleGroup,
+  gradlew,
   type Job,
   pickTargets,
   repoRoot,
@@ -85,10 +87,37 @@ function checks(s: Server): Record<CheckKind, Step | null> {
         format: st("format", "cargo fmt --check"),
         lint: st("lint", "cargo clippy -- -D warnings")
       };
+    case "gradle":
+      // Gradle rows never produce a per-target job: they collapse into ONE job
+      // (gradleJob below) run from the repo root so concurrent gradlew invocations
+      // never contend on the build lock. All-null here so stepsFor() drops them.
+      return { typecheck: null, format: null, lint: null };
     case "root":
       // Root only carries prettier; its `lint` script IS the format check.
       return { typecheck: null, format: st("format", "pnpm run lint"), lint: null };
   }
+}
+
+// The single collapsed Kotlin/Gradle job. ktlint is the formatter (its --check
+// task ktlintCheck), detekt the linter, and `compileKotlin` (+ test) IS the type
+// check (the compiler is the type checker). Tasks are scoped per in-scope project
+// so `verify kt-ktor` and `verify shared-kotlin` stay distinct; `verify all`
+// checks both under one gradlew invocation. Steps mirror the per-eco checks so
+// --only=<kind> narrows here too.
+function gradleJob(targets: Server[], only: CheckKind | null): Job | null {
+  const grp = gradleGroup(targets);
+  if (!grp) return null;
+  const tasks: Record<CheckKind, string[]> = {
+    typecheck: grp.projects.flatMap((p) => [`${p}:compileKotlin`, `${p}:compileTestKotlin`]),
+    format: grp.projects.map((p) => `${p}:ktlintCheck`),
+    lint: grp.projects.map((p) => `${p}:detekt`)
+  };
+  const steps: Step[] = [];
+  for (const kind of ORDER) {
+    if (only && kind !== only) continue;
+    steps.push({ label: kind, cmd: `${gradlew} ${tasks[kind].join(" ")}`, cwd: repoRoot });
+  }
+  return steps.length > 0 ? { name: grp.name, steps } : null;
 }
 
 function stepsFor(s: Server, only: CheckKind | null): Step[] {
@@ -111,6 +140,10 @@ if (only && !ORDER.includes(only)) {
 
 const targets = pickTargets(targetArg(), SERVERS, "verify");
 const jobs: Job[] = targets.map((s) => ({ name: s.name, steps: stepsFor(s, only) })).filter((j) => j.steps.length > 0);
+
+// Gradle targets collapse into a single job (build-lock contention; see gradleJob).
+const gradle = gradleJob(targets, only);
+if (gradle) jobs.push(gradle);
 
 // Config/manifest drift is a repo-wide gate, not a per-target check: run it as its
 // own row whenever the root target is in scope (so `just verify` / `just verify root`

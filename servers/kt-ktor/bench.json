@@ -1,0 +1,12 @@
+{
+  "$schema": "../../config/bench.schema.json",
+  "name": "kt-ktor",
+  "language": "kotlin",
+  "runtime": "kotlin",
+  "image": "bench/kt-ktor",
+  "port": 25001,
+  "databases": ["postgres", "mongodb", "redis", "cassandra"],
+  "web": true,
+  "experimental": false,
+  "dev_port": 25001
+}

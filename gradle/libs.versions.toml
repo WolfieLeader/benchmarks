@@ -1,0 +1,53 @@
+# Version catalog — the single place pinning every Kotlin-lane dependency once
+# across :shared and :kt-ktor (and later :kt-spring-boot). Auto-imported by Gradle
+# as `libs` (kotlin.md item 40). Versions registry-verified 2026-07-10.
+[versions]
+kotlin = "2.4.0"                        # Kotlin Gradle plugin (Gradle 9.6.1 bundles only 2.3.21, so pin)
+ktor = "3.5.1"
+kotlinx-coroutines = "1.10.2"
+kotlinx-serialization = "1.11.0" # aligned to the Ktor 3.5.1 BOM resolution so :shared tests cover the production version
+hikari = "6.3.0"
+postgresql = "42.7.7"
+mongodb-kotlin = "5.5.1"
+lettuce = "6.7.1.RELEASE"
+cassandra = "4.19.3"                     # org.apache.cassandra (ASF fork of the DataStax 4.x driver)
+java-uuid-generator = "5.1.0"           # JUG — the only maintained UUIDv7 generator (kotlin.md item 39)
+java-jwt = "4.5.0"                       # auth0 — classic HS256 JWT (kotlin.md item 55)
+logback = "1.5.18"
+detekt = "1.23.8"
+ktlint-plugin = "14.2.0"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# DB drivers (framework-agnostic infrastructure, shared by every Kotlin server).
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+mongodb-driver-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb-kotlin" }
+lettuce-core = { module = "io.lettuce:lettuce-core", version.ref = "lettuce" }
+cassandra-java-driver-core = { module = "org.apache.cassandra:java-driver-core", version.ref = "cassandra" }
+
+# Web-suite libraries (shared: UUIDv7 gen + JWT sign/verify).
+java-uuid-generator = { module = "com.fasterxml.uuid:java-uuid-generator", version.ref = "java-uuid-generator" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
+
+# Ktor server (BOM aligns every ktor-* artifact to `ktor`, so they carry no version).
+ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
+ktor-server-core = { module = "io.ktor:ktor-server-core" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging" }
+ktor-server-freemarker = { module = "io.ktor:ktor-server-freemarker" }
+ktor-server-config-yaml = { module = "io.ktor:ktor-server-config-yaml" }
+ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

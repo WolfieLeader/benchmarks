@@ -1,0 +1,17 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+    <!-- Quiet noisy driver/engine startup chatter; per-request logging is handled
+         by Ktor's CallLogging plugin, which is only installed when ENV != prod. -->
+    <logger name="io.netty" level="WARN"/>
+    <logger name="com.datastax" level="WARN"/>
+    <logger name="org.mongodb" level="WARN"/>
+    <logger name="io.lettuce" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+</configuration>
