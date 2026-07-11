@@ -52,6 +52,22 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| run_cmd.addArgs(args);
     const run_step = b.step("run", "Run the server");
     run_step.dependOn(&run_cmd.step);
+
+    // Unit tests for the web suite's pure logic (JWT, /validate, /compute).
+    // web_tests.zig is a separate test root so the test binary needs only std
+    // + the pure uuid library — no httpz and no C database drivers.
+    const test_mod = b.createModule(.{
+        .root_source_file = b.path("src/web_tests.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "uuid", .module = uuid.module("uuid") },
+        },
+    });
+    const unit_tests = b.addTest(.{ .root_module = test_mod });
+    const run_tests = b.addRunArtifact(unit_tests);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_tests.step);
 }
 
 /// Best-effort probe: does `pkg-config` know this module? Used to choose

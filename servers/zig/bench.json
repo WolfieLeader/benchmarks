@@ -6,7 +6,7 @@
   "image": "bench/zig",
   "port": 26001,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
-  "web": false,
+  "web": true,
   "experimental": false,
   "dev_port": 26001
 }
