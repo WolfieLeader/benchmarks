@@ -77,7 +77,7 @@ fun Route.webRoutes(jwtSecret: String) {
     }
 
     get("/compute") {
-        val n = call.request.queryParameters["n"]?.toLongOrNull()
+        val n = Compute.parseRounds(call.request.queryParameters["n"])
         if (n == null || n < 1) throw ApiException.BadRequest(Consts.ERR_INVALID_N, "n must be an integer >= 1")
         val result = withContext(Dispatchers.Default) { Compute.sha256Chain(Compute.clampRounds(n)) }
         call.respond(buildJsonObject { put("result", result) })
