@@ -28,7 +28,14 @@ dependencies {
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.server.body.limit)
     runtimeOnly(libs.logback.classic)
+
+    // In-process route tests (testApplication) for the behaviors the contract
+    // does not pin case-by-case: the 413 mapping and the file-sniff branches.
+    testImplementation(kotlin("test"))
+    testImplementation(libs.ktor.server.test.host)
 }
+
+tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
 application {
     // Ktor's EngineMain reads application.yaml (module + deployment.port) and

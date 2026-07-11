@@ -129,19 +129,22 @@ private fun Route.fileRoute() =
         val upload =
             readFileUpload(call)
                 ?: throw ApiException.BadRequest(Consts.ERR_FILE_NOT_FOUND, "no file field in form data")
-        // Size cap first (413), then content-type gate + byte inspection (415), mirroring
-        // the other servers so the anti-sniffing security cases resolve identically.
+        // Size cap first (413, like rs-axum), then the type gate: the declared part
+        // Content-Type when present, else a MIME sniff over the first SNIFF_LEN bytes
+        // only (mirroring Go's http.DetectContentType window). The plain-text content
+        // inspection (NUL / UTF-8) then runs over the FULL bytes — Go/Rust parity, so
+        // e.g. a NUL past the sniff window is still rejected, but as "not plain text".
         if (upload.bytes.size > Consts.MAX_FILE_BYTES) throw ApiException.PayloadTooLarge(Consts.ERR_FILE_SIZE_EXCEEDED)
         val declared = upload.declaredType?.lowercase()
-        val isText = looksLikePlainText(upload.bytes)
+        val head =
+            if (upload.bytes.size > Consts.SNIFF_LEN) upload.bytes.copyOf(Consts.SNIFF_LEN) else upload.bytes
         when {
             declared != null && !declared.startsWith("text/plain") ->
                 throw ApiException.UnsupportedMediaType(Consts.ERR_INVALID_FILE_TYPE)
-            declared == null && !isText ->
+            declared == null && !looksLikeText(head) ->
                 throw ApiException.UnsupportedMediaType(Consts.ERR_INVALID_FILE_TYPE)
-            !isText ->
-                throw ApiException.UnsupportedMediaType(Consts.ERR_NOT_PLAIN_TEXT)
         }
+        if (!looksLikePlainText(upload.bytes)) throw ApiException.UnsupportedMediaType(Consts.ERR_NOT_PLAIN_TEXT)
         call.respond(
             buildJsonObject {
                 put("filename", upload.filename)
@@ -183,6 +186,20 @@ private suspend fun readFileUpload(call: ApplicationCall): Upload? {
     }
     return upload
 }
+
+/**
+ * `net/http`'s "binary data byte" set — the bytes that make Go's `DetectContentType`
+ * classify content as non-text. Mirrors the Go/Rust servers' type sniffing; applied
+ * to the SNIFF_LEN head window only, and only when the part declares no Content-Type.
+ * The hex bounds ARE the canonical set (rs-axum inlines them identically) — naming
+ * each range endpoint would only restate the table, hence the targeted suppress.
+ */
+@Suppress("MagicNumber")
+private fun looksLikeText(head: ByteArray): Boolean =
+    head.none { b ->
+        val u = b.toInt() and 0xFF
+        u <= 0x08 || u == 0x0B || u in 0x0E..0x1A || u in 0x1C..0x1F
+    }
 
 /** Plain-text = no NUL bytes and valid UTF-8 (rejects the binary anti-sniffing fixture). */
 private fun looksLikePlainText(bytes: ByteArray): Boolean = bytes.none { it.toInt() == 0 } && isValidUtf8(bytes)

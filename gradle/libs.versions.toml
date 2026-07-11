@@ -5,7 +5,7 @@
 kotlin = "2.4.0"                        # Kotlin Gradle plugin (Gradle 9.6.1 bundles only 2.3.21, so pin)
 ktor = "3.5.1"
 kotlinx-coroutines = "1.10.2"
-kotlinx-serialization = "1.9.0"
+kotlinx-serialization = "1.11.0" # aligned to the Ktor 3.5.1 BOM resolution so :shared tests cover the production version
 hikari = "6.3.0"
 postgresql = "42.7.7"
 mongodb-kotlin = "5.5.1"
@@ -43,6 +43,7 @@ ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging" }
 ktor-server-freemarker = { module = "io.ktor:ktor-server-freemarker" }
 ktor-server-config-yaml = { module = "io.ktor:ktor-server-config-yaml" }
 ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]

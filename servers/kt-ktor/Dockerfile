@@ -9,10 +9,11 @@ FROM eclipse-temurin:21-jdk-noble AS builder
 WORKDIR /app
 
 # Root Gradle build definition + the committed wrapper (bootstraps Gradle 9.6.1)
-# and the version catalog. Copied before the sources so a source-only change can
-# reuse the dependency-resolution layer. config/detekt is the detekt plugin's
-# configured config path (rootProject.file) — copied so project configuration
-# never resolves a missing file.
+# and the version catalog. NOTE: no separate dependency-resolution step exists, so
+# a source change re-runs the whole installDist RUN (wrapper + deps + compile);
+# only the base-image layers cache. A cache-mount/dep-priming stage is deliberate
+# complexity we skip. config/detekt is the detekt plugin's configured config path
+# (rootProject.file) — copied so project configuration never resolves a missing file.
 COPY gradlew ./gradlew
 COPY gradle ./gradle
 COPY settings.gradle.kts build.gradle.kts gradle.properties ./

@@ -58,11 +58,15 @@ fun Route.webRoutes(jwtSecret: String) {
     }
 
     post("/validate") {
+        // Decode failures are malformed JSON / type mismatches ONLY (every schema
+        // field has a zero-value default, Go canon) — so they map to the invalid-JSON
+        // body error, mirroring Go's WriteBodyError; rule breaches are the
+        // validator's job below.
         val request =
             try {
                 appJson.decodeFromString<ValidateRequest>(call.receiveText())
             } catch (e: SerializationException) {
-                throw ApiException.BadRequest(Consts.ERR_VALIDATION_FAILED, e.message ?: "invalid payload", e)
+                throw ApiException.BadRequest(Consts.ERR_INVALID_JSON, e.message ?: "invalid payload", e)
             }
         val errors = OrderValidation.validate(request)
         if (errors.isEmpty()) {

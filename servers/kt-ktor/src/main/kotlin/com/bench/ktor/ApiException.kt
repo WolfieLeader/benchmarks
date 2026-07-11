@@ -2,6 +2,7 @@ package com.bench.ktor
 
 import com.bench.shared.Consts
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.statuspages.StatusPagesConfig
 import io.ktor.server.response.respond
 import kotlinx.serialization.Serializable
@@ -56,6 +57,12 @@ sealed class ApiException(
 fun StatusPagesConfig.apiStatusPages() {
     exception<ApiException> { call, cause ->
         call.respond(cause.status, ErrorBody(cause.error, cause.details))
+    }
+    // RequestBodyLimit signals an over-limit body with Ktor's own
+    // PayloadTooLargeException (NOT an ApiException) — map it to the canonical
+    // 413 body instead of letting it collapse into the 500 fallback below.
+    exception<PayloadTooLargeException> { call, _ ->
+        call.respond(HttpStatusCode.PayloadTooLarge, ErrorBody(Consts.ERR_REQUEST_TOO_LARGE))
     }
     exception<Throwable> { call, _ ->
         call.respond(HttpStatusCode.InternalServerError, ErrorBody(Consts.ERR_INTERNAL))
