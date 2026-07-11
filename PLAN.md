@@ -268,7 +268,7 @@ Blocking C clients are fine under http.zig's thread-per-worker model — no arch
 
 Two rules replace the current ad-hoc list:
 
-1. **Inside containers, every server listens on the same canonical port: `8080`** (via `PORT` env in the Dockerfile). The benchmark client maps a host port dynamically (frees us from hardcoded 8080 and enables parallel servers later). Config drops per-server `port`.
+1. **Inside containers, every server listens on the same canonical port: `8080`** (via `PORT` env in the Dockerfile). The benchmark client maps a host port dynamically (frees us from hardcoded 8080 and enables parallel servers later). bench.json `port` is that canonical container port — 8080 for every server — and `dev_port` is the 2LRFF host/dev port from rule 2. (Lead ruling 2026-07-11: supersedes this rule's earlier "config drops per-server `port`" sentence — the manifest shape in §7.4, carrying both fields, is canon.)
 2. **All host ports follow `PORT = 20000 + L×1000 + R×100 + FF`** (revised 2026-07-03 — the old 3011–8020 span collided with common dev tooling; this block collides with nothing). Read as digits `2LRFF` for L ≤ 9; L runs 0–29 (ports 20000–49151, capped under the macOS ephemeral floor 49152), so there is room for ~30 languages without ever renumbering an assigned one:
 
 ```
