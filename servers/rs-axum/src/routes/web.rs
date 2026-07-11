@@ -91,7 +91,9 @@ fn parse_rounds(query: &str) -> Option<u64> {
     let n: i64 = form_urlencoded::parse(query.as_bytes())
         .find(|(key, _)| key == "n")
         .and_then(|(_, value)| value.parse().ok())?;
-    (n >= 1).then_some(n.min(web::COMPUTE_MAX_ROUNDS as i64) as u64)
+    // Post-gate the value is in [1, cap], so the sign-discarding conversion is
+    // exact; cast_signed on the cap is lossless (1_000_000 << i64::MAX).
+    (n >= 1).then_some(n.min(web::COMPUTE_MAX_ROUNDS.cast_signed()).cast_unsigned())
 }
 
 #[cfg(test)]
