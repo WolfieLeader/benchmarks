@@ -12,10 +12,19 @@ Contract: contract/web.json.
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, ValidationError
+
+# The canon /compute parser is Go's strconv.Atoi (servers/go-stdlib): optional
+# leading +/- then ASCII digits only, parsed as a signed 64-bit int. `[0-9]` is
+# ASCII-only by construction, so this rejects the underscore separators (PEP-515)
+# and Unicode digits that Python's int() would otherwise accept, and the absence
+# of any strip() rejects surrounding whitespace that Atoi also rejects.
+_ATOI_RE = re.compile(r"[+-]?[0-9]+")
+_I64_MAX = 2**63 - 1
 
 # Compute canon: GET /compute applies SHA-256 to SHA256_SEED n times and returns
 # the lowercase-hex digest. n must be an integer in [1, COMPUTE_CAP]; above the cap
@@ -61,34 +70,34 @@ class _Item(BaseModel):
     # Canon parity: Go's `required` rejects the empty string.
     sku: str = Field(min_length=1)
     quantity: int = Field(ge=1, le=100)
-    tags: list[str]
+    # Canon parity: tags carries no presence rule, so an omitted tags decodes to
+    # Go's zero value (empty list) and validates.
+    tags: list[str] = Field(default_factory=list)
 
 
 class _ValidatePayload(BaseModel):
     user: _ValidateUser
     # Canon parity: Go's `required,min=1` rejects an empty items array.
     items: list[_Item] = Field(min_length=1)
-    total: float = Field(ge=0)
+    # Canon parity: total carries range rules but no `required`, so an omitted
+    # total validates as Go's zero value 0.
+    total: float = Field(default=0, ge=0)
 
 
 def parse_compute_rounds(value: str | None) -> int | None:
     """Parse the /compute ``n`` query parameter: an integer >= 1, else None.
 
     Shared by all three Python servers (multi-consumer rule — same trigger as the
-    schema above). Underscore separators are rejected explicitly for canon parity:
-    Python's int() accepts PEP-515 forms like "1_000", but the canon parser is the
-    Go reference's strconv.Atoi, which does not.
+    schema above). The canon is the Go reference's strconv.Atoi (signed 64-bit,
+    ASCII digits, no trimming): Python's int() diverges by accepting whitespace,
+    PEP-515 underscores ("1_000"), and Unicode digits ("٥"), and by being
+    unbounded, so we gate on an ASCII-only regex and an explicit i64 range check
+    before parsing. The caller clamps the result to COMPUTE_CAP.
     """
-    if value is None:
+    if value is None or _ATOI_RE.fullmatch(value) is None:
         return None
-    trimmed = value.strip()
-    if "_" in trimmed:
-        return None
-    try:
-        n = int(trimmed)
-    except ValueError:
-        return None
-    return n if n >= 1 else None
+    n = int(value)
+    return n if 1 <= n <= _I64_MAX else None
 
 
 def validate_payload(raw: bytes) -> str | None:
