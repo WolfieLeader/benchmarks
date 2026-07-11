@@ -41,4 +41,4 @@ USER app-runner
 
 EXPOSE 8080
 
-CMD [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "4001", "--loop", "uvloop", "--workers", "1"]
+CMD [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--loop", "uvloop", "--workers", "1"]

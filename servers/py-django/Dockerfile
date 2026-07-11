@@ -44,4 +44,4 @@ EXPOSE 8080
 
 # ASGI via uvicorn, single worker + uvloop (fleet fairness canon). --no-access-log
 # keeps the logger off in prod (fleet-wide env contract).
-CMD [".venv/bin/uvicorn", "src.asgi:application", "--host", "0.0.0.0", "--port", "4002", "--loop", "uvloop", "--workers", "1", "--no-access-log"]
+CMD [".venv/bin/uvicorn", "src.asgi:application", "--host", "0.0.0.0", "--port", "8080", "--loop", "uvloop", "--workers", "1", "--no-access-log"]
