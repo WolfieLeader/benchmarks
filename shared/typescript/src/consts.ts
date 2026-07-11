@@ -22,6 +22,13 @@ export const FILE_SIZE_EXCEEDS = "file size exceeds limit";
 export const ONLY_TEXT_PLAIN = "only text/plain files are allowed";
 export const FILE_NOT_TEXT = "file does not look like plain text";
 export const INTERNAL_ERROR = "internal error";
+// Web-suite error strings (contract/web.json). INVALID_TOKEN covers every
+// /jwt/verify rejection (missing/malformed/bad-signature/expired); VALIDATION_FAILED
+// is the /validate 400; INVALID_N is the /compute boundary rejection (house
+// "invalid <thing>" style).
+export const INVALID_TOKEN = "invalid token";
+export const VALIDATION_FAILED = "validation failed";
+export const INVALID_N = "invalid n";
 
 export type ErrorResponse = { error: string; details?: string };
 

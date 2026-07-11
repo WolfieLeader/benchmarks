@@ -6,7 +6,7 @@
   "image": "bench/ts-express",
   "port": 3001,
   "databases": ["postgres", "mongodb", "redis", "cassandra"],
-  "web": false,
+  "web": true,
   "experimental": false,
   "dev_port": 3001
 }

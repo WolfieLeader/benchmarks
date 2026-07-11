@@ -9,6 +9,7 @@ import { bodyLimit } from "hono/body-limit";
 import { logger } from "hono/logger";
 import { createDbRoutes } from "./db-routes.ts";
 import { createParamsRoutes } from "./params-routes.ts";
+import { createWebRoutes } from "./web-routes.ts";
 
 // The 10 MiB request cap (MAX_REQUEST_BYTES) is wired through Hono's own
 // framework knob — the `bodyLimit` middleware — so every runtime enforces it
@@ -35,6 +36,7 @@ export function createApp(): Hono {
 
   app.route("/db", createDbRoutes());
   app.route("/params", createParamsRoutes());
+  app.route("/", createWebRoutes());
 
   app.notFound((c) => c.json({ error: NOT_FOUND }, 404));
   app.onError((err, c) => {

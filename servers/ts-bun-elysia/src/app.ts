@@ -2,6 +2,7 @@ import { env, INTERNAL_ERROR, INVALID_JSON_BODY, makeError, NOT_FOUND } from "@b
 import { Elysia } from "elysia";
 import { dbRouter } from "./routes/db";
 import { paramsRouter } from "./routes/params";
+import { webRouter } from "./routes/web";
 
 export function createApp() {
   const app = new Elysia();
@@ -45,6 +46,7 @@ export function createApp() {
 
   app.group("/params", (app) => app.use(paramsRouter));
   app.group("/db", (app) => app.use(dbRouter));
+  app.use(webRouter);
 
   return app;
 }

@@ -2,6 +2,7 @@ import { env, INTERNAL_ERROR, makeError, NOT_FOUND } from "@bench/shared";
 import { Application, Router } from "@oak/oak";
 import { dbRoutes } from "./routes/db.ts";
 import { paramsRoutes } from "./routes/params.ts";
+import { webRoutes } from "./routes/web.ts";
 
 export function createApp() {
   const app = new Application();
@@ -39,6 +40,7 @@ export function createApp() {
 
   router.use("/params", paramsRoutes.routes(), paramsRoutes.allowedMethods());
   router.use("/db", dbRoutes.routes(), dbRoutes.allowedMethods());
+  router.use(webRoutes.routes(), webRoutes.allowedMethods());
 
   app.use(router.routes());
   app.use(router.allowedMethods());

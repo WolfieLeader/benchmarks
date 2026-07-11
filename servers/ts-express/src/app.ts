@@ -14,6 +14,7 @@ import {
 } from "@bench/shared";
 import { dbHealthRouter, dbRouter } from "./routes/db.js";
 import { paramsRouter } from "./routes/params.js";
+import { webRouter } from "./routes/web.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp(): express.Express {
   app.use("/params", paramsRouter);
   app.use("/db", dbHealthRouter);
   app.use("/db", dbRouter);
+  app.use(webRouter);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: NOT_FOUND });
