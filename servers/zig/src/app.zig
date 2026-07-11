@@ -67,6 +67,9 @@ pub const Backend = union(enum) {
 /// database clients and the resolved environment.
 pub const App = struct {
     allocator: std.mem.Allocator,
+    // Process-wide Io (0.16 sources wall-clock time from it — the web suite's
+    // JWT handlers need the current time for iat/exp).
+    io: std.Io,
     env: Env,
     postgres: Postgres,
     redis: Redis,

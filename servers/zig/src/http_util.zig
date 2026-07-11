@@ -15,6 +15,9 @@ pub const err = struct {
     pub const not_plain_text = "file does not look like plain text";
     pub const not_found = "not found";
     pub const internal = "internal error";
+    pub const invalid_token = "invalid token";
+    pub const validation_failed = "validation failed";
+    pub const invalid_n = "invalid n";
 };
 
 /// Serialize `data` as a JSON response with the given status. `data` is any

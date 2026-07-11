@@ -6,6 +6,7 @@ const App = @import("app.zig").App;
 const httputil = @import("http_util.zig");
 const params = @import("routes_params.zig");
 const db = @import("routes_db.zig");
+const web = @import("routes_web.zig");
 
 const Postgres = @import("db/postgres.zig").Postgres;
 const Redis = @import("db/redis.zig").Redis;
@@ -26,6 +27,7 @@ pub fn main(init: std.process.Init) !void {
     const app = try allocator.create(App);
     app.* = .{
         .allocator = allocator,
+        .io = io,
         .env = env,
         .postgres = try Postgres.init(io, allocator, env.postgres_url),
         .redis = try Redis.init(io, allocator, env.redis_url),
@@ -64,6 +66,12 @@ pub fn main(init: std.process.Init) !void {
     router.get("/params/cookie", params.cookie, .{});
     router.post("/params/form", params.form, .{});
     router.post("/params/file", params.file, .{});
+
+    router.get("/html", web.html, .{});
+    router.get("/jwt/sign", web.jwtSign, .{});
+    router.get("/jwt/verify", web.jwtVerify, .{});
+    router.post("/validate", web.validateBody, .{});
+    router.get("/compute", web.computeChain, .{});
 
     router.get("/db/:database/health", db.health, .{});
     router.post("/db/:database/users", db.createUser, .{});

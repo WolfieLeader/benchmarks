@@ -16,6 +16,7 @@ pub const Env = struct {
     cassandra_contact_points: []const u8,
     cassandra_local_dc: []const u8,
     cassandra_keyspace: []const u8,
+    jwt_secret: []const u8,
 
     /// Reads a variable, falling back to `default` when unset or empty.
     fn get(map: *const Map, key: []const u8, default: []const u8) []const u8 {
@@ -42,6 +43,9 @@ pub const Env = struct {
             .cassandra_contact_points = get(map, "CASSANDRA_CONTACT_POINTS", "localhost"),
             .cassandra_local_dc = get(map, "CASSANDRA_LOCAL_DATACENTER", "datacenter1"),
             .cassandra_keyspace = get(map, "CASSANDRA_KEYSPACE", "benchmarks"),
+            // Shared HS256 secret for the web suite. Dev default matches the
+            // cross-server contract; the contract harness overrides it via env.
+            .jwt_secret = get(map, "JWT_SECRET", "benchmarks-shared-jwt-secret-dev-default"),
         };
     }
 };
