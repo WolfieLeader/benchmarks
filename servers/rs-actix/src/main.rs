@@ -42,6 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let payload_cfg = web::PayloadConfig::new(consts::MAX_REQUEST_BYTES);
 
     let factory_data = repos.clone();
+    // Shared HS256 secret for the web suite, built once and cloned (Arc) per
+    // worker — the two JWT handlers extract it as web::Data<String>.
+    let jwt_data = web::Data::new(env.jwt_secret.clone());
     println!("rs-actix listening on http://{}:{}", env.host, env.port);
 
     // Worker count (fairness — mandated escalation point, guide rule 39): we take
@@ -56,12 +59,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(factory_data.clone())
+            .app_data(jwt_data.clone())
             .app_data(payload_cfg.clone())
             .wrap(Condition::new(!prod, Logger::default()))
             .route("/", web::get().to(root))
             .route("/health", web::get().to(health))
             .configure(routes::params::config)
             .configure(routes::db::config)
+            .configure(routes::web::config)
             .default_service(web::route().to(not_found))
     })
     .bind((env.host.as_str(), env.port))?

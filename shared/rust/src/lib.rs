@@ -9,6 +9,7 @@ pub mod db;
 pub mod env;
 pub mod error;
 pub mod model;
+pub mod web;
 
 pub use db::{Backend, Repositories};
 pub use env::Env;

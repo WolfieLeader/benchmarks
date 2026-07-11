@@ -45,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let repos: AppState = Arc::new(Repositories::connect(&env).await?);
-    let app = build_app(repos.clone(), env.is_prod());
+    let jwt_secret: Arc<str> = Arc::from(env.jwt_secret.as_str());
+    let app = build_app(repos.clone(), jwt_secret, env.is_prod());
 
     let listener = TcpListener::bind((env.host.as_str(), env.port)).await?;
     println!("rs-axum listening on http://{}:{}", env.host, env.port);
@@ -58,12 +59,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn build_app(state: AppState, prod: bool) -> Router {
+fn build_app(state: AppState, jwt_secret: Arc<str>, prod: bool) -> Router {
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health))
         .nest("/params", routes::params::router())
         .nest("/db", routes::db::router())
+        .merge(routes::web::router(jwt_secret))
         .fallback(not_found)
         .with_state(state)
         // Global 10 MiB request-body cap (axum's default is only 2 MiB); the file
