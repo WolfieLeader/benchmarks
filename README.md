@@ -38,8 +38,10 @@
 
 Inside every container the server listens on the canonical port **8080** (baked as
 `PORT` in the Dockerfile, PLAN §6 rule 1); the benchmark client maps a dynamic host
-port. The port below is each server's **local-dev host port** (`dev_port`, PLAN §6
-`2LRFF`) — what `just dev <server>` and the docker-published DBs bind on `localhost`.
+port. The port below is each server's **assigned `2LRFF` host port** (`dev_port` in
+its bench.json, PLAN §6), used by its `.env.example` and as the code default in the
+Go/Rust/Kotlin/Zig servers; Node/Deno `just dev` binds the canonical 8080 unless
+`PORT` is set (e.g. via `cp .env.example .env`).
 
 | Folder                   | Runtime       | Framework         | Dev port |
 | ------------------------ | ------------- | ----------------- | -------- |
