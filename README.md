@@ -36,22 +36,35 @@
 
 ## Stack Map 📦
 
-| Folder                  | Runtime       | Framework         | Port  |
-| ----------------------- | ------------- | ----------------- | ----- |
-| `benchmark`             | Go 1.27rc1    | -                 | -     |
-| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1     | 3001  |
-| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27    | 3002  |
-| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0     | 3003  |
-| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0        | 3004  |
-| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27      | 3005  |
-| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29     | 3006  |
-| `servers/go-stdlib`     | Go 1.27rc1    | net/http (stdlib) | 21001 |
-| `servers/go-chi`        | Go 1.27rc1    | Chi 5.3.0         | 5001  |
-| `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0        | 5002  |
-| `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0       | 5003  |
-| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128   | 4001  |
-| `servers/py-flask`      | Python 3.14.6 | Flask 3.x         | 23003 |
-| `servers/zig`           | Zig 0.16      | http.zig          | 26001 |
+Inside every container the server listens on the canonical port **8080** (baked as
+`PORT` in the Dockerfile, PLAN §6 rule 1); the benchmark client maps a dynamic host
+port. The port below is each server's **local-dev host port** (`dev_port`, PLAN §6
+`2LRFF`) — what `just dev <server>` and the docker-published DBs bind on `localhost`.
+
+| Folder                   | Runtime       | Framework         | Dev port |
+| ------------------------ | ------------- | ----------------- | -------- |
+| `benchmark`              | Go 1.27rc1    | -                 | -        |
+| `servers/go-stdlib`      | Go 1.27rc1    | net/http (stdlib) | 21001    |
+| `servers/go-chi`         | Go 1.27rc1    | Chi 5.3.0         | 21002    |
+| `servers/go-gin`         | Go 1.27rc1    | Gin 1.12.0        | 21003    |
+| `servers/go-fiber`       | Go 1.27rc1    | Fiber 3.4.0       | 21004    |
+| `servers/go-echo`        | Go 1.27rc1    | Echo 4.13.4       | 21005    |
+| `servers/ts-express`     | Node 26.4.0   | Express 5.2.1     | 22001    |
+| `servers/ts-nestjs`      | Node 26.4.0   | NestJS 11.1.27    | 22002    |
+| `servers/ts-fastify`     | Node 26.4.0   | Fastify 5.9.0     | 22003    |
+| `servers/ts-honojs`      | Node 26.4.0   | Hono 4.12.27      | 22005    |
+| `servers/ts-bun-honojs`  | Bun 1.3.14    | Hono 4.12.27      | 22105    |
+| `servers/ts-bun-elysia`  | Bun 1.3.14    | Elysia 1.4.29     | 22106    |
+| `servers/ts-deno-oak`    | Deno 2.9.1    | Oak 17.2.0        | 22204    |
+| `servers/ts-deno-honojs` | Deno 2.9.1    | Hono 4.12.27      | 22205    |
+| `servers/py-fastapi`     | Python 3.14.6 | FastAPI >=0.128   | 23001    |
+| `servers/py-django`      | Python 3.14.6 | Django >=6.0      | 23002    |
+| `servers/py-flask`       | Python 3.14.6 | Flask 3.x         | 23003    |
+| `servers/rs-axum`        | Rust 1.96.1   | Axum 0.8.9        | 24001    |
+| `servers/rs-actix`       | Rust 1.96.1   | Actix Web 4.14.0  | 24002    |
+| `servers/kt-ktor`        | Kotlin 2.3.21 | Ktor 3.5.1        | 25001    |
+| `servers/kt-spring-boot` | Kotlin 2.3.21 | Spring Boot 4.1.0 | 25002    |
+| `servers/zig`            | Zig 0.16      | http.zig          | 26001    |
 
 ### Pinned dependencies 📌
 
