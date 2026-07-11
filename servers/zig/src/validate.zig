@@ -17,7 +17,9 @@ pub const Payload = struct {
         profile: ?Profile = null,
     };
     pub const Profile = struct {
-        age: i64 = -1,
+        // Defaults to 0 (valid): the canon schema range-checks age (0..120)
+        // but does not require it, so a body omitting age passes.
+        age: i64 = 0,
         role: []const u8 = "",
         preferences: ?Preferences = null,
     };
@@ -120,6 +122,15 @@ test "validate accepts the canon valid object" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     try checkBody(arena.allocator(), valid_body);
+}
+
+test "validate accepts an object omitting age (range-checked but not required)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const body =
+        \\{"user":{"id":"3f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8","email":"alice@conformance-suite.com","profile":{"role":"admin","preferences":{"theme":"dark","notifications":true}}},"items":[{"sku":"SKU-1","quantity":2,"tags":["new","featured"]}],"total":42.5}
+    ;
+    try checkBody(arena.allocator(), body);
 }
 
 test "validate rejects the canon invalid object" {

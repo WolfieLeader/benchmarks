@@ -17,6 +17,9 @@ pub const Error = error{InvalidRounds};
 /// reference (strconv.Atoi then n<1 rejects; n>cap clamps); a value too large
 /// for i64 fails to parse and is rejected, matching that reference.
 pub fn parseRounds(raw: []const u8) Error!u64 {
+    // std.fmt.parseInt accepts Zig-style underscore digit separators
+    // ("1_000"); the cross-server canon (Go strconv.Atoi) rejects them.
+    if (std.mem.indexOfScalar(u8, raw, '_') != null) return error.InvalidRounds;
     const n = std.fmt.parseInt(i64, raw, 10) catch return error.InvalidRounds;
     if (n < 1) return error.InvalidRounds;
     return @min(@as(u64, @intCast(n)), max_rounds);
@@ -68,4 +71,10 @@ test "parseRounds enforces integer >= 1 and clamps above the cap" {
     try testing.expectError(error.InvalidRounds, parseRounds("0"));
     try testing.expectError(error.InvalidRounds, parseRounds("-5"));
     try testing.expectError(error.InvalidRounds, parseRounds("3.5"));
+}
+
+test "parseRounds rejects Zig-style underscore digit separators" {
+    try testing.expectError(error.InvalidRounds, parseRounds("1_000"));
+    try testing.expectError(error.InvalidRounds, parseRounds("_1"));
+    try testing.expectError(error.InvalidRounds, parseRounds("1_"));
 }
