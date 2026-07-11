@@ -68,6 +68,16 @@
       "expect": { "status": 415, "headers": { "Content-Type": "application/json" }, "body": { "error": "only text/plain files are allowed", "details": "$optional" } }
     },
     {
+      "name": "file_rejects_nul_after_sniff_window",
+      "note": "SECURITY (full-body NUL scan, canon per servers/go-stdlib/internal/routes/params.go): the 512-byte window is used ONLY for MIME sniffing; the NUL check scans the ENTIRE body. This fixture is 600 bytes of clean ASCII (so the sniff window sees text/plain and the declared text/plain passes) followed by a NUL at offset 600 and more text. A server that only inspects the first 512 bytes for NUL would wrongly accept it. Must be rejected 415 as not-plain-text.",
+      "method": "POST",
+      "path": "/params/file",
+      "multipart": {
+        "file": { "field": "file", "filename": "late-nul.txt", "contentType": "text/plain", "source": "text-with-late-nul.txt" }
+      },
+      "expect": { "status": 415, "headers": { "Content-Type": "application/json" }, "body": { "error": "file does not look like plain text", "details": "$optional" } }
+    },
+    {
       "name": "file_rejects_oversized_payload",
       "note": "SECURITY: >1MiB payload is synthesized by the runner (not committed) and must be rejected 413.",
       "method": "POST",
