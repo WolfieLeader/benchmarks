@@ -36,22 +36,22 @@
 
 ## Stack Map 📦
 
-| Folder                  | Runtime       | Framework       | Port  |
-| ----------------------- | ------------- | --------------- | ----- |
-| `benchmark`             | Go 1.27rc1    | -               | -     |
-| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1   | 3001  |
-| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27  | 3002  |
-| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0   | 3003  |
-| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0      | 3004  |
-| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27    | 3005  |
-| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29   | 3006  |
+| Folder                  | Runtime       | Framework         | Port  |
+| ----------------------- | ------------- | ----------------- | ----- |
+| `benchmark`             | Go 1.27rc1    | -                 | -     |
+| `servers/ts-express`    | Node 26.4.0   | Express 5.2.1     | 3001  |
+| `servers/ts-nestjs`     | Node 26.4.0   | NestJS 11.1.27    | 3002  |
+| `servers/ts-fastify`    | Node 26.4.0   | Fastify 5.9.0     | 3003  |
+| `servers/ts-deno-oak`   | Deno 2.9.1    | Oak 17.2.0        | 3004  |
+| `servers/ts-bun-honojs` | Bun 1.3.14    | Hono 4.12.27      | 3005  |
+| `servers/ts-bun-elysia` | Bun 1.3.14    | Elysia 1.4.29     | 3006  |
 | `servers/go-stdlib`     | Go 1.27rc1    | net/http (stdlib) | 21001 |
-| `servers/go-chi`        | Go 1.27rc1    | Chi 5.3.0       | 5001  |
-| `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0      | 5002  |
-| `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0     | 5003  |
-| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128 | 4001  |
-| `servers/py-flask`      | Python 3.14.6 | Flask 3.x       | 23003 |
-| `servers/zig`           | Zig 0.16      | http.zig        | 26001 |
+| `servers/go-chi`        | Go 1.27rc1    | Chi 5.3.0         | 5001  |
+| `servers/go-gin`        | Go 1.27rc1    | Gin 1.12.0        | 5002  |
+| `servers/go-fiber`      | Go 1.27rc1    | Fiber 3.4.0       | 5003  |
+| `servers/py-fastapi`    | Python 3.14.6 | FastAPI >=0.128   | 4001  |
+| `servers/py-flask`      | Python 3.14.6 | Flask 3.x         | 23003 |
+| `servers/zig`           | Zig 0.16      | http.zig          | 26001 |
 
 ### Pinned dependencies 📌
 
