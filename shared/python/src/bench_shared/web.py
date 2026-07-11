@@ -90,9 +90,10 @@ def parse_compute_rounds(value: str | None) -> int | None:
     Shared by all three Python servers (multi-consumer rule — same trigger as the
     schema above). The canon is the Go reference's strconv.Atoi (signed 64-bit,
     ASCII digits, no trimming): Python's int() diverges by accepting whitespace,
-    PEP-515 underscores ("1_000"), and Unicode digits ("٥"), and by being
-    unbounded, so we gate on an ASCII-only regex and an explicit i64 range check
-    before parsing. The caller clamps the result to COMPUTE_CAP.
+    PEP-515 underscores ("1_000"), and Unicode digits (Arabic-Indic five,
+    U+0665), and by being unbounded, so we gate on an ASCII-only regex and an
+    explicit i64 range check before parsing. The caller clamps the result to
+    COMPUTE_CAP.
     """
     if value is None or _ATOI_RE.fullmatch(value) is None:
         return None
